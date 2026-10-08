@@ -39,5 +39,8 @@ describe('repository foundation', () => {
 
     expect(gitignore).toContain('node_modules/');
     expect(gitignore).toContain('.pnpm-store/');
+    expect(gitignore).toContain('.next/');
+    expect(gitignore).toContain('.env.*');
+    expect(gitignore).toContain('*.log');
   });
 });

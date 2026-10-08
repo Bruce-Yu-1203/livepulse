@@ -1,9 +1,31 @@
+# Dependencies
 node_modules/
 .pnpm-store/
+
+# Next.js
+.next/
+out/
+
+# Build outputs
 dist/
+build/
 coverage/
+
+# Environment variables
 .env
 .env.*
 !.env.example
-*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
 .DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# TypeScript
+*.tsbuildinfo
