@@ -9,7 +9,8 @@
     "pnpm": ">=11.0.0 <12"
   },
   "scripts": {
-    "build": "pnpm --filter @livepulse/contracts build",
+    "build": "pnpm --recursive --if-present build",
+    "dev:api": "pnpm --filter @livepulse/api dev",
     "format": "prettier --write \"**/*.{json,mjs,ts,yaml,yml}\"",
     "format:check": "prettier --check \"**/*.{json,mjs,ts,yaml,yml}\"",
     "lint": "eslint .",

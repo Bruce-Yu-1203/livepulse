@@ -1,0 +1,27 @@
+import { RequestMethod } from '@nestjs/common';
+import type { NestApplicationOptions } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
+import { FastifyAdapter } from '@nestjs/platform-fastify';
+import type { NestFastifyApplication } from '@nestjs/platform-fastify';
+
+import { AppModule } from './app.module.js';
+
+export async function createApp(
+  options: NestApplicationOptions = {},
+): Promise<NestFastifyApplication> {
+  const app = await NestFactory.create<NestFastifyApplication>(
+    AppModule,
+    new FastifyAdapter(),
+    options,
+  );
+
+  app.setGlobalPrefix('api/v1', {
+    exclude: [
+      { path: 'health/live', method: RequestMethod.GET },
+      { path: 'health/ready', method: RequestMethod.GET },
+    ],
+  });
+  app.enableShutdownHooks();
+
+  return app;
+}

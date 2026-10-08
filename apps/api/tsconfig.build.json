@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "noEmit": false,
+    "outDir": "dist",
+    "paths": {
+      "@livepulse/contracts": ["../../packages/contracts/dist/index.d.ts"]
+    },
+    "rootDir": "src"
+  },
+  "include": ["src/**/*.ts"]
+}

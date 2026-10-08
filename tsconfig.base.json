@@ -9,7 +9,11 @@
     "moduleResolution": "NodeNext",
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,
+    "noEmitOnError": true,
     "noUncheckedIndexedAccess": true,
+    "paths": {
+      "@livepulse/contracts": ["./packages/contracts/src/index.ts"]
+    },
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "strict": true,

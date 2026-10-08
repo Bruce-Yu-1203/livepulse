@@ -12,6 +12,27 @@ interface RootPackage {
   private: boolean;
 }
 
+interface BaseTypeScriptConfig {
+  compilerOptions: {
+    baseUrl?: string;
+    noEmitOnError: boolean;
+    paths: Record<string, string[]>;
+  };
+}
+
+interface RootTypeScriptConfig {
+  compilerOptions: {
+    emitDecoratorMetadata: boolean;
+    experimentalDecorators: boolean;
+  };
+}
+
+interface ApiBuildTypeScriptConfig {
+  compilerOptions: {
+    paths: Record<string, string[]>;
+  };
+}
+
 describe('repository foundation', () => {
   it('pins the package manager and supported runtime family', async () => {
     const packagePath = resolve(process.cwd(), 'package.json');
@@ -31,6 +52,8 @@ describe('repository foundation', () => {
 
     expect(workspace).toContain('- apps/*');
     expect(workspace).toContain('- packages/*');
+    expect(workspace).toContain('allowBuilds:\n  esbuild: true');
+    expect(workspace).not.toContain('set this to true or false');
   });
 
   it('keeps generated dependencies and package caches out of Git', async () => {
@@ -42,5 +65,39 @@ describe('repository foundation', () => {
     expect(gitignore).toContain('.next/');
     expect(gitignore).toContain('.env.*');
     expect(gitignore).toContain('*.log');
+  });
+
+  it('maps shared packages without the deprecated baseUrl option', async () => {
+    const configPath = resolve(process.cwd(), 'tsconfig.base.json');
+    const config = JSON.parse(
+      await readFile(configPath, 'utf8'),
+    ) as BaseTypeScriptConfig;
+
+    expect(config.compilerOptions.paths['@livepulse/contracts']).toEqual([
+      './packages/contracts/src/index.ts',
+    ]);
+    expect(config.compilerOptions.baseUrl).toBeUndefined();
+    expect(config.compilerOptions.noEmitOnError).toBe(true);
+  });
+
+  it('type-checks the decorator semantics used by NestJS', async () => {
+    const configPath = resolve(process.cwd(), 'tsconfig.json');
+    const config = JSON.parse(
+      await readFile(configPath, 'utf8'),
+    ) as RootTypeScriptConfig;
+
+    expect(config.compilerOptions.experimentalDecorators).toBe(true);
+    expect(config.compilerOptions.emitDecoratorMetadata).toBe(true);
+  });
+
+  it('builds the API against the contracts declaration output', async () => {
+    const configPath = resolve(process.cwd(), 'apps/api/tsconfig.build.json');
+    const config = JSON.parse(
+      await readFile(configPath, 'utf8'),
+    ) as ApiBuildTypeScriptConfig;
+
+    expect(config.compilerOptions.paths['@livepulse/contracts']).toEqual([
+      '../../packages/contracts/dist/index.d.ts',
+    ]);
   });
 });
