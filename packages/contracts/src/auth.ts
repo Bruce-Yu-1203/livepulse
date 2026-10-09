@@ -81,6 +81,7 @@ export type RefreshResponse = z.infer<typeof RefreshResponseSchema>;
 export const ApiErrorCode = {
   CsrfValidationFailed: 'AUTH_CSRF_VALIDATION_FAILED',
   EmailAlreadyExists: 'AUTH_EMAIL_ALREADY_REGISTERED',
+  Forbidden: 'AUTH_FORBIDDEN',
   InvalidCredentials: 'AUTH_INVALID_CREDENTIALS',
   InvalidSession: 'AUTH_INVALID_SESSION',
   InternalError: 'INTERNAL_ERROR',

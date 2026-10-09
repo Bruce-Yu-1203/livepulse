@@ -21,7 +21,7 @@ describe('database configuration', () => {
     expect(example).toContain('@localhost:5432/livepulse');
   });
 
-  it('models unique identities and revocable refresh sessions', async () => {
+  it('models identities, sessions, and host-owned rooms', async () => {
     const schemaPath = resolve(
       process.cwd(),
       'packages/db/prisma/schema.prisma',
@@ -34,5 +34,10 @@ describe('database configuration', () => {
       /updatedAt\s+DateTime\s+@default\(now\(\)\)\s+@updatedAt/,
     );
     expect(schema).toContain('onDelete: Cascade');
+    expect(schema).toMatch(/hostId\s+String\s+@map\("host_id"\)/);
+    expect(schema).toMatch(/status\s+RoomStatus\s+@default\(DRAFT\)/);
+    expect(schema).toContain(
+      '@relation(fields: [hostId], references: [id], onDelete: Restrict)',
+    );
   });
 });

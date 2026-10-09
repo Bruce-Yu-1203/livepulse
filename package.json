@@ -17,8 +17,8 @@
     "format": "prettier --write \"**/*.{json,mjs,ts,yaml,yml}\"",
     "format:check": "prettier --check \"**/*.{json,mjs,ts,yaml,yml}\"",
     "lint": "eslint .",
-    "test": "vitest run --exclude packages/db/test/database.integration.test.ts --exclude apps/api/test/registration.database.integration.test.ts --exclude apps/api/test/session.database.integration.test.ts",
-    "test:db": "vitest run --no-file-parallelism packages/db/test/database.integration.test.ts apps/api/test/registration.database.integration.test.ts apps/api/test/session.database.integration.test.ts",
+    "test": "vitest run --exclude packages/db/test/database.integration.test.ts --exclude apps/api/test/registration.database.integration.test.ts --exclude apps/api/test/session.database.integration.test.ts --exclude apps/api/test/rooms.database.integration.test.ts",
+    "test:db": "vitest run --no-file-parallelism packages/db/test/database.integration.test.ts apps/api/test/registration.database.integration.test.ts apps/api/test/session.database.integration.test.ts apps/api/test/rooms.database.integration.test.ts",
     "typecheck": "pnpm --filter @livepulse/contracts build && pnpm --filter @livepulse/db prisma:generate && tsc --noEmit",
     "validate": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm build"
   },

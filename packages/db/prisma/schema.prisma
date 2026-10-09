@@ -16,6 +16,14 @@ enum UserRole {
   @@map("user_role")
 }
 
+enum RoomStatus {
+  DRAFT
+  LIVE
+  ENDED
+
+  @@map("room_status")
+}
+
 model User {
   id              String           @id @default(uuid()) @db.Uuid
   email           String           @unique @db.VarChar(320)
@@ -24,8 +32,26 @@ model User {
   createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   refreshSessions RefreshSession[]
+  hostedRooms     Room[]
 
   @@map("users")
+}
+
+model Room {
+  id            String     @id @default(uuid()) @db.Uuid
+  hostId        String     @map("host_id") @db.Uuid
+  title         String     @db.VarChar(120)
+  description   String     @db.VarChar(2000)
+  coverImageUrl String     @map("cover_image_url") @db.VarChar(2048)
+  demoVideoUrl  String     @map("demo_video_url") @db.VarChar(2048)
+  status        RoomStatus @default(DRAFT)
+  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  host          User       @relation(fields: [hostId], references: [id], onDelete: Restrict)
+
+  @@index([hostId])
+  @@index([status, createdAt])
+  @@map("rooms")
 }
 
 model RefreshSession {

@@ -74,4 +74,37 @@ describe('authentication database constraints', () => {
       ),
     ).rejects.toMatchObject({ code: '23503' });
   });
+
+  it('creates draft rooms owned by an existing host', async () => {
+    const hostId = randomUUID();
+    const roomId = randomUUID();
+
+    await pool.query(
+      "INSERT INTO users (id, email, password_hash, role) VALUES ($1, $2, $3, 'HOST')",
+      [hostId, 'room-host@example.com', 'password-hash'],
+    );
+    await pool.query(
+      `INSERT INTO rooms
+        (id, host_id, title, description, cover_image_url, demo_video_url)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        roomId,
+        hostId,
+        'Live room',
+        'A room description',
+        'https://cdn.example.com/cover.jpg',
+        'https://video.example.com/demo.mp4',
+      ],
+    );
+
+    const result = await pool.query<{ host_id: string; status: string }>(
+      'SELECT host_id, status FROM rooms WHERE id = $1',
+      [roomId],
+    );
+    expect(result.rows[0]).toEqual({ host_id: hostId, status: 'DRAFT' });
+
+    await expect(
+      pool.query('DELETE FROM users WHERE id = $1', [hostId]),
+    ).rejects.toMatchObject({ code: '23001' });
+  });
 });

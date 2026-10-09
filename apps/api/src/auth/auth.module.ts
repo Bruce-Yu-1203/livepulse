@@ -38,5 +38,6 @@ import { PrismaUsersRepository } from './users.repository.js';
       useClass: PrismaUsersRepository,
     },
   ],
+  exports: [AccessTokenGuard, AuthTokenService, CsrfGuard],
 })
 export class AuthModule {}

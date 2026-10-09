@@ -88,6 +88,7 @@ describe('login and session contracts', () => {
     expect(ApiErrorCode.CsrfValidationFailed).toBe(
       'AUTH_CSRF_VALIDATION_FAILED',
     );
+    expect(ApiErrorCode.Forbidden).toBe('AUTH_FORBIDDEN');
     expect(ApiErrorCode.InvalidCredentials).toBe('AUTH_INVALID_CREDENTIALS');
     expect(ApiErrorCode.InvalidSession).toBe('AUTH_INVALID_SESSION');
     expect(ApiErrorCode.Unauthorized).toBe('AUTH_UNAUTHORIZED');

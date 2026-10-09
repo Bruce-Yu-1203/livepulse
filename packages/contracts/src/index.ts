@@ -29,3 +29,10 @@ export type {
   RegisterRequest,
   RegisterResponse,
 } from './auth.js';
+
+export {
+  CreateRoomRequestSchema,
+  CreateRoomResponseSchema,
+  RoomSchema,
+} from './rooms.js';
+export type { CreateRoomRequest, CreateRoomResponse, Room } from './rooms.js';
