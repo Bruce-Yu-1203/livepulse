@@ -1,7 +1,11 @@
 import 'reflect-metadata';
 
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { HealthResponseSchema } from '@livepulse/contracts';
+import {
+  ApiErrorCode,
+  ApiErrorResponseSchema,
+  HealthResponseSchema,
+} from '@livepulse/contracts';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createApp } from '../src/create-app.js';
@@ -42,5 +46,8 @@ describe('health endpoints', () => {
     });
 
     expect(response.statusCode).toBe(404);
+    const error = ApiErrorResponseSchema.parse(response.json());
+    expect(error.code).toBe(ApiErrorCode.NotFound);
+    expect(response.headers['x-request-id']).toBe(error.requestId);
   });
 });

@@ -3,8 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    }
+  },
   "scripts": {
-    "build": "pnpm prisma:generate",
+    "build": "pnpm prisma:generate && tsc -p tsconfig.build.json",
     "db:migrate": "prisma migrate dev --config prisma7.config.ts",
     "prisma:generate": "prisma generate --config prisma7.config.ts",
     "prisma:validate": "prisma validate --config prisma7.config.ts"

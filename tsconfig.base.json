@@ -12,7 +12,8 @@
     "noEmitOnError": true,
     "noUncheckedIndexedAccess": true,
     "paths": {
-      "@livepulse/contracts": ["./packages/contracts/src/index.ts"]
+      "@livepulse/contracts": ["./packages/contracts/src/index.ts"],
+      "@livepulse/db": ["./packages/db/src/index.ts"]
     },
     "resolveJsonModule": true,
     "skipLibCheck": true,

@@ -67,6 +67,7 @@ describe('repository foundation', () => {
     expect(gitignore).toContain('.next/');
     expect(gitignore).toContain('.env.*');
     expect(gitignore).toContain('*.log');
+    expect(gitignore).toContain('packages/db/.generated/');
   });
 
   it('maps shared packages without the deprecated baseUrl option', async () => {
@@ -77,6 +78,9 @@ describe('repository foundation', () => {
 
     expect(config.compilerOptions.paths['@livepulse/contracts']).toEqual([
       './packages/contracts/src/index.ts',
+    ]);
+    expect(config.compilerOptions.paths['@livepulse/db']).toEqual([
+      './packages/db/src/index.ts',
     ]);
     expect(config.compilerOptions.baseUrl).toBeUndefined();
     expect(config.compilerOptions.noEmitOnError).toBe(true);
@@ -100,6 +104,9 @@ describe('repository foundation', () => {
 
     expect(config.compilerOptions.paths['@livepulse/contracts']).toEqual([
       '../../packages/contracts/dist/index.d.ts',
+    ]);
+    expect(config.compilerOptions.paths['@livepulse/db']).toEqual([
+      '../../packages/db/dist/src/index.d.ts',
     ]);
   });
 });

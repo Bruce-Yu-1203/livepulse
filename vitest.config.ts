@@ -8,6 +8,9 @@ export default defineConfig({
       '@livepulse/contracts': fileURLToPath(
         new URL('./packages/contracts/src/index.ts', import.meta.url),
       ),
+      '@livepulse/db': fileURLToPath(
+        new URL('./packages/db/src/index.ts', import.meta.url),
+      ),
     },
   },
 });

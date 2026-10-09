@@ -6,7 +6,8 @@
     "noEmit": false,
     "outDir": "dist",
     "paths": {
-      "@livepulse/contracts": ["../../packages/contracts/dist/index.d.ts"]
+      "@livepulse/contracts": ["../../packages/contracts/dist/index.d.ts"],
+      "@livepulse/db": ["../../packages/db/dist/src/index.d.ts"]
     },
     "rootDir": "src"
   },
