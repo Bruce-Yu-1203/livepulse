@@ -5,8 +5,11 @@ import {
   CreateRoomResponseSchema,
   GetRoomParamsSchema,
   GetRoomResponseSchema,
+  ListOwnedRoomsResponseSchema,
   ListRoomsQuerySchema,
   ListRoomsResponseSchema,
+  UpdateRoomRequestSchema,
+  UpdateRoomResponseSchema,
 } from './rooms.js';
 
 const validRequest = {
@@ -50,6 +53,7 @@ describe('CreateRoomResponseSchema', () => {
         id: '99d30467-ed47-43b8-96b0-d36ab2ee60e0',
         status: 'DRAFT',
         updatedAt: '2026-10-09T14:30:00.000Z',
+        version: 1,
       },
     };
 
@@ -67,6 +71,7 @@ describe('CreateRoomResponseSchema', () => {
           id: '99d30467-ed47-43b8-96b0-d36ab2ee60e0',
           status: 'LIVE',
           updatedAt: '2026-10-09T14:30:00.000Z',
+          version: 1,
         },
       }).success,
     ).toBe(false);
@@ -81,6 +86,7 @@ describe('public room queries', () => {
     id: '99d30467-ed47-43b8-96b0-d36ab2ee60e0',
     status: 'LIVE' as const,
     updatedAt: '2026-10-09T14:30:00.000Z',
+    version: 2,
   };
 
   it('applies a default limit and accepts an opaque cursor', () => {
@@ -124,5 +130,48 @@ describe('public room queries', () => {
         requestId: 'request-list-2',
       }).success,
     ).toBe(false);
+  });
+});
+
+describe('host room management', () => {
+  const room = {
+    ...validRequest,
+    createdAt: '2026-10-09T14:30:00.000Z',
+    hostId: '295d5bd9-d9da-44b2-8f5d-8839f13a4437',
+    id: '99d30467-ed47-43b8-96b0-d36ab2ee60e0',
+    status: 'DRAFT' as const,
+    updatedAt: '2026-10-09T14:30:00.000Z',
+    version: 1,
+  };
+
+  it('accepts owned rooms and versioned updates', () => {
+    expect(
+      ListOwnedRoomsResponseSchema.parse({
+        items: [room],
+        requestId: 'request-owned-1',
+      }).items,
+    ).toEqual([room]);
+    expect(
+      UpdateRoomRequestSchema.parse({
+        expectedVersion: 1,
+        status: 'LIVE',
+        title: 'Updated room',
+      }),
+    ).toEqual({ expectedVersion: 1, status: 'LIVE', title: 'Updated room' });
+    expect(
+      UpdateRoomResponseSchema.parse({
+        requestId: 'request-update-1',
+        room: { ...room, version: 2 },
+      }).room.version,
+    ).toBe(2);
+  });
+
+  it.each([
+    { expectedVersion: 0, title: 'Updated room' },
+    { expectedVersion: 1 },
+    { expectedVersion: 1, title: '' },
+    { expectedVersion: 1, unknown: true },
+  ])('rejects invalid room updates: %o', (input) => {
+    expect(UpdateRoomRequestSchema.safeParse(input).success).toBe(false);
   });
 });

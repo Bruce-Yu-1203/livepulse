@@ -6,7 +6,9 @@ import {
   ApiErrorResponseSchema,
   CreateRoomResponseSchema,
   GetRoomResponseSchema,
+  ListOwnedRoomsResponseSchema,
   ListRoomsResponseSchema,
+  UpdateRoomResponseSchema,
 } from '@livepulse/contracts';
 import { createDatabaseClient } from '@livepulse/db';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -78,6 +80,7 @@ describe('POST /api/v1/rooms', () => {
     expect(response.headers['x-request-id']).toBe(body.requestId);
     expect(body.room.status).toBe('DRAFT');
     expect(body.room.title).toBe(roomInput.title);
+    expect(body.room.version).toBe(1);
 
     const storedRoom = await database.room.findUniqueOrThrow({
       where: { id: body.room.id },
@@ -125,6 +128,88 @@ describe('POST /api/v1/rooms', () => {
       ApiErrorCode.ValidationError,
     );
     await expect(database.room.count()).resolves.toBe(0);
+  });
+
+  it('lets a host manage a draft through its legal lifecycle', async () => {
+    const headers = await authenticatedHeaders('host@example.com');
+    const createdResponse = await createRoom(headers, roomInput);
+    const created = CreateRoomResponseSchema.parse(createdResponse.json()).room;
+
+    const ownedResponse = await app.getHttpAdapter().getInstance().inject({
+      headers,
+      method: 'GET',
+      url: '/api/v1/rooms/mine',
+    });
+    expect(ownedResponse.statusCode).toBe(200);
+    const owned = ListOwnedRoomsResponseSchema.parse(ownedResponse.json());
+    expect(owned.items.map(({ id }) => id)).toContain(created.id);
+
+    const editedResponse = await updateRoom(headers, created.id, {
+      expectedVersion: created.version,
+      title: 'Updated Architecture Lab',
+    });
+    expect(editedResponse.statusCode).toBe(200);
+    const edited = UpdateRoomResponseSchema.parse(editedResponse.json()).room;
+    expect(edited).toMatchObject({
+      status: 'DRAFT',
+      title: 'Updated Architecture Lab',
+      version: 2,
+    });
+
+    const staleResponse = await updateRoom(headers, created.id, {
+      description: 'This stale edit must not win.',
+      expectedVersion: created.version,
+    });
+    expect(staleResponse.statusCode).toBe(409);
+    expect(ApiErrorResponseSchema.parse(staleResponse.json()).code).toBe(
+      ApiErrorCode.RoomVersionConflict,
+    );
+
+    const liveResponse = await updateRoom(headers, created.id, {
+      expectedVersion: edited.version,
+      status: 'LIVE',
+    });
+    const live = UpdateRoomResponseSchema.parse(liveResponse.json()).room;
+    expect(live).toMatchObject({ status: 'LIVE', version: 3 });
+
+    const publicResponse = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: 'GET',
+        url: `/api/v1/rooms/${created.id}`,
+      });
+    expect(publicResponse.statusCode).toBe(200);
+
+    const endedResponse = await updateRoom(headers, created.id, {
+      expectedVersion: live.version,
+      status: 'ENDED',
+    });
+    const ended = UpdateRoomResponseSchema.parse(endedResponse.json()).room;
+    expect(ended).toMatchObject({ status: 'ENDED', version: 4 });
+
+    const reverseResponse = await updateRoom(headers, created.id, {
+      expectedVersion: ended.version,
+      status: 'LIVE',
+    });
+    expect(reverseResponse.statusCode).toBe(409);
+    expect(ApiErrorResponseSchema.parse(reverseResponse.json()).code).toBe(
+      ApiErrorCode.RoomInvalidTransition,
+    );
+  });
+
+  it('keeps host-management routes unavailable to viewers', async () => {
+    const headers = await authenticatedHeaders('viewer@example.com');
+    const response = await app.getHttpAdapter().getInstance().inject({
+      headers,
+      method: 'GET',
+      url: '/api/v1/rooms/mine',
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(ApiErrorResponseSchema.parse(response.json()).code).toBe(
+      ApiErrorCode.Forbidden,
+    );
   });
 
   it('paginates visible rooms without exposing drafts or duplicating ties', async () => {
@@ -293,6 +378,22 @@ describe('POST /api/v1/rooms', () => {
       payload,
       url: '/api/v1/rooms',
     });
+  }
+
+  async function updateRoom(
+    headers: Record<string, string>,
+    id: string,
+    payload: Record<string, unknown>,
+  ) {
+    return app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers,
+        method: 'PATCH',
+        payload,
+        url: `/api/v1/rooms/${id}`,
+      });
   }
 });
 

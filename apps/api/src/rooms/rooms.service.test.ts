@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { InvalidRoomCursorError, RoomNotFoundError } from './rooms.errors.js';
+import {
+  InvalidRoomCursorError,
+  InvalidRoomTransitionError,
+  RoomForbiddenError,
+  RoomNotFoundError,
+  RoomVersionConflictError,
+} from './rooms.errors.js';
 import type { RoomsRepository } from './rooms.repository.js';
 import { RoomsService } from './rooms.service.js';
 
@@ -17,9 +23,13 @@ describe('RoomsService', () => {
         status: 'DRAFT',
         title: 'Live room',
         updatedAt: new Date('2026-10-09T14:30:00.000Z'),
+        version: 1,
       }),
+      findById: vi.fn(),
       findVisibleById: vi.fn(),
+      listOwned: vi.fn(),
       listVisible: vi.fn(),
+      update: vi.fn(),
     };
     const service = new RoomsService(rooms);
 
@@ -56,8 +66,11 @@ describe('RoomsService', () => {
     ];
     const rooms: RoomsRepository = {
       create: vi.fn(),
+      findById: vi.fn(),
       findVisibleById: vi.fn(),
+      listOwned: vi.fn(),
       listVisible: vi.fn().mockResolvedValue(records),
+      update: vi.fn(),
     };
     const service = new RoomsService(rooms);
 
@@ -83,8 +96,11 @@ describe('RoomsService', () => {
   it('rejects an invalid cursor before querying the repository', async () => {
     const rooms: RoomsRepository = {
       create: vi.fn(),
+      findById: vi.fn(),
       findVisibleById: vi.fn(),
+      listOwned: vi.fn(),
       listVisible: vi.fn(),
+      update: vi.fn(),
     };
     const service = new RoomsService(rooms);
 
@@ -101,11 +117,14 @@ describe('RoomsService', () => {
     );
     const rooms: RoomsRepository = {
       create: vi.fn(),
+      findById: vi.fn(),
       findVisibleById: vi
         .fn()
         .mockResolvedValueOnce(room)
         .mockResolvedValueOnce(undefined),
+      listOwned: vi.fn(),
       listVisible: vi.fn(),
+      update: vi.fn(),
     };
     const service = new RoomsService(rooms);
 
@@ -113,6 +132,81 @@ describe('RoomsService', () => {
     await expect(service.getVisible(room.id)).rejects.toBeInstanceOf(
       RoomNotFoundError,
     );
+  });
+
+  it('lists every room owned by the authenticated host', async () => {
+    const room = draftRoom();
+    const rooms = repository({ listOwned: vi.fn().mockResolvedValue([room]) });
+    const service = new RoomsService(rooms);
+
+    await expect(service.listOwned(room.hostId)).resolves.toEqual([room]);
+    expect(rooms.listOwned).toHaveBeenCalledWith(room.hostId);
+  });
+
+  it('updates an owned draft and atomically increments its version', async () => {
+    const room = draftRoom();
+    const updated = { ...room, status: 'LIVE' as const, version: 2 };
+    const rooms = repository({
+      findById: vi.fn().mockResolvedValue(room),
+      update: vi.fn().mockResolvedValue(updated),
+    });
+    const service = new RoomsService(rooms);
+
+    await expect(
+      service.update({ role: 'HOST', userId: room.hostId }, room.id, {
+        expectedVersion: 1,
+        status: 'LIVE',
+        title: 'Updated room',
+      }),
+    ).resolves.toEqual(updated);
+    expect(rooms.update).toHaveBeenCalledWith({
+      changes: { status: 'LIVE', title: 'Updated room' },
+      expectedVersion: 1,
+      id: room.id,
+    });
+  });
+
+  it('rejects another host, a stale version, and an illegal transition', async () => {
+    const room = draftRoom();
+    const rooms = repository({ findById: vi.fn().mockResolvedValue(room) });
+    const service = new RoomsService(rooms);
+
+    await expect(
+      service.update(
+        { role: 'HOST', userId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' },
+        room.id,
+        { expectedVersion: 1, title: 'Stolen edit' },
+      ),
+    ).rejects.toBeInstanceOf(RoomForbiddenError);
+    await expect(
+      service.update({ role: 'HOST', userId: room.hostId }, room.id, {
+        expectedVersion: 2,
+        title: 'Stale edit',
+      }),
+    ).rejects.toBeInstanceOf(RoomVersionConflictError);
+    await expect(
+      service.update({ role: 'HOST', userId: room.hostId }, room.id, {
+        expectedVersion: 1,
+        status: 'ENDED',
+      }),
+    ).rejects.toBeInstanceOf(InvalidRoomTransitionError);
+    expect(rooms.update).not.toHaveBeenCalled();
+  });
+
+  it('reports a concurrent repository update as a version conflict', async () => {
+    const room = draftRoom();
+    const rooms = repository({
+      findById: vi.fn().mockResolvedValue(room),
+      update: vi.fn().mockResolvedValue(undefined),
+    });
+    const service = new RoomsService(rooms);
+
+    await expect(
+      service.update({ role: 'HOST', userId: room.hostId }, room.id, {
+        expectedVersion: 1,
+        title: 'Concurrent edit',
+      }),
+    ).rejects.toBeInstanceOf(RoomVersionConflictError);
   });
 });
 
@@ -127,5 +221,28 @@ function visibleRoom(id: string, createdAt: string) {
     status: 'LIVE' as const,
     title: 'Live room',
     updatedAt: new Date(createdAt),
+    version: 1,
+  };
+}
+
+function draftRoom() {
+  return {
+    ...visibleRoom(
+      '99d30467-ed47-43b8-96b0-d36ab2ee60e0',
+      '2026-10-09T15:30:00.000Z',
+    ),
+    status: 'DRAFT' as const,
+  };
+}
+
+function repository(overrides: Partial<RoomsRepository> = {}): RoomsRepository {
+  return {
+    create: vi.fn(),
+    findById: vi.fn(),
+    findVisibleById: vi.fn(),
+    listOwned: vi.fn(),
+    listVisible: vi.fn(),
+    update: vi.fn(),
+    ...overrides,
   };
 }

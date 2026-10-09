@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Inject,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -16,11 +17,14 @@ import {
   CreateRoomRequestSchema,
   GetRoomParamsSchema,
   ListRoomsQuerySchema,
+  UpdateRoomRequestSchema,
 } from '@livepulse/contracts';
 import type {
   CreateRoomResponse,
   GetRoomResponse,
+  ListOwnedRoomsResponse,
   ListRoomsResponse,
+  UpdateRoomResponse,
 } from '@livepulse/contracts';
 import type { FastifyRequest } from 'fastify';
 
@@ -31,9 +35,12 @@ import { AllowedRoles } from '../authorization/allowed-roles.decorator.js';
 import { RolesGuard } from '../authorization/roles.guard.js';
 import {
   InvalidRoomCursorError,
+  InvalidRoomTransitionError,
   RoomDatabaseUnavailableError,
+  RoomForbiddenError,
   RoomHostNotFoundError,
   RoomNotFoundError,
+  RoomVersionConflictError,
 } from './rooms.errors.js';
 import type { RoomRecord } from './rooms.repository.js';
 import { RoomsService } from './rooms.service.js';
@@ -61,6 +68,24 @@ export class RoomsController {
       return {
         items: page.items.map((room) => this.serializeRoom(room)),
         nextCursor: page.nextCursor,
+        requestId: request.id,
+      };
+    } catch (error) {
+      this.throwRoomError(error);
+    }
+  }
+
+  @AllowedRoles('HOST', 'ADMIN')
+  @Get('mine')
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  public async listOwned(
+    @Req() request: AuthenticatedRequest,
+  ): Promise<ListOwnedRoomsResponse> {
+    try {
+      const rooms = await this.rooms.listOwned(request.auth.userId);
+
+      return {
+        items: rooms.map((room) => this.serializeRoom(room)),
         requestId: request.id,
       };
     } catch (error) {
@@ -116,6 +141,37 @@ export class RoomsController {
     }
   }
 
+  @AllowedRoles('HOST', 'ADMIN')
+  @Patch(':id')
+  @UseGuards(AccessTokenGuard, CsrfGuard, RolesGuard)
+  public async update(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<UpdateRoomResponse> {
+    const parsedId = GetRoomParamsSchema.safeParse({ id });
+    const parsedBody = UpdateRoomRequestSchema.safeParse(body);
+
+    if (!parsedId.success || !parsedBody.success) {
+      this.throwValidationError('The update-room request is invalid');
+    }
+
+    try {
+      const room = await this.rooms.update(
+        request.auth,
+        parsedId.data.id,
+        parsedBody.data,
+      );
+
+      return {
+        requestId: request.id,
+        room: this.serializeRoom(room),
+      };
+    } catch (error) {
+      this.throwRoomError(error);
+    }
+  }
+
   private serializeRoom<T extends RoomRecord>(room: T) {
     return {
       ...room,
@@ -146,6 +202,36 @@ export class RoomsController {
           message: error.message,
         },
         HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (error instanceof RoomForbiddenError) {
+      throw new HttpException(
+        {
+          code: ApiErrorCode.Forbidden,
+          message: error.message,
+        },
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    if (error instanceof InvalidRoomTransitionError) {
+      throw new HttpException(
+        {
+          code: ApiErrorCode.RoomInvalidTransition,
+          message: error.message,
+        },
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    if (error instanceof RoomVersionConflictError) {
+      throw new HttpException(
+        {
+          code: ApiErrorCode.RoomVersionConflict,
+          message: error.message,
+        },
+        HttpStatus.CONFLICT,
       );
     }
 

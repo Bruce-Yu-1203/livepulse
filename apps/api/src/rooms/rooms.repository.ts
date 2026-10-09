@@ -1,5 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { CreateRoomRequest, RoomStatus } from '@livepulse/contracts';
+import type {
+  CreateRoomRequest,
+  RoomStatus,
+  UpdateRoomRequest,
+} from '@livepulse/contracts';
 import { Prisma } from '@livepulse/db';
 
 import { DatabaseService } from '../database/database.service.js';
@@ -15,6 +19,7 @@ export interface RoomRecord extends CreateRoomRequest {
   id: string;
   status: RoomStatus;
   updatedAt: Date;
+  version: number;
 }
 
 export interface CreatedRoom extends RoomRecord {
@@ -31,11 +36,18 @@ export interface CreateRoomRecord extends CreateRoomRequest {
 
 export interface RoomsRepository {
   create(input: CreateRoomRecord): Promise<CreatedRoom>;
+  findById(id: string): Promise<RoomRecord | undefined>;
   findVisibleById(id: string): Promise<VisibleRoomRecord | undefined>;
+  listOwned(hostId: string): Promise<RoomRecord[]>;
   listVisible(input: {
     cursor: RoomCursor | undefined;
     take: number;
   }): Promise<VisibleRoomRecord[]>;
+  update(input: {
+    changes: Omit<UpdateRoomRequest, 'expectedVersion'>;
+    expectedVersion: number;
+    id: string;
+  }): Promise<RoomRecord | undefined>;
 }
 
 @Injectable()
@@ -111,6 +123,28 @@ export class PrismaRoomsRepository implements RoomsRepository {
     }
   }
 
+  public async listOwned(hostId: string): Promise<RoomRecord[]> {
+    try {
+      return await this.database.client.room.findMany({
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        where: { hostId },
+      });
+    } catch (error) {
+      throwRoomDatabaseError(error);
+    }
+  }
+
+  public async findById(id: string): Promise<RoomRecord | undefined> {
+    try {
+      return (
+        (await this.database.client.room.findUnique({ where: { id } })) ??
+        undefined
+      );
+    } catch (error) {
+      throwRoomDatabaseError(error);
+    }
+  }
+
   public async findVisibleById(
     id: string,
   ): Promise<VisibleRoomRecord | undefined> {
@@ -129,6 +163,48 @@ export class PrismaRoomsRepository implements RoomsRepository {
           }
         : undefined;
     } catch (error) {
+      throwRoomDatabaseError(error);
+    }
+  }
+
+  public async update(input: {
+    changes: Omit<UpdateRoomRequest, 'expectedVersion'>;
+    expectedVersion: number;
+    id: string;
+  }): Promise<RoomRecord | undefined> {
+    try {
+      return await this.database.client.room.update({
+        data: {
+          ...(input.changes.coverImageUrl === undefined
+            ? {}
+            : { coverImageUrl: input.changes.coverImageUrl }),
+          ...(input.changes.demoVideoUrl === undefined
+            ? {}
+            : { demoVideoUrl: input.changes.demoVideoUrl }),
+          ...(input.changes.description === undefined
+            ? {}
+            : { description: input.changes.description }),
+          ...(input.changes.status === undefined
+            ? {}
+            : { status: input.changes.status }),
+          ...(input.changes.title === undefined
+            ? {}
+            : { title: input.changes.title }),
+          version: { increment: 1 },
+        },
+        where: {
+          id: input.id,
+          version: input.expectedVersion,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        return undefined;
+      }
+
       throwRoomDatabaseError(error);
     }
   }

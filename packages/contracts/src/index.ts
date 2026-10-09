@@ -35,17 +35,23 @@ export {
   CreateRoomResponseSchema,
   GetRoomParamsSchema,
   GetRoomResponseSchema,
+  ListOwnedRoomsResponseSchema,
   ListRoomsQuerySchema,
   ListRoomsResponseSchema,
   RoomSchema,
+  UpdateRoomRequestSchema,
+  UpdateRoomResponseSchema,
   VisibleRoomSchema,
 } from './rooms.js';
 export type {
   CreateRoomRequest,
   CreateRoomResponse,
   GetRoomResponse,
+  ListOwnedRoomsResponse,
   ListRoomsQuery,
   ListRoomsResponse,
   Room,
+  UpdateRoomRequest,
+  UpdateRoomResponse,
   VisibleRoom,
 } from './rooms.js';

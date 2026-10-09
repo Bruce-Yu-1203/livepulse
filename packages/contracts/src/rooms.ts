@@ -41,6 +41,7 @@ export const RoomSchema = z
     status: RoomStatusSchema,
     title: z.string().min(1).max(120),
     updatedAt: z.iso.datetime(),
+    version: z.number().int().positive(),
   })
   .strict();
 
@@ -90,3 +91,43 @@ export const GetRoomResponseSchema = z
   .strict();
 
 export type GetRoomResponse = z.infer<typeof GetRoomResponseSchema>;
+
+export const ListOwnedRoomsResponseSchema = z
+  .object({
+    items: z.array(RoomSchema),
+    requestId: z.string().min(1),
+  })
+  .strict();
+
+export type ListOwnedRoomsResponse = z.infer<
+  typeof ListOwnedRoomsResponseSchema
+>;
+
+export const UpdateRoomRequestSchema = z
+  .object({
+    coverImageUrl: HttpUrlSchema.optional(),
+    demoVideoUrl: HttpUrlSchema.optional(),
+    description: z.string().trim().min(1).max(2_000).optional(),
+    expectedVersion: z.number().int().positive(),
+    status: RoomStatusSchema.optional(),
+    title: z.string().trim().min(1).max(120).optional(),
+  })
+  .strict()
+  .refine(
+    ({ coverImageUrl, demoVideoUrl, description, status, title }) =>
+      [coverImageUrl, demoVideoUrl, description, status, title].some(
+        (value) => value !== undefined,
+      ),
+    { message: 'At least one room change is required' },
+  );
+
+export type UpdateRoomRequest = z.infer<typeof UpdateRoomRequestSchema>;
+
+export const UpdateRoomResponseSchema = z
+  .object({
+    requestId: z.string().min(1),
+    room: RoomSchema,
+  })
+  .strict();
+
+export type UpdateRoomResponse = z.infer<typeof UpdateRoomResponseSchema>;

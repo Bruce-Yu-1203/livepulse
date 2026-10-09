@@ -36,6 +36,7 @@ describe('database configuration', () => {
     expect(schema).toContain('onDelete: Cascade');
     expect(schema).toMatch(/hostId\s+String\s+@map\("host_id"\)/);
     expect(schema).toMatch(/status\s+RoomStatus\s+@default\(DRAFT\)/);
+    expect(schema).toMatch(/version\s+Int\s+@default\(1\)/);
     expect(schema).toContain(
       '@relation(fields: [hostId], references: [id], onDelete: Restrict)',
     );

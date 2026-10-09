@@ -91,6 +91,10 @@ describe('login and session contracts', () => {
     expect(ApiErrorCode.Forbidden).toBe('AUTH_FORBIDDEN');
     expect(ApiErrorCode.InvalidCredentials).toBe('AUTH_INVALID_CREDENTIALS');
     expect(ApiErrorCode.InvalidSession).toBe('AUTH_INVALID_SESSION');
+    expect(ApiErrorCode.RoomInvalidTransition).toBe(
+      'ROOM_INVALID_STATUS_TRANSITION',
+    );
+    expect(ApiErrorCode.RoomVersionConflict).toBe('ROOM_VERSION_CONFLICT');
     expect(ApiErrorCode.Unauthorized).toBe('AUTH_UNAUTHORIZED');
   });
 

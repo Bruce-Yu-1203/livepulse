@@ -1,8 +1,17 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { CreateRoomRequest, ListRoomsQuery } from '@livepulse/contracts';
+import type {
+  CreateRoomRequest,
+  ListRoomsQuery,
+  UpdateRoomRequest,
+} from '@livepulse/contracts';
 
 import { RoomCursorCodec } from './room-cursor.js';
-import { RoomNotFoundError } from './rooms.errors.js';
+import {
+  InvalidRoomTransitionError,
+  RoomForbiddenError,
+  RoomNotFoundError,
+  RoomVersionConflictError,
+} from './rooms.errors.js';
 import { ROOMS_REPOSITORY } from './rooms.tokens.js';
 import type {
   CreatedRoom,
@@ -61,4 +70,62 @@ export class RoomsService {
 
     return room;
   }
+
+  public listOwned(hostId: string) {
+    return this.rooms.listOwned(hostId);
+  }
+
+  public async update(
+    actor: { role: 'ADMIN' | 'HOST' | 'VIEWER'; userId: string },
+    id: string,
+    input: UpdateRoomRequest,
+  ) {
+    const room = await this.rooms.findById(id);
+
+    if (!room) {
+      throw new RoomNotFoundError();
+    }
+
+    if (
+      actor.role === 'VIEWER' ||
+      (actor.role !== 'ADMIN' && room.hostId !== actor.userId)
+    ) {
+      throw new RoomForbiddenError();
+    }
+
+    if (room.version !== input.expectedVersion) {
+      throw new RoomVersionConflictError();
+    }
+
+    if (
+      room.status === 'ENDED' ||
+      (input.status !== undefined &&
+        !isAllowedTransition(room.status, input.status))
+    ) {
+      throw new InvalidRoomTransitionError();
+    }
+
+    const { expectedVersion, ...changes } = input;
+    const updated = await this.rooms.update({
+      changes,
+      expectedVersion,
+      id,
+    });
+
+    if (!updated) {
+      throw new RoomVersionConflictError();
+    }
+
+    return updated;
+  }
+}
+
+function isAllowedTransition(
+  current: 'DRAFT' | 'ENDED' | 'LIVE',
+  next: 'DRAFT' | 'ENDED' | 'LIVE',
+): boolean {
+  return (
+    (current === 'DRAFT' && next === 'LIVE') ||
+    (current === 'LIVE' && next === 'ENDED')
+  );
 }

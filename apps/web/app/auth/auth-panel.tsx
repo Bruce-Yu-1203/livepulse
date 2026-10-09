@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  ApiErrorResponseSchema,
   LoginRequestSchema,
   LoginResponseSchema,
   RegisterRequestSchema,
@@ -10,7 +9,7 @@ import {
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 
-import { readBrowserCookie } from '../../lib/browser-cookies';
+import { clientApiRequest } from '../../lib/client-api';
 
 type AuthMode = 'login' | 'register';
 type FormStatus =
@@ -46,46 +45,26 @@ export function AuthPanel() {
     }
 
     try {
-      const csrfResponse = await fetch('/api/v1/auth/csrf', {
-        credentials: 'include',
-      });
-
-      if (!csrfResponse.ok) {
-        throw new Error('Could not start a secure authentication request.');
-      }
-
-      const csrfToken = readBrowserCookie(document.cookie, 'lp_csrf');
-
-      if (!csrfToken) {
-        throw new Error('The secure request cookie is missing.');
-      }
-
-      const response = await fetch(`/api/v1/auth/${mode}`, {
-        body: JSON.stringify(parsed.data),
-        credentials: 'include',
-        headers: {
-          'content-type': 'application/json',
-          'x-csrf-token': csrfToken,
+      const response = await clientApiRequest(
+        `/api/v1/auth/${mode}`,
+        mode === 'login' ? LoginResponseSchema : RegisterResponseSchema,
+        {
+          body: JSON.stringify(parsed.data),
+          headers: { 'content-type': 'application/json' },
+          method: 'POST',
         },
-        method: 'POST',
-      });
-      const body: unknown = await response.json();
-
-      if (!response.ok) {
-        const apiError = ApiErrorResponseSchema.safeParse(body);
-        throw new Error(
-          apiError.success ? apiError.data.message : 'Authentication failed.',
-        );
-      }
+      );
 
       if (mode === 'login') {
-        LoginResponseSchema.parse(body);
+        const login = LoginResponseSchema.parse(response);
         setStatus({ kind: 'success', message: 'Signed in successfully.' });
-        window.location.assign('/');
+        window.location.assign(
+          ['ADMIN', 'HOST'].includes(login.user.role) ? '/studio' : '/',
+        );
         return;
       }
 
-      RegisterResponseSchema.parse(body);
+      RegisterResponseSchema.parse(response);
       setMode('login');
       setStatus({
         kind: 'success',

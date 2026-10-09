@@ -45,6 +45,7 @@ model Room {
   coverImageUrl String     @map("cover_image_url") @db.VarChar(2048)
   demoVideoUrl  String     @map("demo_video_url") @db.VarChar(2048)
   status        RoomStatus @default(DRAFT)
+  version       Int        @default(1)
   createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   host          User       @relation(fields: [hostId], references: [id], onDelete: Restrict)

@@ -15,6 +15,7 @@ const room: VisibleRoom = {
   status: 'LIVE',
   title: 'Architecture Lab',
   updatedAt: '2026-10-09T15:30:00.000Z',
+  version: 1,
 };
 
 describe('RoomCard', () => {

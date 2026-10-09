@@ -25,3 +25,24 @@ export class RoomNotFoundError extends Error {
     this.name = 'RoomNotFoundError';
   }
 }
+
+export class RoomForbiddenError extends Error {
+  public constructor() {
+    super('Only the room host can manage this room');
+    this.name = 'RoomForbiddenError';
+  }
+}
+
+export class InvalidRoomTransitionError extends Error {
+  public constructor() {
+    super('The requested room status transition is not allowed');
+    this.name = 'InvalidRoomTransitionError';
+  }
+}
+
+export class RoomVersionConflictError extends Error {
+  public constructor() {
+    super('The room changed since it was loaded');
+    this.name = 'RoomVersionConflictError';
+  }
+}

@@ -78,6 +78,7 @@ A RESTful API is a resource-oriented interface style, not a low-latency broadcas
 | POST /api/v1/auth/logout | Revoke the session | 204 |
 | GET /api/v1/auth/me | Get the authenticated user | 200 or 401 |
 | GET /api/v1/rooms | Cursor-paginated room list | 200, items, and nextCursor |
+| GET /api/v1/rooms/mine | List every room owned by the authenticated host | 200 or 403 |
 | POST /api/v1/rooms | Create a room as a host | 201 |
 | GET /api/v1/rooms/:id | Get room details | 200 or 404 |
 | PATCH /api/v1/rooms/:id | Edit metadata or perform a legal state transition | 200, 403, or 409 |
@@ -92,7 +93,7 @@ A RESTful API is a resource-oriented interface style, not a low-latency broadcas
 
 Every request and error includes requestId. The error structure contains code, message, requestId, and an optional retryAfterMs. GET requests have no write side effects. WebSocket failures use the same error-code catalog.
 
-Public room reads expose LIVE and ENDED rooms. DRAFT rooms remain private to host-management workflows and return the same not-found response as an unknown room. Room-list pagination orders by createdAt and id in descending order and returns an opaque nextCursor rather than an offset.
+Public room reads expose LIVE and ENDED rooms. DRAFT rooms remain private to host-management workflows and return the same not-found response as an unknown room. Room-list pagination orders by createdAt and id in descending order and returns an opaque nextCursor rather than an offset. Host updates follow the one-way DRAFT to LIVE to ENDED lifecycle. Every update includes the version the client last read; the database applies the update and increments the version only when that value still matches, preventing a stale browser tab from overwriting a newer change.
 
 ## 5 WebSocket Contract
 
