@@ -3,6 +3,7 @@ import type { NestApplicationOptions } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
+import fastifyCookie from '@fastify/cookie';
 import type { FastifyInstance } from 'fastify';
 
 import { AppModule } from './app.module.js';
@@ -16,6 +17,8 @@ export async function createApp(
     new FastifyAdapter(),
     options,
   );
+
+  await app.register(fastifyCookie);
 
   app.setGlobalPrefix('api/v1', {
     exclude: [

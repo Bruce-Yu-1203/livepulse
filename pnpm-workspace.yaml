@@ -6,3 +6,6 @@ allowBuilds:
   '@prisma/engines': true
   esbuild: true
   prisma: true
+
+minimumReleaseAgeExclude:
+  - '@fastify/cookie@11.1.3'

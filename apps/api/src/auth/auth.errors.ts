@@ -11,3 +11,17 @@ export class DatabaseUnavailableError extends Error {
     this.name = 'DatabaseUnavailableError';
   }
 }
+
+export class InvalidCredentialsError extends Error {
+  public constructor() {
+    super('The email or password is incorrect');
+    this.name = 'InvalidCredentialsError';
+  }
+}
+
+export class InvalidSessionError extends Error {
+  public constructor() {
+    super('The session is invalid or has expired');
+    this.name = 'InvalidSessionError';
+  }
+}

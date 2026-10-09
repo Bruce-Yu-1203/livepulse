@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   ApiErrorCode,
   ApiErrorResponseSchema,
+  LoginRequestSchema,
+  LoginResponseSchema,
+  RefreshResponseSchema,
   RegisterRequestSchema,
   RegisterResponseSchema,
 } from './auth.js';
@@ -30,6 +33,58 @@ describe('RegisterRequestSchema', () => {
     },
   ])('rejects invalid or unknown registration input: %o', (input) => {
     expect(RegisterRequestSchema.safeParse(input).success).toBe(false);
+  });
+});
+
+describe('login and session contracts', () => {
+  it('normalizes login email and rejects additional fields', () => {
+    expect(
+      LoginRequestSchema.parse({
+        email: ' Viewer@Example.COM ',
+        password: 'correct horse battery staple',
+      }),
+    ).toEqual({
+      email: 'viewer@example.com',
+      password: 'correct horse battery staple',
+    });
+    expect(
+      LoginRequestSchema.safeParse({
+        email: 'viewer@example.com',
+        password: 'correct horse battery staple',
+        role: 'ADMIN',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('accepts responses without exposing either token', () => {
+    const expiration = '2026-10-09T01:15:00.000Z';
+    const user = {
+      createdAt: '2026-10-09T01:00:00.000Z',
+      email: 'viewer@example.com',
+      id: '295d5bd9-d9da-44b2-8f5d-8839f13a4437',
+      role: 'VIEWER' as const,
+    };
+
+    expect(
+      LoginResponseSchema.parse({
+        accessTokenExpiresAt: expiration,
+        refreshTokenExpiresAt: expiration,
+        requestId: 'request-3',
+        user,
+      }).user,
+    ).toEqual(user);
+    expect(
+      RefreshResponseSchema.parse({
+        accessTokenExpiresAt: expiration,
+        refreshTokenExpiresAt: expiration,
+        requestId: 'request-4',
+      }).requestId,
+    ).toBe('request-4');
+  });
+
+  it('defines stable authentication errors', () => {
+    expect(ApiErrorCode.InvalidCredentials).toBe('AUTH_INVALID_CREDENTIALS');
+    expect(ApiErrorCode.InvalidSession).toBe('AUTH_INVALID_SESSION');
   });
 });
 

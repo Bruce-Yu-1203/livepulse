@@ -11,6 +11,19 @@ export const RegisterRequestSchema = z
 
 export type RegisterRequest = z.infer<typeof RegisterRequestSchema>;
 
+export const LoginRequestSchema = RegisterRequestSchema;
+
+export type LoginRequest = z.infer<typeof LoginRequestSchema>;
+
+const PublicUserSchema = z
+  .object({
+    createdAt: z.iso.datetime(),
+    email: z.string().email().max(320),
+    id: z.uuid(),
+    role: UserRoleSchema,
+  })
+  .strict();
+
 export const RegisterResponseSchema = z
   .object({
     requestId: z.string().min(1),
@@ -27,8 +40,31 @@ export const RegisterResponseSchema = z
 
 export type RegisterResponse = z.infer<typeof RegisterResponseSchema>;
 
+export const LoginResponseSchema = z
+  .object({
+    accessTokenExpiresAt: z.iso.datetime(),
+    refreshTokenExpiresAt: z.iso.datetime(),
+    requestId: z.string().min(1),
+    user: PublicUserSchema,
+  })
+  .strict();
+
+export type LoginResponse = z.infer<typeof LoginResponseSchema>;
+
+export const RefreshResponseSchema = z
+  .object({
+    accessTokenExpiresAt: z.iso.datetime(),
+    refreshTokenExpiresAt: z.iso.datetime(),
+    requestId: z.string().min(1),
+  })
+  .strict();
+
+export type RefreshResponse = z.infer<typeof RefreshResponseSchema>;
+
 export const ApiErrorCode = {
   EmailAlreadyExists: 'AUTH_EMAIL_ALREADY_REGISTERED',
+  InvalidCredentials: 'AUTH_INVALID_CREDENTIALS',
+  InvalidSession: 'AUTH_INVALID_SESSION',
   InternalError: 'INTERNAL_ERROR',
   NotFound: 'RESOURCE_NOT_FOUND',
   ServiceUnavailable: 'SERVICE_UNAVAILABLE',
