@@ -5,6 +5,8 @@ import {
   ApiErrorCode,
   ApiErrorResponseSchema,
   CreateRoomResponseSchema,
+  GetRoomResponseSchema,
+  ListRoomsResponseSchema,
 } from '@livepulse/contracts';
 import { createDatabaseClient } from '@livepulse/db';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -125,6 +127,128 @@ describe('POST /api/v1/rooms', () => {
     await expect(database.room.count()).resolves.toBe(0);
   });
 
+  it('paginates visible rooms without exposing drafts or duplicating ties', async () => {
+    const host = await database.user.findUniqueOrThrow({
+      where: { email: 'host@example.com' },
+    });
+    await database.room.createMany({
+      data: [
+        roomRecord(
+          'ffffffff-ffff-4fff-bfff-ffffffffffff',
+          host.id,
+          'LIVE',
+          '2026-10-09T15:30:00.000Z',
+        ),
+        roomRecord(
+          'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',
+          host.id,
+          'ENDED',
+          '2026-10-09T15:30:00.000Z',
+        ),
+        roomRecord(
+          '11111111-1111-4111-8111-111111111111',
+          host.id,
+          'LIVE',
+          '2026-10-09T15:00:00.000Z',
+        ),
+        roomRecord(
+          '22222222-2222-4222-8222-222222222222',
+          host.id,
+          'DRAFT',
+          '2026-10-09T16:00:00.000Z',
+        ),
+      ],
+    });
+
+    const firstResponse = await app.getHttpAdapter().getInstance().inject({
+      method: 'GET',
+      url: '/api/v1/rooms?limit=2',
+    });
+    expect(firstResponse.statusCode).toBe(200);
+    const firstPage = ListRoomsResponseSchema.parse(firstResponse.json());
+    expect(firstPage.items.map(({ id }) => id)).toEqual([
+      'ffffffff-ffff-4fff-bfff-ffffffffffff',
+      'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',
+    ]);
+    expect(firstPage.nextCursor).toEqual(expect.any(String));
+
+    const secondResponse = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: 'GET',
+        url: `/api/v1/rooms?limit=2&cursor=${firstPage.nextCursor}`,
+      });
+    expect(secondResponse.statusCode).toBe(200);
+    const secondPage = ListRoomsResponseSchema.parse(secondResponse.json());
+    expect(secondPage.items.map(({ id }) => id)).toEqual([
+      '11111111-1111-4111-8111-111111111111',
+    ]);
+    expect(secondPage.nextCursor).toBeNull();
+
+    const allIds = [...firstPage.items, ...secondPage.items].map(
+      ({ id }) => id,
+    );
+    expect(new Set(allIds).size).toBe(3);
+    expect(allIds).not.toContain('22222222-2222-4222-8222-222222222222');
+  });
+
+  it('returns visible room details while hiding drafts as not found', async () => {
+    const host = await database.user.findUniqueOrThrow({
+      where: { email: 'host@example.com' },
+    });
+    const visibleId = 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa';
+    const draftId = '22222222-2222-4222-8222-222222222222';
+    await database.room.createMany({
+      data: [
+        roomRecord(visibleId, host.id, 'LIVE', '2026-10-09T15:30:00.000Z'),
+        roomRecord(draftId, host.id, 'DRAFT', '2026-10-09T15:31:00.000Z'),
+      ],
+    });
+
+    const visible = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: 'GET',
+        url: `/api/v1/rooms/${visibleId}`,
+      });
+    const draft = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: 'GET',
+        url: `/api/v1/rooms/${draftId}`,
+      });
+
+    expect(visible.statusCode).toBe(200);
+    expect(GetRoomResponseSchema.parse(visible.json()).room.id).toBe(visibleId);
+    expect(draft.statusCode).toBe(404);
+    expect(ApiErrorResponseSchema.parse(draft.json()).code).toBe(
+      ApiErrorCode.NotFound,
+    );
+  });
+
+  it('rejects malformed identifiers and cursors with stable validation errors', async () => {
+    const invalidId = await app.getHttpAdapter().getInstance().inject({
+      method: 'GET',
+      url: '/api/v1/rooms/not-a-uuid',
+    });
+    const invalidCursor = await app.getHttpAdapter().getInstance().inject({
+      method: 'GET',
+      url: '/api/v1/rooms?cursor=not%2Bbase64url',
+    });
+
+    expect(invalidId.statusCode).toBe(400);
+    expect(invalidCursor.statusCode).toBe(400);
+    expect(ApiErrorResponseSchema.parse(invalidId.json()).code).toBe(
+      ApiErrorCode.ValidationError,
+    );
+    expect(ApiErrorResponseSchema.parse(invalidCursor.json()).code).toBe(
+      ApiErrorCode.ValidationError,
+    );
+  });
+
   async function authenticatedHeaders(email: string) {
     const csrfResponse = await app.getHttpAdapter().getInstance().inject({
       method: 'GET',
@@ -205,4 +329,20 @@ function getCookieValue(setCookie: string): string {
 
 function cookiePair(setCookie: string): string {
   return setCookie.split(';', 1)[0] ?? '';
+}
+
+function roomRecord(
+  id: string,
+  hostId: string,
+  status: 'DRAFT' | 'ENDED' | 'LIVE',
+  createdAt: string,
+) {
+  return {
+    ...roomInput,
+    createdAt: new Date(createdAt),
+    hostId,
+    id,
+    status,
+    updatedAt: new Date(createdAt),
+  };
 }

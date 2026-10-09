@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { CreateRoomRequestSchema, CreateRoomResponseSchema } from './rooms.js';
+import {
+  CreateRoomRequestSchema,
+  CreateRoomResponseSchema,
+  GetRoomParamsSchema,
+  GetRoomResponseSchema,
+  ListRoomsQuerySchema,
+  ListRoomsResponseSchema,
+} from './rooms.js';
 
 const validRequest = {
   coverImageUrl: 'https://cdn.example.com/live/cover.jpg',
@@ -61,6 +68,60 @@ describe('CreateRoomResponseSchema', () => {
           status: 'LIVE',
           updatedAt: '2026-10-09T14:30:00.000Z',
         },
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('public room queries', () => {
+  const visibleRoom = {
+    ...validRequest,
+    createdAt: '2026-10-09T14:30:00.000Z',
+    hostId: '295d5bd9-d9da-44b2-8f5d-8839f13a4437',
+    id: '99d30467-ed47-43b8-96b0-d36ab2ee60e0',
+    status: 'LIVE' as const,
+    updatedAt: '2026-10-09T14:30:00.000Z',
+  };
+
+  it('applies a default limit and accepts an opaque cursor', () => {
+    expect(ListRoomsQuerySchema.parse({})).toEqual({ limit: 20 });
+    expect(
+      ListRoomsQuerySchema.parse({ cursor: 'opaque-cursor', limit: '5' }),
+    ).toEqual({ cursor: 'opaque-cursor', limit: 5 });
+  });
+
+  it.each([{ limit: '0' }, { limit: '51' }, { page: '2' }])(
+    'rejects invalid or offset-style pagination: %o',
+    (query) => {
+      expect(ListRoomsQuerySchema.safeParse(query).success).toBe(false);
+    },
+  );
+
+  it('accepts visible list and detail responses', () => {
+    expect(
+      ListRoomsResponseSchema.parse({
+        items: [visibleRoom],
+        nextCursor: 'next-page',
+        requestId: 'request-list-1',
+      }).items,
+    ).toEqual([visibleRoom]);
+    expect(
+      GetRoomResponseSchema.parse({
+        requestId: 'request-detail-1',
+        room: { ...visibleRoom, status: 'ENDED' },
+      }).room.status,
+    ).toBe('ENDED');
+    expect(GetRoomParamsSchema.safeParse({ id: visibleRoom.id }).success).toBe(
+      true,
+    );
+  });
+
+  it('rejects draft rooms from public responses', () => {
+    expect(
+      ListRoomsResponseSchema.safeParse({
+        items: [{ ...visibleRoom, status: 'DRAFT' }],
+        nextCursor: null,
+        requestId: 'request-list-2',
       }).success,
     ).toBe(false);
   });

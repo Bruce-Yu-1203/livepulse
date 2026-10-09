@@ -50,7 +50,7 @@ model Room {
   host          User       @relation(fields: [hostId], references: [id], onDelete: Restrict)
 
   @@index([hostId])
-  @@index([status, createdAt])
+  @@index([status, createdAt, id])
   @@map("rooms")
 }
 

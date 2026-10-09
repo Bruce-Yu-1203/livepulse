@@ -92,6 +92,8 @@ A RESTful API is a resource-oriented interface style, not a low-latency broadcas
 
 Every request and error includes requestId. The error structure contains code, message, requestId, and an optional retryAfterMs. GET requests have no write side effects. WebSocket failures use the same error-code catalog.
 
+Public room reads expose LIVE and ENDED rooms. DRAFT rooms remain private to host-management workflows and return the same not-found response as an unknown room. Room-list pagination orders by createdAt and id in descending order and returns an opaque nextCursor rather than an offset.
+
 ## 5 WebSocket Contract
 
 The connection path is /ws and uses wss in public environments. The web, API, and WebSocket endpoint should share one site behind a reverse proxy. The handshake validates a short-lived identity cookie and an allowed Origin. Cookies use HttpOnly, Secure, and an appropriate SameSite setting. REST write operations require a signed double-submit CSRF token in a readable cookie and custom header, plus an allowed Origin. Authentication cookies remain HttpOnly. Guests may join public rooms but cannot send messages.

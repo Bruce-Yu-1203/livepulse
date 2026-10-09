@@ -1,7 +1,15 @@
 import { randomUUID } from 'node:crypto';
 
 import { Pool } from 'pg';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from 'vitest';
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -14,6 +22,10 @@ const pool = new Pool({ connectionString: databaseUrl });
 describe('authentication database constraints', () => {
   beforeAll(async () => {
     await pool.query('SELECT 1');
+  });
+
+  beforeEach(async () => {
+    await pool.query('TRUNCATE TABLE users CASCADE');
   });
 
   afterEach(async () => {

@@ -39,5 +39,6 @@ describe('database configuration', () => {
     expect(schema).toContain(
       '@relation(fields: [hostId], references: [id], onDelete: Restrict)',
     );
+    expect(schema).toContain('@@index([status, createdAt, id])');
   });
 });

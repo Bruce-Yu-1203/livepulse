@@ -46,6 +46,12 @@ export const RoomSchema = z
 
 export type Room = z.infer<typeof RoomSchema>;
 
+export const VisibleRoomSchema = RoomSchema.extend({
+  status: z.enum(['LIVE', 'ENDED']),
+});
+
+export type VisibleRoom = z.infer<typeof VisibleRoomSchema>;
+
 export const CreateRoomResponseSchema = z
   .object({
     requestId: z.string().min(1),
@@ -54,3 +60,33 @@ export const CreateRoomResponseSchema = z
   .strict();
 
 export type CreateRoomResponse = z.infer<typeof CreateRoomResponseSchema>;
+
+export const ListRoomsQuerySchema = z
+  .object({
+    cursor: z.string().min(1).max(512).optional(),
+    limit: z.coerce.number().int().min(1).max(50).default(20),
+  })
+  .strict();
+
+export type ListRoomsQuery = z.infer<typeof ListRoomsQuerySchema>;
+
+export const ListRoomsResponseSchema = z
+  .object({
+    items: z.array(VisibleRoomSchema),
+    nextCursor: z.string().min(1).nullable(),
+    requestId: z.string().min(1),
+  })
+  .strict();
+
+export type ListRoomsResponse = z.infer<typeof ListRoomsResponseSchema>;
+
+export const GetRoomParamsSchema = z.object({ id: z.uuid() }).strict();
+
+export const GetRoomResponseSchema = z
+  .object({
+    requestId: z.string().min(1),
+    room: VisibleRoomSchema,
+  })
+  .strict();
+
+export type GetRoomResponse = z.infer<typeof GetRoomResponseSchema>;
