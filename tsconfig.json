@@ -6,5 +6,6 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["apps/**/*.ts", "packages/**/*.ts", "tests/**/*.ts"]
+  "include": ["apps/**/*.ts", "packages/**/*.ts", "tests/**/*.ts"],
+  "exclude": ["packages/db/.generated/**"]
 }

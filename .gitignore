@@ -10,6 +10,7 @@ out/
 dist/
 build/
 coverage/
+packages/db/.generated/
 
 # Environment variables
 .env

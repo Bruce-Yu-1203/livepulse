@@ -52,7 +52,9 @@ describe('repository foundation', () => {
 
     expect(workspace).toContain('- apps/*');
     expect(workspace).toContain('- packages/*');
-    expect(workspace).toContain('allowBuilds:\n  esbuild: true');
+    expect(workspace).toContain("'@prisma/engines': true");
+    expect(workspace).toContain('esbuild: true');
+    expect(workspace).toContain('prisma: true');
     expect(workspace).not.toContain('set this to true or false');
   });
 

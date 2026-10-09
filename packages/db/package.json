@@ -1,0 +1,22 @@
+{
+  "name": "@livepulse/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "pnpm prisma:generate",
+    "db:migrate": "prisma migrate dev --config prisma7.config.ts",
+    "prisma:generate": "prisma generate --config prisma7.config.ts",
+    "prisma:validate": "prisma validate --config prisma7.config.ts"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "dotenv": "18.0.6",
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1",
+    "prisma": "7.10.0"
+  }
+}

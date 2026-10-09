@@ -10,12 +10,16 @@
   },
   "scripts": {
     "build": "pnpm --recursive --if-present build",
+    "db:migrate": "pnpm --filter @livepulse/db db:migrate",
+    "db:stop": "docker compose -f infra/compose/compose.yml stop postgres",
+    "db:up": "docker compose -f infra/compose/compose.yml up -d --wait postgres",
     "dev:api": "pnpm --filter @livepulse/api dev",
     "format": "prettier --write \"**/*.{json,mjs,ts,yaml,yml}\"",
     "format:check": "prettier --check \"**/*.{json,mjs,ts,yaml,yml}\"",
     "lint": "eslint .",
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit",
+    "test": "vitest run --exclude packages/db/test/database.integration.test.ts",
+    "test:db": "vitest run packages/db/test/database.integration.test.ts",
+    "typecheck": "pnpm --filter @livepulse/db prisma:generate && tsc --noEmit",
     "validate": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm build"
   },
   "devDependencies": {
