@@ -6,6 +6,7 @@ import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import {
   ApiErrorCode,
   ApiErrorResponseSchema,
+  CurrentUserResponseSchema,
   LoginResponseSchema,
   RefreshResponseSchema,
 } from '@livepulse/contracts';
@@ -14,8 +15,10 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   accessCookieName,
+  csrfCookieName,
   refreshCookieName,
 } from '../src/auth/auth-token.service.js';
+import { csrfHeaderName } from '../src/auth/csrf.guard.js';
 import { ScryptPasswordHasher } from '../src/auth/password-hasher.js';
 import { createApp } from '../src/create-app.js';
 
@@ -64,6 +67,7 @@ describe('authentication sessions', () => {
     expect(response.body).not.toContain(password);
 
     const accessCookie = getSetCookie(response, accessCookieName);
+    const csrfCookie = getSetCookie(response, csrfCookieName);
     const refreshCookie = getSetCookie(response, refreshCookieName);
     expect(accessCookie).toContain('HttpOnly');
     expect(accessCookie).toContain('SameSite=Strict');
@@ -71,6 +75,8 @@ describe('authentication sessions', () => {
     expect(refreshCookie).toContain('HttpOnly');
     expect(refreshCookie).toContain('SameSite=Strict');
     expect(refreshCookie).toContain('Path=/api/v1/auth');
+    expect(csrfCookie).toContain('SameSite=Strict');
+    expect(csrfCookie).not.toContain('HttpOnly');
 
     const rawRefreshToken = getCookieValue(refreshCookie);
     const storedSession = await database.refreshSession.findFirstOrThrow();
@@ -100,12 +106,14 @@ describe('authentication sessions', () => {
   it('atomically rotates a refresh token with exactly one concurrent winner', async () => {
     const loginResponse = await login('viewer@example.com', password);
     const originalCookie = getSetCookie(loginResponse, refreshCookieName);
+    const csrfCookie = getSetCookie(loginResponse, csrfCookieName);
     const originalToken = getCookieValue(originalCookie);
-    const cookieHeader = `${refreshCookieName}=${originalToken}`;
+    const csrfToken = getCookieValue(csrfCookie);
+    const cookieHeader = `${refreshCookieName}=${originalToken}; ${csrfCookieName}=${csrfToken}`;
 
     const responses = await Promise.all([
-      refresh(cookieHeader),
-      refresh(cookieHeader),
+      refresh(cookieHeader, csrfToken),
+      refresh(cookieHeader, csrfToken),
     ]);
     const statuses = responses.map(({ statusCode }) => statusCode).sort();
 
@@ -126,7 +134,7 @@ describe('authentication sessions', () => {
       createHash('sha256').update(rotatedToken).digest('hex'),
     );
 
-    const reused = await refresh(cookieHeader);
+    const reused = await refresh(cookieHeader, csrfToken);
     expect(reused.statusCode).toBe(401);
     expect(ApiErrorResponseSchema.parse(reused.json()).code).toBe(
       ApiErrorCode.InvalidSession,
@@ -136,14 +144,20 @@ describe('authentication sessions', () => {
   it('revokes the database session and clears both cookies on logout', async () => {
     const loginResponse = await login('viewer@example.com', password);
     const refreshCookie = getSetCookie(loginResponse, refreshCookieName);
+    const csrfCookie = getSetCookie(loginResponse, csrfCookieName);
     const rawRefreshToken = getCookieValue(refreshCookie);
-    const cookieHeader = `${refreshCookieName}=${rawRefreshToken}`;
+    const csrfToken = getCookieValue(csrfCookie);
+    const cookieHeader = `${refreshCookieName}=${rawRefreshToken}; ${csrfCookieName}=${csrfToken}`;
 
     const logoutResponse = await app
       .getHttpAdapter()
       .getInstance()
       .inject({
-        headers: { cookie: cookieHeader },
+        headers: {
+          cookie: cookieHeader,
+          [csrfHeaderName]: csrfToken,
+          origin: 'http://localhost:3000',
+        },
         method: 'POST',
         url: '/api/v1/auth/logout',
       });
@@ -156,30 +170,122 @@ describe('authentication sessions', () => {
     expect(getSetCookie(logoutResponse, refreshCookieName)).toContain(
       'Expires=Thu, 01 Jan 1970',
     );
+    expect(getSetCookie(logoutResponse, csrfCookieName)).toContain(
+      'Expires=Thu, 01 Jan 1970',
+    );
     expect(
       (await database.refreshSession.findFirstOrThrow()).revokedAt,
     ).not.toBeNull();
 
-    expect((await refresh(cookieHeader)).statusCode).toBe(401);
+    expect((await refresh(cookieHeader, csrfToken)).statusCode).toBe(401);
+  });
+
+  it('returns the current user only with a valid access cookie', async () => {
+    const loginResponse = await login('viewer@example.com', password);
+    const accessCookie = getSetCookie(loginResponse, accessCookieName);
+    const authenticated = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: { cookie: cookiePair(accessCookie) },
+        method: 'GET',
+        url: '/api/v1/auth/me',
+      });
+    const anonymous = await app.getHttpAdapter().getInstance().inject({
+      method: 'GET',
+      url: '/api/v1/auth/me',
+    });
+
+    expect(authenticated.statusCode).toBe(200);
+    expect(
+      CurrentUserResponseSchema.parse(authenticated.json()).user,
+    ).toMatchObject({
+      email: 'viewer@example.com',
+      role: 'VIEWER',
+    });
+    expect(anonymous.statusCode).toBe(401);
+    expect(ApiErrorResponseSchema.parse(anonymous.json()).code).toBe(
+      ApiErrorCode.Unauthorized,
+    );
+  });
+
+  it('rejects missing CSRF proof and an untrusted origin', async () => {
+    const bootstrap = await csrfBootstrap();
+    const missingHeader = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: {
+          cookie: `${csrfCookieName}=${bootstrap}`,
+          origin: 'http://localhost:3000',
+        },
+        method: 'POST',
+        payload: { email: 'viewer@example.com', password },
+        url: '/api/v1/auth/login',
+      });
+    const untrustedOrigin = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: {
+          cookie: `${csrfCookieName}=${bootstrap}`,
+          [csrfHeaderName]: bootstrap,
+          origin: 'https://attacker.example',
+        },
+        method: 'POST',
+        payload: { email: 'viewer@example.com', password },
+        url: '/api/v1/auth/login',
+      });
+
+    expect(missingHeader.statusCode).toBe(403);
+    expect(untrustedOrigin.statusCode).toBe(403);
+    expect(ApiErrorResponseSchema.parse(missingHeader.json()).code).toBe(
+      ApiErrorCode.CsrfValidationFailed,
+    );
+    expect(ApiErrorResponseSchema.parse(untrustedOrigin.json()).code).toBe(
+      ApiErrorCode.CsrfValidationFailed,
+    );
   });
 
   async function login(email: string, loginPassword: string) {
+    const csrfToken = await csrfBootstrap();
     return app
       .getHttpAdapter()
       .getInstance()
       .inject({
+        headers: {
+          cookie: `${csrfCookieName}=${csrfToken}`,
+          [csrfHeaderName]: csrfToken,
+          origin: 'http://localhost:3000',
+        },
         method: 'POST',
         payload: { email, password: loginPassword },
         url: '/api/v1/auth/login',
       });
   }
 
-  async function refresh(cookie: string) {
-    return app.getHttpAdapter().getInstance().inject({
-      headers: { cookie },
-      method: 'POST',
-      url: '/api/v1/auth/refresh',
+  async function refresh(cookie: string, csrfToken: string) {
+    return app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: {
+          cookie,
+          [csrfHeaderName]: csrfToken,
+          origin: 'http://localhost:3000',
+        },
+        method: 'POST',
+        url: '/api/v1/auth/refresh',
+      });
+  }
+
+  async function csrfBootstrap(): Promise<string> {
+    const response = await app.getHttpAdapter().getInstance().inject({
+      method: 'GET',
+      url: '/api/v1/auth/csrf',
     });
+
+    return getCookieValue(getSetCookie(response, csrfCookieName));
   }
 });
 
@@ -215,4 +321,8 @@ function getCookieValue(setCookie: string): string {
   }
 
   return pair.slice(separator + 1);
+}
+
+function cookiePair(setCookie: string): string {
+  return setCookie.split(';', 1)[0] ?? '';
 }

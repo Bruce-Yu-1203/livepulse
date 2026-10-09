@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   ApiErrorCode,
   ApiErrorResponseSchema,
+  CsrfResponseSchema,
+  CurrentUserResponseSchema,
   LoginRequestSchema,
   LoginResponseSchema,
   RefreshResponseSchema,
@@ -83,8 +85,29 @@ describe('login and session contracts', () => {
   });
 
   it('defines stable authentication errors', () => {
+    expect(ApiErrorCode.CsrfValidationFailed).toBe(
+      'AUTH_CSRF_VALIDATION_FAILED',
+    );
     expect(ApiErrorCode.InvalidCredentials).toBe('AUTH_INVALID_CREDENTIALS');
     expect(ApiErrorCode.InvalidSession).toBe('AUTH_INVALID_SESSION');
+    expect(ApiErrorCode.Unauthorized).toBe('AUTH_UNAUTHORIZED');
+  });
+
+  it('accepts CSRF bootstrap and current-user responses', () => {
+    expect(CsrfResponseSchema.parse({ requestId: 'request-5' })).toEqual({
+      requestId: 'request-5',
+    });
+    expect(
+      CurrentUserResponseSchema.parse({
+        requestId: 'request-6',
+        user: {
+          createdAt: '2026-10-09T01:00:00.000Z',
+          email: 'host@example.com',
+          id: '295d5bd9-d9da-44b2-8f5d-8839f13a4437',
+          role: 'HOST',
+        },
+      }).user.role,
+    ).toBe('HOST');
   });
 });
 

@@ -71,10 +71,12 @@ A RESTful API is a resource-oriented interface style, not a low-latency broadcas
 
 | Method and Path | Purpose | Key Response |
 | --- | --- | --- |
+| GET /api/v1/auth/csrf | Bootstrap a signed CSRF cookie | 200 |
 | POST /api/v1/auth/register | Register | 201 or email conflict |
 | POST /api/v1/auth/login | Sign in and set cookies | 200 or 401 |
 | POST /api/v1/auth/refresh | Rotate the refresh session | 200 or 401 |
 | POST /api/v1/auth/logout | Revoke the session | 204 |
+| GET /api/v1/auth/me | Get the authenticated user | 200 or 401 |
 | GET /api/v1/rooms | Cursor-paginated room list | 200, items, and nextCursor |
 | POST /api/v1/rooms | Create a room as a host | 201 |
 | GET /api/v1/rooms/:id | Get room details | 200 or 404 |
@@ -92,7 +94,7 @@ Every request and error includes requestId. The error structure contains code, m
 
 ## 5 WebSocket Contract
 
-The connection path is /ws and uses wss in public environments. The web, API, and WebSocket endpoint should share one site behind a reverse proxy. The handshake validates a short-lived identity cookie and an allowed Origin. Cookies use HttpOnly, Secure, and an appropriate SameSite setting. REST write operations also require a CSRF token. Guests may join public rooms but cannot send messages.
+The connection path is /ws and uses wss in public environments. The web, API, and WebSocket endpoint should share one site behind a reverse proxy. The handshake validates a short-lived identity cookie and an allowed Origin. Cookies use HttpOnly, Secure, and an appropriate SameSite setting. REST write operations require a signed double-submit CSRF token in a readable cookie and custom header, plus an allowed Origin. Authentication cookies remain HttpOnly. Guests may join public rooms but cannot send messages.
 
 Example shared envelope:
 

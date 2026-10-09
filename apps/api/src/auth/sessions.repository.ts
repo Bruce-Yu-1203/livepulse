@@ -27,6 +27,7 @@ interface RotateSessionInput {
 export interface SessionsRepository {
   createSession(input: CreateSessionInput): Promise<void>;
   findUserByEmail(email: string): Promise<PasswordUser | undefined>;
+  findUserById(id: string): Promise<SessionUser | undefined>;
   revokeSession(id: string, tokenHash: string, now: Date): Promise<void>;
   rotateSession(input: RotateSessionInput): Promise<SessionUser | undefined>;
 }
@@ -68,6 +69,24 @@ export class PrismaSessionsRepository implements SessionsRepository {
           userId: input.userId,
         },
       });
+    } catch (error) {
+      throwDatabaseError(error);
+    }
+  }
+
+  public async findUserById(id: string): Promise<SessionUser | undefined> {
+    try {
+      const user = await this.database.client.user.findUnique({
+        select: {
+          createdAt: true,
+          email: true,
+          id: true,
+          role: true,
+        },
+        where: { id },
+      });
+
+      return user ?? undefined;
     } catch (error) {
       throwDatabaseError(error);
     }

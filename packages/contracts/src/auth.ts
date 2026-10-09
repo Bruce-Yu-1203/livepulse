@@ -24,6 +24,23 @@ const PublicUserSchema = z
   })
   .strict();
 
+export const CsrfResponseSchema = z
+  .object({
+    requestId: z.string().min(1),
+  })
+  .strict();
+
+export type CsrfResponse = z.infer<typeof CsrfResponseSchema>;
+
+export const CurrentUserResponseSchema = z
+  .object({
+    requestId: z.string().min(1),
+    user: PublicUserSchema,
+  })
+  .strict();
+
+export type CurrentUserResponse = z.infer<typeof CurrentUserResponseSchema>;
+
 export const RegisterResponseSchema = z
   .object({
     requestId: z.string().min(1),
@@ -62,12 +79,14 @@ export const RefreshResponseSchema = z
 export type RefreshResponse = z.infer<typeof RefreshResponseSchema>;
 
 export const ApiErrorCode = {
+  CsrfValidationFailed: 'AUTH_CSRF_VALIDATION_FAILED',
   EmailAlreadyExists: 'AUTH_EMAIL_ALREADY_REGISTERED',
   InvalidCredentials: 'AUTH_INVALID_CREDENTIALS',
   InvalidSession: 'AUTH_INVALID_SESSION',
   InternalError: 'INTERNAL_ERROR',
   NotFound: 'RESOURCE_NOT_FOUND',
   ServiceUnavailable: 'SERVICE_UNAVAILABLE',
+  Unauthorized: 'AUTH_UNAUTHORIZED',
   ValidationError: 'REQUEST_VALIDATION_FAILED',
 } as const;
 

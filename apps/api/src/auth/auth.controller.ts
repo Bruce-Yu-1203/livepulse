@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpException,
   HttpStatus,
@@ -8,6 +9,7 @@ import {
   Post,
   Req,
   Res,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiErrorCode,
@@ -15,6 +17,8 @@ import {
   RegisterRequestSchema,
 } from '@livepulse/contracts';
 import type {
+  CsrfResponse,
+  CurrentUserResponse,
   LoginResponse,
   RefreshResponse,
   RegisterResponse,
@@ -27,7 +31,14 @@ import {
   InvalidCredentialsError,
   InvalidSessionError,
 } from './auth.errors.js';
-import { accessCookieName, refreshCookieName } from './auth-token.service.js';
+import { AccessTokenGuard } from './access-token.guard.js';
+import type { AuthenticatedRequest } from './authenticated-request.js';
+import {
+  accessCookieName,
+  csrfCookieName,
+  refreshCookieName,
+} from './auth-token.service.js';
+import { CsrfGuard } from './csrf.guard.js';
 import { RegistrationService } from './registration.service.js';
 import { type EstablishedSession, SessionService } from './session.service.js';
 
@@ -39,7 +50,21 @@ export class AuthController {
     @Inject(SessionService) private readonly sessions: SessionService,
   ) {}
 
+  @Get('csrf')
+  public csrf(
+    @Req() request: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ): CsrfResponse {
+    const csrfToken = this.sessions.createCsrfToken(
+      request.cookies[refreshCookieName],
+    );
+    this.setCsrfCookie(reply, csrfToken);
+
+    return { requestId: request.id };
+  }
+
   @Post('register')
+  @UseGuards(CsrfGuard)
   public async register(
     @Body() body: unknown,
     @Req() request: FastifyRequest,
@@ -93,6 +118,7 @@ export class AuthController {
 
   @HttpCode(HttpStatus.OK)
   @Post('login')
+  @UseGuards(CsrfGuard)
   public async login(
     @Body() body: unknown,
     @Req() request: FastifyRequest,
@@ -130,6 +156,7 @@ export class AuthController {
 
   @HttpCode(HttpStatus.OK)
   @Post('refresh')
+  @UseGuards(CsrfGuard)
   public async refresh(
     @Req() request: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,
@@ -156,6 +183,7 @@ export class AuthController {
 
   @HttpCode(HttpStatus.NO_CONTENT)
   @Post('logout')
+  @UseGuards(CsrfGuard)
   public async logout(
     @Req() request: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,
@@ -168,6 +196,26 @@ export class AuthController {
     }
 
     this.clearCookies(reply);
+  }
+
+  @Get('me')
+  @UseGuards(AccessTokenGuard)
+  public async me(
+    @Req() request: AuthenticatedRequest,
+  ): Promise<CurrentUserResponse> {
+    try {
+      const user = await this.sessions.currentUser(request.auth.userId);
+
+      return {
+        requestId: request.id,
+        user: {
+          ...user,
+          createdAt: user.createdAt.toISOString(),
+        },
+      };
+    } catch (error) {
+      this.throwSessionError(error);
+    }
   }
 
   private setCookies(reply: FastifyReply, session: EstablishedSession): void {
@@ -187,10 +235,20 @@ export class AuthController {
       expires: session.refresh.expiresAt,
       path: '/api/v1/auth',
     });
+    this.setCsrfCookie(reply, session.csrfToken);
+  }
+
+  private setCsrfCookie(reply: FastifyReply, token: string): void {
+    void reply.setCookie(csrfCookieName, token, {
+      sameSite: 'strict',
+      secure: this.sessions.secureCookies,
+      path: '/',
+    });
   }
 
   private clearCookies(reply: FastifyReply): void {
     void reply.clearCookie(accessCookieName, { path: '/' });
+    void reply.clearCookie(csrfCookieName, { path: '/' });
     void reply.clearCookie(refreshCookieName, { path: '/api/v1/auth' });
   }
 

@@ -27,6 +27,7 @@ function createDependencies(
   const sessions: SessionsRepository = {
     createSession: vi.fn().mockResolvedValue(undefined),
     findUserByEmail: vi.fn().mockResolvedValue(user ?? undefined),
+    findUserById: vi.fn().mockResolvedValue(user ?? undefined),
     revokeSession: vi.fn().mockResolvedValue(undefined),
     rotateSession: vi.fn().mockResolvedValue(user ?? undefined),
   };
@@ -60,6 +61,12 @@ describe('SessionService', () => {
       userId: storedUser.id,
     });
     expect(result.user).not.toHaveProperty('passwordHash');
+    expect(
+      dependencies.tokens.verifyCsrfToken(
+        result.csrfToken,
+        result.refresh.sessionId,
+      ),
+    ).toBe(true);
   });
 
   it('performs password work and returns one generic error for unknown users', async () => {
@@ -122,6 +129,27 @@ describe('SessionService', () => {
       refresh.sessionId,
       refresh.tokenHash,
       expect.any(Date),
+    );
+  });
+
+  it('loads the current public user and rejects a deleted account', async () => {
+    const dependencies = createDependencies();
+    const service = new SessionService(
+      dependencies.passwordHasher,
+      dependencies.sessions,
+      dependencies.tokens,
+    );
+
+    await expect(service.currentUser(storedUser.id)).resolves.toMatchObject({
+      email: storedUser.email,
+      id: storedUser.id,
+    });
+
+    vi.mocked(dependencies.sessions.findUserById).mockResolvedValueOnce(
+      undefined,
+    );
+    await expect(service.currentUser(storedUser.id)).rejects.toBeInstanceOf(
+      InvalidSessionError,
     );
   });
 });

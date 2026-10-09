@@ -10,6 +10,8 @@ import { createDatabaseClient } from '@livepulse/db';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { ScryptPasswordHasher } from '../src/auth/password-hasher.js';
+import { csrfCookieName } from '../src/auth/auth-token.service.js';
+import { csrfHeaderName } from '../src/auth/csrf.guard.js';
 import { createApp } from '../src/create-app.js';
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -127,10 +129,30 @@ describe('POST /api/v1/auth/register', () => {
   });
 
   async function register(body: Record<string, unknown>) {
-    return app.getHttpAdapter().getInstance().inject({
-      method: 'POST',
-      payload: body,
-      url: '/api/v1/auth/register',
+    const csrfResponse = await app.getHttpAdapter().getInstance().inject({
+      method: 'GET',
+      url: '/api/v1/auth/csrf',
     });
+    const setCookie = csrfResponse.headers['set-cookie'];
+    const csrfCookie = Array.isArray(setCookie) ? setCookie[0] : setCookie;
+    const csrfToken = csrfCookie?.split(';', 1)[0]?.split('=', 2)[1];
+
+    if (!csrfCookie || !csrfToken) {
+      throw new Error('Expected a CSRF bootstrap cookie');
+    }
+
+    return app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: {
+          cookie: `${csrfCookieName}=${csrfToken}`,
+          [csrfHeaderName]: csrfToken,
+          origin: 'http://localhost:3000',
+        },
+        method: 'POST',
+        payload: body,
+        url: '/api/v1/auth/register',
+      });
   }
 });

@@ -1,4 +1,10 @@
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import {
+  createHash,
+  createHmac,
+  randomBytes,
+  randomUUID,
+  timingSafeEqual,
+} from 'node:crypto';
 
 import { Injectable } from '@nestjs/common';
 import { jwtVerify, SignJWT } from 'jose';
@@ -13,8 +19,11 @@ const issuer = 'livepulse-api';
 const audience = 'livepulse-web';
 const refreshTokenPattern =
   /^([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.([A-Za-z0-9_-]{43})$/i;
+const csrfTokenPattern = /^([A-Za-z0-9_-]{43})\.([A-Za-z0-9_-]{43})$/;
 
 export const accessCookieName = 'lp_access';
+export const anonymousCsrfContext = 'anonymous';
+export const csrfCookieName = 'lp_csrf';
 export const refreshCookieName = 'lp_refresh';
 
 export interface SessionUser {
@@ -41,7 +50,35 @@ export class AuthTokenService {
   private readonly config = resolveAuthConfig({
     accessTokenSecret: process.env.ACCESS_TOKEN_SECRET,
     nodeEnvironment: process.env.NODE_ENV,
+    webOrigin: process.env.WEB_ORIGIN,
   });
+  private readonly csrfSigningKey = createHmac(
+    'sha256',
+    this.config.accessTokenSecret,
+  )
+    .update('livepulse-csrf-key-v1', 'utf8')
+    .digest();
+
+  public createCsrfToken(context: string): string {
+    const nonce = randomBytes(32).toString('base64url');
+    return `${nonce}.${this.signCsrfNonce(nonce, context)}`;
+  }
+
+  public verifyCsrfToken(token: string, context: string): boolean {
+    const parsed = token.match(csrfTokenPattern);
+    const nonce = parsed?.[1];
+    const suppliedSignature = parsed?.[2];
+
+    if (!nonce || !suppliedSignature) {
+      return false;
+    }
+
+    const expectedSignature = this.signCsrfNonce(nonce, context);
+    return timingSafeEqual(
+      Buffer.from(suppliedSignature, 'ascii'),
+      Buffer.from(expectedSignature, 'ascii'),
+    );
+  }
 
   public createRefreshCredentials(
     now = new Date(),
@@ -67,8 +104,7 @@ export class AuthTokenService {
         sessionId: string;
       }
     | undefined {
-    const parsed = token?.match(refreshTokenPattern);
-    const sessionId = parsed?.[1];
+    const sessionId = this.readRefreshSessionId(token);
 
     if (!token || !sessionId) {
       return undefined;
@@ -116,7 +152,21 @@ export class AuthTokenService {
     return this.config.secureCookies;
   }
 
+  public get trustedWebOrigin(): string {
+    return this.config.webOrigin;
+  }
+
+  public readRefreshSessionId(token: string | undefined): string | undefined {
+    return token?.match(refreshTokenPattern)?.[1];
+  }
+
   public hashRefreshToken(token: string): string {
     return createHash('sha256').update(token, 'utf8').digest('hex');
+  }
+
+  private signCsrfNonce(nonce: string, context: string): string {
+    return createHmac('sha256', this.csrfSigningKey)
+      .update(`livepulse-csrf-v1\0${context}\0${nonce}`, 'utf8')
+      .digest('base64url');
   }
 }

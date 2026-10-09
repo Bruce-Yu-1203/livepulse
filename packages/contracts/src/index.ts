@@ -11,6 +11,8 @@ export type { HealthResponse } from './health.js';
 export {
   ApiErrorCode,
   ApiErrorResponseSchema,
+  CsrfResponseSchema,
+  CurrentUserResponseSchema,
   LoginRequestSchema,
   LoginResponseSchema,
   RefreshResponseSchema,
@@ -19,6 +21,8 @@ export {
 } from './auth.js';
 export type {
   ApiErrorResponse,
+  CsrfResponse,
+  CurrentUserResponse,
   LoginRequest,
   LoginResponse,
   RefreshResponse,

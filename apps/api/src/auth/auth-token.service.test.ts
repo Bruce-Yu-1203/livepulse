@@ -53,4 +53,22 @@ describe('AuthTokenService', () => {
     expect(rotation?.next.token).not.toBe(original.token);
     expect(tokens.prepareRefreshRotation('malformed')).toBeUndefined();
   });
+
+  it('signs CSRF tokens for one authentication context', () => {
+    const firstSession = '99d30467-ed47-43b8-96b0-d36ab2ee60e0';
+    const secondSession = '60d4405f-8c2a-4306-ac4d-b8d85c83c875';
+    const token = tokens.createCsrfToken(firstSession);
+
+    expect(token).toMatch(/^[A-Za-z0-9_-]{43}\.[A-Za-z0-9_-]{43}$/);
+    expect(tokens.verifyCsrfToken(token, firstSession)).toBe(true);
+    expect(tokens.verifyCsrfToken(token, secondSession)).toBe(false);
+    const replacement = token.endsWith('x') ? 'y' : 'x';
+    expect(
+      tokens.verifyCsrfToken(
+        `${token.slice(0, -1)}${replacement}`,
+        firstSession,
+      ),
+    ).toBe(false);
+    expect(tokens.verifyCsrfToken('malformed', firstSession)).toBe(false);
+  });
 });

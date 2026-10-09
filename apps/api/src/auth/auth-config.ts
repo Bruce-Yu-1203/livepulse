@@ -7,11 +7,13 @@ export const refreshTokenLifetimeSeconds = 30 * 24 * 60 * 60;
 interface AuthEnvironment {
   accessTokenSecret: string | undefined;
   nodeEnvironment: string | undefined;
+  webOrigin?: string | undefined;
 }
 
 export interface AuthConfig {
   accessTokenSecret: Uint8Array;
   secureCookies: boolean;
+  webOrigin: string;
 }
 
 export function resolveAuthConfig(environment: AuthEnvironment): AuthConfig {
@@ -29,8 +31,24 @@ export function resolveAuthConfig(environment: AuthEnvironment): AuthConfig {
     throw new Error('ACCESS_TOKEN_SECRET must contain at least 32 bytes');
   }
 
+  const configuredWebOrigin =
+    environment.webOrigin ??
+    (environment.nodeEnvironment === 'production'
+      ? undefined
+      : 'http://localhost:3000');
+
+  if (!configuredWebOrigin) {
+    throw new Error('WEB_ORIGIN is required in production');
+  }
+
+  const webUrl = new URL(configuredWebOrigin);
+  if (!['http:', 'https:'].includes(webUrl.protocol)) {
+    throw new Error('WEB_ORIGIN must use HTTP or HTTPS');
+  }
+
   return {
     accessTokenSecret: new TextEncoder().encode(secret),
     secureCookies: environment.nodeEnvironment === 'production',
+    webOrigin: webUrl.origin,
   };
 }

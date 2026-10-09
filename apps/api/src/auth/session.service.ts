@@ -3,6 +3,7 @@ import type { LoginRequest } from '@livepulse/contracts';
 
 import { InvalidCredentialsError, InvalidSessionError } from './auth.errors.js';
 import {
+  anonymousCsrfContext,
   type AccessCredentials,
   AuthTokenService,
   type RefreshCredentials,
@@ -16,6 +17,7 @@ const timingProtectionHash = `scrypt$v1$16384$8$5$${'0'.repeat(32)}$${'0'.repeat
 
 export interface EstablishedSession {
   access: AccessCredentials;
+  csrfToken: string;
   refresh: RefreshCredentials;
   user: SessionUser;
 }
@@ -59,7 +61,12 @@ export class SessionService {
       userId: user.id,
     });
 
-    return { access, refresh, user };
+    return {
+      access,
+      csrfToken: this.tokens.createCsrfToken(refresh.sessionId),
+      refresh,
+      user,
+    };
   }
 
   public async refresh(token: string | undefined): Promise<EstablishedSession> {
@@ -86,7 +93,28 @@ export class SessionService {
       rotation.sessionId,
     );
 
-    return { access, refresh: rotation.next, user };
+    return {
+      access,
+      csrfToken: this.tokens.createCsrfToken(rotation.sessionId),
+      refresh: rotation.next,
+      user,
+    };
+  }
+
+  public async currentUser(userId: string): Promise<SessionUser> {
+    const user = await this.sessions.findUserById(userId);
+
+    if (!user) {
+      throw new InvalidSessionError();
+    }
+
+    return user;
+  }
+
+  public createCsrfToken(refreshToken: string | undefined): string {
+    const context =
+      this.tokens.readRefreshSessionId(refreshToken) ?? anonymousCsrfContext;
+    return this.tokens.createCsrfToken(context);
   }
 
   public async logout(token: string | undefined): Promise<void> {

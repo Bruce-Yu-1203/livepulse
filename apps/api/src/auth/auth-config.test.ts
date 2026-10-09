@@ -11,6 +11,7 @@ describe('resolveAuthConfig', () => {
 
     expect(config.accessTokenSecret.byteLength).toBeGreaterThanOrEqual(32);
     expect(config.secureCookies).toBe(false);
+    expect(config.webOrigin).toBe('http://localhost:3000');
   });
 
   it('requires a strong explicit secret in production', () => {
@@ -33,7 +34,24 @@ describe('resolveAuthConfig', () => {
       resolveAuthConfig({
         accessTokenSecret: 'a-production-secret-with-at-least-32-bytes',
         nodeEnvironment: 'production',
+        webOrigin: 'https://livepulse.example/',
       }).secureCookies,
     ).toBe(true);
+  });
+
+  it('requires and normalizes the production web origin', () => {
+    expect(() =>
+      resolveAuthConfig({
+        accessTokenSecret: 'a-production-secret-with-at-least-32-bytes',
+        nodeEnvironment: 'production',
+      }),
+    ).toThrow('WEB_ORIGIN is required in production');
+    expect(
+      resolveAuthConfig({
+        accessTokenSecret: 'a-production-secret-with-at-least-32-bytes',
+        nodeEnvironment: 'production',
+        webOrigin: 'https://livepulse.example/path',
+      }).webOrigin,
+    ).toBe('https://livepulse.example');
   });
 });
