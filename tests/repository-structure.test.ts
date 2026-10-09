@@ -10,6 +10,10 @@ interface RootPackage {
   };
   packageManager: string;
   private: boolean;
+  scripts: {
+    format: string;
+    typecheck: string;
+  };
 }
 
 interface BaseTypeScriptConfig {
@@ -46,6 +50,16 @@ describe('repository foundation', () => {
     expect(packageJson.engines.pnpm).toBe('>=11.0.0 <12');
   });
 
+  it('checks TypeScript React files and the web workspace', async () => {
+    const packagePath = resolve(process.cwd(), 'package.json');
+    const packageJson = JSON.parse(
+      await readFile(packagePath, 'utf8'),
+    ) as RootPackage;
+
+    expect(packageJson.scripts.format).toContain('ts,tsx');
+    expect(packageJson.scripts.typecheck).toContain('@livepulse/web typecheck');
+  });
+
   it('discovers applications and shared packages as workspaces', async () => {
     const workspacePath = resolve(process.cwd(), 'pnpm-workspace.yaml');
     const workspace = await readFile(workspacePath, 'utf8');
@@ -68,6 +82,21 @@ describe('repository foundation', () => {
     expect(gitignore).toContain('.env.*');
     expect(gitignore).toContain('*.log');
     expect(gitignore).toContain('packages/db/.generated/');
+  });
+
+  it('keeps generated frontend output out of linting', async () => {
+    const eslintPath = resolve(process.cwd(), 'eslint.config.mjs');
+    const eslintConfig = await readFile(eslintPath, 'utf8');
+
+    expect(eslintConfig).toContain("'**/.next/**'");
+    expect(eslintConfig).toContain("'**/out/**'");
+  });
+
+  it('does not reformat the Next.js generated type references', async () => {
+    const prettierIgnorePath = resolve(process.cwd(), '.prettierignore');
+    const prettierIgnore = await readFile(prettierIgnorePath, 'utf8');
+
+    expect(prettierIgnore).toContain('apps/web/next-env.d.ts');
   });
 
   it('maps shared packages without the deprecated baseUrl option', async () => {
