@@ -8,6 +8,8 @@ import type {
 } from '@livepulse/contracts';
 
 import type { AuthenticatedPrincipal } from '../auth/authenticated-request.js';
+import type { RealtimeMessagePublisher } from '../messages/messages.service.js';
+import { REALTIME_MESSAGE_PUBLISHER } from '../messages/messages.tokens.js';
 import type { RealtimeRoomSource } from './realtime-room-source.js';
 import { REALTIME_ROOM_SOURCE } from './realtime.tokens.js';
 
@@ -41,6 +43,8 @@ export class RoomRealtimeHub {
   public constructor(
     @Inject(REALTIME_ROOM_SOURCE)
     private readonly rooms: RealtimeRoomSource,
+    @Inject(REALTIME_MESSAGE_PUBLISHER)
+    private readonly publisher: RealtimeMessagePublisher,
   ) {}
 
   public async handle(peer: RealtimePeer, input: unknown): Promise<void> {
@@ -191,19 +195,49 @@ export class RoomRealtimeHub {
       return;
     }
 
+    const payload = {
+      acceptedAt: new Date().toISOString(),
+      authorId: peer.principal.userId,
+      clientMessageId,
+      messageId: stableMessageId(idempotencyKey),
+      roomId,
+      text,
+    };
+    let published: Awaited<ReturnType<RealtimeMessagePublisher['publish']>>;
+
+    try {
+      published = await this.publisher.publish(payload);
+    } catch {
+      this.sendError(
+        peer,
+        event.requestId,
+        ApiErrorCode.ServiceUnavailable,
+        'Message persistence is temporarily unavailable',
+      );
+      return;
+    }
+
+    if (published.kind === 'conflict') {
+      this.sendError(
+        peer,
+        event.requestId,
+        ApiErrorCode.RealtimeMessageConflict,
+        'A client message identifier cannot be reused with different text',
+      );
+      return;
+    }
+
     const created: MessageCreatedEvent = {
-      payload: {
-        acceptedAt: new Date().toISOString(),
-        authorId: peer.principal.userId,
-        clientMessageId,
-        messageId: stableMessageId(idempotencyKey),
-        roomId,
-        text,
-      },
+      payload: published.message,
       requestId: event.requestId,
       type: 'message.created',
       v: 1,
     };
+
+    if (published.kind === 'duplicate') {
+      peer.send(created);
+      return;
+    }
 
     if (this.acceptedMessages.size >= maxAcceptedMessages) {
       const oldestKey = this.acceptedMessages.keys().next().value;

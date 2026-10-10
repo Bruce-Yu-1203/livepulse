@@ -5,6 +5,7 @@ import {
   addPendingMessage,
   markMessageFailed,
   mergeCreatedMessage,
+  mergeHistoryMessages,
   reconnectDelay,
   resolveWebSocketUrl,
 } from './room-chat';
@@ -52,6 +53,41 @@ describe('room chat state', () => {
     expect(markMessageFailed(pending, clientMessageId)[0]?.status).toBe(
       'failed',
     );
+  });
+
+  it('prepends older history and reconciles persisted optimistic messages', () => {
+    const olderMessage = {
+      acceptedAt: '2026-10-09T19:59:00.000Z',
+      authorId,
+      clientMessageId: '11111111-1111-4111-8111-111111111111',
+      messageId: '22222222-2222-4222-8222-222222222222',
+      roomId: createdEvent.payload.roomId,
+      text: 'Older message',
+    };
+    const pending = addPendingMessage([], {
+      authorId,
+      clientMessageId,
+      text: 'Hello room',
+    });
+    const messages = mergeHistoryMessages(pending, [
+      olderMessage,
+      createdEvent.payload,
+    ]);
+
+    expect(messages.map(({ text }) => text)).toEqual([
+      'Older message',
+      'Hello room',
+    ]);
+    expect(messages[1]).toMatchObject({
+      id: createdEvent.payload.messageId,
+      status: 'sent',
+    });
+
+    const refreshed = mergeHistoryMessages(messages, [createdEvent.payload]);
+    expect(refreshed.map(({ text }) => text)).toEqual([
+      'Older message',
+      'Hello room',
+    ]);
   });
 
   it('resolves local and deployed websocket URLs with bounded backoff', () => {

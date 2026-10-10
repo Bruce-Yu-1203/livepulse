@@ -70,3 +70,14 @@ export type {
   MessageCreatedEvent,
   ServerRealtimeEvent,
 } from './realtime.js';
+
+export {
+  ListRoomMessagesQuerySchema,
+  ListRoomMessagesResponseSchema,
+  RoomMessageSchema,
+} from './messages.js';
+export type {
+  ListRoomMessagesQuery,
+  ListRoomMessagesResponse,
+  RoomMessage,
+} from './messages.js';

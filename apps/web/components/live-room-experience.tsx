@@ -61,6 +61,16 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
           aria-live="polite"
           className="flex-1 space-y-4 overflow-y-auto px-5 py-5 lg:max-h-[31rem]"
         >
+          {chat.canLoadEarlier ? (
+            <button
+              className="mx-auto block rounded-full border border-white/10 px-3 py-1.5 text-xs font-semibold text-zinc-400 transition hover:border-cyan-300/40 hover:text-cyan-200 disabled:cursor-wait disabled:opacity-50"
+              disabled={chat.historyLoading}
+              onClick={chat.loadEarlier}
+              type="button"
+            >
+              {chat.historyLoading ? 'Loading…' : 'Load earlier messages'}
+            </button>
+          ) : null}
           {chat.messages.length > 0 ? (
             chat.messages.map((message) => (
               <ChatMessageRow
@@ -146,7 +156,7 @@ function ChatMessageRow({
             ? 'sending…'
             : message.status === 'failed'
               ? 'failed'
-              : 'now'}
+              : formatMessageTime(message.acceptedAt)}
         </span>
       </div>
       <p className="mt-1 break-words text-sm leading-6 text-zinc-300">
@@ -154,6 +164,17 @@ function ChatMessageRow({
       </p>
     </div>
   );
+}
+
+function formatMessageTime(acceptedAt: string | undefined): string {
+  if (!acceptedAt) {
+    return 'now';
+  }
+
+  return new Intl.DateTimeFormat('en', {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(acceptedAt));
 }
 
 function DanmakuLayer({ messages }: { messages: ChatMessage[] }) {

@@ -3,10 +3,12 @@ import 'reflect-metadata';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import {
   RealtimeErrorEventSchema,
+  ListRoomMessagesResponseSchema,
   RoomJoinedEventSchema,
   ServerRealtimeEventSchema,
 } from '@livepulse/contracts';
 import { createDatabaseClient } from '@livepulse/db';
+import { MongoClient } from 'mongodb';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
 
@@ -19,12 +21,18 @@ import { ScryptPasswordHasher } from '../src/auth/password-hasher.js';
 import { createApp } from '../src/create-app.js';
 
 const databaseUrl = process.env.DATABASE_URL;
+const mongoUrl = process.env.MONGODB_URL;
 
 if (!databaseUrl) {
   throw new Error('DATABASE_URL is required for realtime database tests');
 }
 
+if (!mongoUrl) {
+  throw new Error('MONGODB_URL is required for realtime database tests');
+}
+
 const database = createDatabaseClient(databaseUrl);
+const mongo = new MongoClient(mongoUrl);
 const password = 'correct horse battery staple';
 const hostId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const viewerId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
@@ -69,6 +77,7 @@ describe('room WebSocket gateway', () => {
     await app.close();
     await removeFixtures();
     await database.$disconnect();
+    await mongo.close();
   });
 
   it('joins live rooms, blocks guest sends, and broadcasts one message', async () => {
@@ -103,6 +112,18 @@ describe('room WebSocket gateway', () => {
       type: 'message.created',
     });
     expect(observed).toEqual(sent);
+
+    const historyResponse = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: 'GET',
+        url: `/api/v1/rooms/${liveRoomId}/messages`,
+      });
+    expect(historyResponse.statusCode).toBe(200);
+    expect(
+      ListRoomMessagesResponseSchema.parse(historyResponse.json()).items,
+    ).toMatchObject([{ authorId: viewerId, text: 'Hello live room' }]);
 
     sender.close();
     guest.close();
@@ -171,6 +192,10 @@ describe('room WebSocket gateway', () => {
   }
 
   async function removeFixtures(): Promise<void> {
+    await mongo
+      .db()
+      .collection('messages')
+      .deleteMany({ roomId: { $in: [liveRoomId, endedRoomId] } });
     await database.room.deleteMany({
       where: { id: { in: [liveRoomId, endedRoomId] } },
     });

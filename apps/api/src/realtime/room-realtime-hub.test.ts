@@ -20,7 +20,7 @@ describe('RoomRealtimeHub', () => {
   afterEach(() => vi.useRealTimers());
 
   it('joins live rooms and broadcasts one stable message to every member', async () => {
-    const hub = new RoomRealtimeHub(roomSource(true));
+    const hub = new RoomRealtimeHub(roomSource(true), publisher());
     const sender = peer('sender', true);
     const observer = peer('observer', false);
     await hub.handle(sender, joinEvent(1));
@@ -50,7 +50,7 @@ describe('RoomRealtimeHub', () => {
 
   it('allows guests to read but rejects guest sends and ended-room joins', async () => {
     const source = roomSource(true);
-    const hub = new RoomRealtimeHub(source);
+    const hub = new RoomRealtimeHub(source, publisher());
     const guest = peer('guest', false);
     await hub.handle(guest, joinEvent(1));
     await hub.handle(guest, sendEvent(2, 1, 'Guest send'));
@@ -70,7 +70,7 @@ describe('RoomRealtimeHub', () => {
   });
 
   it('rejects invalid input, conflicting retries, and burst overflow', async () => {
-    const hub = new RoomRealtimeHub(roomSource(true));
+    const hub = new RoomRealtimeHub(roomSource(true), publisher());
     const sender = peer('sender', true);
     await hub.handle(sender, { unexpected: true });
     expect(sender.events.at(-1)).toMatchObject({
@@ -97,7 +97,7 @@ describe('RoomRealtimeHub', () => {
   it('returns an explicit unavailable event when room validation fails', async () => {
     const source = roomSource(true);
     vi.mocked(source.isLive).mockRejectedValue(new Error('database offline'));
-    const hub = new RoomRealtimeHub(source);
+    const hub = new RoomRealtimeHub(source, publisher());
     const guest = peer('guest', false);
 
     await hub.handle(guest, joinEvent(1));
@@ -107,10 +107,41 @@ describe('RoomRealtimeHub', () => {
       type: 'error',
     });
   });
+
+  it('does not broadcast when persistence is unavailable', async () => {
+    const failingPublisher = publisher();
+    vi.mocked(failingPublisher.publish).mockRejectedValue(
+      new Error('MongoDB offline'),
+    );
+    const hub = new RoomRealtimeHub(roomSource(true), failingPublisher);
+    const sender = peer('sender', true);
+    const observer = peer('observer', false);
+    await hub.handle(sender, joinEvent(1));
+    await hub.handle(observer, joinEvent(2));
+
+    await hub.handle(sender, sendEvent(3, 1, 'Not persisted'));
+
+    expect(sender.events.at(-1)).toMatchObject({
+      payload: { code: 'SERVICE_UNAVAILABLE' },
+      type: 'error',
+    });
+    expect(observer.events).toHaveLength(1);
+  });
 });
 
 function roomSource(live: boolean): RealtimeRoomSource {
   return { isLive: vi.fn().mockResolvedValue(live) };
+}
+
+function publisher() {
+  return {
+    publish: vi.fn().mockImplementation((message) =>
+      Promise.resolve({
+        kind: 'created' as const,
+        message,
+      }),
+    ),
+  };
 }
 
 function peer(id: string, authenticated: boolean) {

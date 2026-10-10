@@ -3,6 +3,7 @@
 import {
   ApiErrorCode,
   CurrentUserResponseSchema,
+  ListRoomMessagesResponseSchema,
   ServerRealtimeEventSchema,
 } from '@livepulse/contracts';
 import type { RoomStatus } from '@livepulse/contracts';
@@ -14,6 +15,7 @@ import {
   type ChatMessage,
   markMessageFailed,
   mergeCreatedMessage,
+  mergeHistoryMessages,
   reconnectDelay,
   resolveWebSocketUrl,
 } from './room-chat';
@@ -29,8 +31,49 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
   const [userId, setUserId] = useState<string>();
   const [authChecked, setAuthChecked] = useState(false);
   const [error, setError] = useState<string>();
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null | undefined>();
   const socketRef = useRef<WebSocket>(undefined);
   const requestMessagesRef = useRef(new Map<string, string>());
+  const historyLoadingRef = useRef(false);
+
+  const loadHistory = useCallback(
+    async (cursor?: string) => {
+      if (historyLoadingRef.current) {
+        return;
+      }
+
+      historyLoadingRef.current = true;
+      setHistoryLoading(true);
+      const query = new URLSearchParams({ limit: '50' });
+      if (cursor) {
+        query.set('cursor', cursor);
+      }
+
+      try {
+        const response = await clientApiRequest(
+          `/api/v1/rooms/${roomId}/messages?${query.toString()}`,
+          ListRoomMessagesResponseSchema,
+        );
+        setMessages((current) => mergeHistoryMessages(current, response.items));
+        setNextCursor((current) =>
+          cursor || current === undefined ? response.nextCursor : current,
+        );
+      } catch {
+        setError('Message history could not be loaded.');
+      } finally {
+        historyLoadingRef.current = false;
+        setHistoryLoading(false);
+      }
+    },
+    [roomId],
+  );
+
+  useEffect(() => {
+    setMessages([]);
+    setNextCursor(undefined);
+    void loadHistory();
+  }, [loadHistory]);
 
   useEffect(() => {
     let active = true;
@@ -113,6 +156,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
           attempt = 0;
           setConnection('connected');
           setError(undefined);
+          void loadHistory();
           return;
         }
 
@@ -169,7 +213,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
       }
       socketRef.current?.close(1000, 'Leaving room');
     };
-  }, [roomId, roomStatus]);
+  }, [loadHistory, roomId, roomStatus]);
 
   const sendMessage = useCallback(
     (text: string) => {
@@ -211,8 +255,15 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
 
   return {
     authChecked,
+    canLoadEarlier: nextCursor !== null && nextCursor !== undefined,
     connection,
     error,
+    historyLoading,
+    loadEarlier: () => {
+      if (nextCursor) {
+        void loadHistory(nextCursor);
+      }
+    },
     messages,
     sendMessage,
     userId,

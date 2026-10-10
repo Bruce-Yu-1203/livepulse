@@ -99,7 +99,7 @@ Public room reads expose LIVE and ENDED rooms. DRAFT rooms remain private to hos
 
 The connection path is /ws and uses wss in public environments. The web, API, and WebSocket endpoint should share one site behind a reverse proxy. The handshake validates a short-lived identity cookie and an allowed Origin. Cookies use HttpOnly, Secure, and an appropriate SameSite setting. REST write operations require a signed double-submit CSRF token in a readable cookie and custom header, plus an allowed Origin. Authentication cookies remain HttpOnly. Guests may join public rooms but cannot send messages.
 
-The current Phase A vertical slice mounts /ws on the API HTTP server and performs in-memory fan-out within one process. It validates the production-shaped envelopes, Origin, identity cookie, live-room status, stable message IDs, idempotent retries, rate limits, frame size, and send-buffer bound. It intentionally emits message.created rather than message.accepted because Kafka durability and MongoDB history are not connected yet. The next reliability phase moves this unchanged contract into the dedicated gateway and replaces the in-memory publish step with Kafka, Redis, and the history worker.
+The current Phase A vertical slice mounts /ws on the API HTTP server and performs in-memory fan-out within one process. It validates the production-shaped envelopes, Origin, identity cookie, live-room status, stable message IDs, idempotent retries, rate limits, frame size, and send-buffer bound. Before broadcasting, it writes each message directly to MongoDB and emits message.created only after that write succeeds. The REST history endpoint uses opaque cursor pagination, and the browser merges history with live and optimistic messages by stable identifiers. The next reliability phase moves this unchanged contract into the dedicated gateway and replaces the direct MongoDB publish step with Kafka, Redis, and the history worker.
 
 Example shared envelope:
 
@@ -182,7 +182,9 @@ The like cache does not use an unguarded INCR. In the first version, the statist
 
 ### 7.2 MongoDB Message History
 
-The messages collection contains _id=messageId, roomId, userId, clientMessageId, text, payloadHash, acceptedAt, partition, offset, deletedAt, and expiresAt. The server stores offset in a sortable 64-bit type and serializes it as a string in APIs.
+The Phase A messages collection contains _id=messageId, roomId, authorId, clientMessageId, text, and acceptedAt. A unique roomId/authorId/clientMessageId index makes client retries idempotent, while a roomId/acceptedAt/_id index supports deterministic cursor pagination. The direct write occurs before local fan-out, so a MongoDB failure rejects the send instead of displaying a message that cannot be recovered.
+
+The Kafka phase extends each document with payloadHash, partition, offset, deletedAt, and expiresAt. The server stores offset in a sortable 64-bit type and serializes it as a string in APIs.
 
 Indexes include the unique _id, a compound roomId/partition/offset pagination index, and a single-field expiresAt TTL index. TTL deletion runs asynchronously in the background and does not guarantee deletion at the exact expiry time, so reads also filter expiresAt.
 

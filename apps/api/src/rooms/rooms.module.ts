@@ -10,6 +10,7 @@ import { ROOMS_REPOSITORY } from './rooms.tokens.js';
 
 @Module({
   controllers: [RoomsController],
+  exports: [RoomsService],
   imports: [AuthModule, DatabaseModule],
   providers: [
     RoomsService,
