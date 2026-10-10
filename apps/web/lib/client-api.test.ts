@@ -1,7 +1,11 @@
 import { ApiErrorCode } from '@livepulse/contracts';
 import { describe, expect, it } from 'vitest';
 
-import { ClientApiError, parseApiResponse } from './client-api';
+import {
+  ClientApiError,
+  parseApiResponse,
+  parseVoidApiResponse,
+} from './client-api';
 
 const valueSchema = {
   parse(value: unknown) {
@@ -48,6 +52,30 @@ describe('parseApiResponse', () => {
     expect(error).toMatchObject({
       code: ApiErrorCode.RoomVersionConflict,
       status: 409,
+    });
+  });
+});
+
+describe('parseVoidApiResponse', () => {
+  it('accepts a successful response without parsing a body', async () => {
+    await expect(
+      parseVoidApiResponse(new Response(null, { status: 204 })),
+    ).resolves.toBeUndefined();
+  });
+
+  it('preserves API errors for bodyless mutations', async () => {
+    const response = new Response(
+      JSON.stringify({
+        code: ApiErrorCode.Unauthorized,
+        message: 'Authentication is required',
+        requestId: 'request-auth-1',
+      }),
+      { status: 401 },
+    );
+
+    await expect(parseVoidApiResponse(response)).rejects.toMatchObject({
+      code: ApiErrorCode.Unauthorized,
+      status: 401,
     });
   });
 });

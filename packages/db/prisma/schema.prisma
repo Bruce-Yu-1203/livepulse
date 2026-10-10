@@ -33,6 +33,7 @@ model User {
   updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   refreshSessions RefreshSession[]
   hostedRooms     Room[]
+  roomLikes       RoomLike[]
 
   @@map("users")
 }
@@ -49,10 +50,23 @@ model Room {
   createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   host          User       @relation(fields: [hostId], references: [id], onDelete: Restrict)
+  likes         RoomLike[]
 
   @@index([hostId])
   @@index([status, createdAt, id])
   @@map("rooms")
+}
+
+model RoomLike {
+  roomId    String   @map("room_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([roomId, userId])
+  @@index([userId])
+  @@map("room_likes")
 }
 
 model RefreshSession {

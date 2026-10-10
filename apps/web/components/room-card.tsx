@@ -2,6 +2,7 @@ import type { VisibleRoom } from '@livepulse/contracts';
 import Link from 'next/link';
 
 import { formatRoomDate, roomStatusLabel } from '../lib/presentation';
+import { formatLikeCount } from '../lib/room-likes';
 
 export function RoomCard({ room }: { room: VisibleRoom }) {
   const isLive = room.status === 'LIVE';
@@ -40,7 +41,7 @@ export function RoomCard({ room }: { room: VisibleRoom }) {
             {room.description}
           </p>
           <div className="mt-5 flex items-center justify-between border-t border-white/8 pt-4 text-xs text-zinc-500">
-            <span>Hosted experience</span>
+            <span>♡ {formatLikeCount(room.likeCount)}</span>
             <span className="text-cyan-300 transition group-hover:translate-x-1">
               Enter room →
             </span>

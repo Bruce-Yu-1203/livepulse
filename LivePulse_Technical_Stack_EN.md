@@ -83,6 +83,7 @@ A RESTful API is a resource-oriented interface style, not a low-latency broadcas
 | GET /api/v1/rooms/:id | Get room details | 200 or 404 |
 | PATCH /api/v1/rooms/:id | Edit metadata or perform a legal state transition | 200, 403, or 409 |
 | GET /api/v1/rooms/:id/messages | Paginate history or synchronize after a cursor | 200 |
+| GET /api/v1/rooms/:id/likes/me | Read the authenticated user's like state and the current count | 200 or 401 |
 | PUT /api/v1/rooms/:id/likes/me | Set the current user's like | 200 with the same result on repetition |
 | DELETE /api/v1/rooms/:id/likes/me | Remove the current user's like | 204 |
 | POST /api/v1/rooms/:id/mutes | Mute a room user as the host | 201 or 403 |
@@ -179,6 +180,8 @@ Partitions must not be added casually to the chat topic because key remapping ca
 | outbox_events | unique event_id, aggregate_id, payload, created_at, published_at, attempts |
 
 PostgreSQL owns facts that require transactions and uniqueness. It does not store every chat message. A like mutation and its outbox event are written in one transaction. The outbox relay marks the event as published after Kafka accepts it and retries failures, so downstream consumers must still be idempotent.
+
+The current Phase A like path stores one room_likes row per room and user under a composite primary key. PUT uses an upsert, DELETE uses deleteMany, and both operations converge to the same database state when repeated. Public room responses calculate the count from PostgreSQL, while the interactive button receives that initial count from the server-rendered page, loads the authenticated user's state after hydration, and rolls back its optimistic update if the mutation fails. The outbox and Redis statistics cache remain a later scaling phase.
 
 The like cache does not use an unguarded INCR. In the first version, the statistics worker receives a change event, queries the current SQL COUNT, and refreshes Redis. Concurrent refreshes require per-room serialization and version protection. At larger scale, this can become a deduplicated incremental read model with reconciliation. The first path demonstrates correctness and does not claim unlimited like throughput.
 

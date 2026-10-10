@@ -17,6 +17,7 @@ export interface RoomRecord extends CreateRoomRequest {
   createdAt: Date;
   hostId: string;
   id: string;
+  likeCount: number;
   status: RoomStatus;
   updatedAt: Date;
   version: number;
@@ -67,9 +68,13 @@ export class PrismaRoomsRepository implements RoomsRepository {
           status: 'DRAFT',
           title: input.title,
         },
+        include: { _count: { select: { likes: true } } },
       });
 
-      return { ...room, status: 'DRAFT' };
+      return {
+        ...withLikeCount(room),
+        status: 'DRAFT',
+      };
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -96,6 +101,7 @@ export class PrismaRoomsRepository implements RoomsRepository {
   }): Promise<VisibleRoomRecord[]> {
     try {
       const rooms = await this.database.client.room.findMany({
+        include: { _count: { select: { likes: true } } },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         take: input.take,
         where: {
@@ -115,7 +121,7 @@ export class PrismaRoomsRepository implements RoomsRepository {
       });
 
       return rooms.map((room) => ({
-        ...room,
+        ...withLikeCount(room),
         status: room.status as VisibleRoomRecord['status'],
       }));
     } catch (error) {
@@ -125,10 +131,13 @@ export class PrismaRoomsRepository implements RoomsRepository {
 
   public async listOwned(hostId: string): Promise<RoomRecord[]> {
     try {
-      return await this.database.client.room.findMany({
+      const rooms = await this.database.client.room.findMany({
+        include: { _count: { select: { likes: true } } },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         where: { hostId },
       });
+
+      return rooms.map(withLikeCount);
     } catch (error) {
       throwRoomDatabaseError(error);
     }
@@ -136,10 +145,12 @@ export class PrismaRoomsRepository implements RoomsRepository {
 
   public async findById(id: string): Promise<RoomRecord | undefined> {
     try {
-      return (
-        (await this.database.client.room.findUnique({ where: { id } })) ??
-        undefined
-      );
+      const room = await this.database.client.room.findUnique({
+        include: { _count: { select: { likes: true } } },
+        where: { id },
+      });
+
+      return room ? withLikeCount(room) : undefined;
     } catch (error) {
       throwRoomDatabaseError(error);
     }
@@ -150,6 +161,7 @@ export class PrismaRoomsRepository implements RoomsRepository {
   ): Promise<VisibleRoomRecord | undefined> {
     try {
       const room = await this.database.client.room.findFirst({
+        include: { _count: { select: { likes: true } } },
         where: {
           id,
           status: { in: ['LIVE', 'ENDED'] },
@@ -158,7 +170,7 @@ export class PrismaRoomsRepository implements RoomsRepository {
 
       return room
         ? {
-            ...room,
+            ...withLikeCount(room),
             status: room.status as VisibleRoomRecord['status'],
           }
         : undefined;
@@ -173,7 +185,7 @@ export class PrismaRoomsRepository implements RoomsRepository {
     id: string;
   }): Promise<RoomRecord | undefined> {
     try {
-      return await this.database.client.room.update({
+      const room = await this.database.client.room.update({
         data: {
           ...(input.changes.coverImageUrl === undefined
             ? {}
@@ -192,11 +204,14 @@ export class PrismaRoomsRepository implements RoomsRepository {
             : { title: input.changes.title }),
           version: { increment: 1 },
         },
+        include: { _count: { select: { likes: true } } },
         where: {
           id: input.id,
           version: input.expectedVersion,
         },
       });
+
+      return withLikeCount(room);
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -208,6 +223,12 @@ export class PrismaRoomsRepository implements RoomsRepository {
       throwRoomDatabaseError(error);
     }
   }
+}
+
+function withLikeCount<T extends { _count: { likes: number } }>(room: T) {
+  const { _count, ...record } = room;
+
+  return { ...record, likeCount: _count.likes };
 }
 
 function throwRoomDatabaseError(error: unknown): never {

@@ -1,0 +1,1 @@
+export const ROOM_LIKES_REPOSITORY = Symbol('ROOM_LIKES_REPOSITORY');

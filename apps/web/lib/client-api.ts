@@ -22,6 +22,21 @@ export async function clientApiRequest<T>(
   schema: ResponseSchema<T>,
   init: RequestInit = {},
 ): Promise<T> {
+  const response = await clientFetch(path, init);
+
+  return parseApiResponse(response, schema);
+}
+
+export async function clientApiVoidRequest(
+  path: string,
+  init: RequestInit = {},
+): Promise<void> {
+  const response = await clientFetch(path, init);
+
+  return parseVoidApiResponse(response);
+}
+
+async function clientFetch(path: string, init: RequestInit): Promise<Response> {
   const headers = new Headers(init.headers);
   const method = (init.method ?? 'GET').toUpperCase();
 
@@ -43,13 +58,11 @@ export async function clientApiRequest<T>(
     headers.set('x-csrf-token', csrfToken);
   }
 
-  const response = await fetch(path, {
+  return fetch(path, {
     ...init,
     credentials: 'include',
     headers,
   });
-
-  return parseApiResponse(response, schema);
 }
 
 export async function parseApiResponse<T>(
@@ -63,6 +76,12 @@ export async function parseApiResponse<T>(
   }
 
   return schema.parse(body);
+}
+
+export async function parseVoidApiResponse(response: Response): Promise<void> {
+  if (!response.ok) {
+    throw await toClientApiError(response);
+  }
 }
 
 async function toClientApiError(response: Response): Promise<ClientApiError> {

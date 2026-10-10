@@ -10,6 +10,7 @@ const draftRoom: Room = {
   description: 'A room prepared for a live audience.',
   hostId: 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',
   id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  likeCount: 0,
   status: 'DRAFT',
   title: 'Architecture Lab',
   updatedAt: '2026-10-09T15:30:00.000Z',

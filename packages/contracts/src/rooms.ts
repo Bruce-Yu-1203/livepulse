@@ -38,6 +38,7 @@ export const RoomSchema = z
     description: z.string().min(1).max(2_000),
     hostId: z.uuid(),
     id: z.uuid(),
+    likeCount: z.number().int().nonnegative(),
     status: RoomStatusSchema,
     title: z.string().min(1).max(120),
     updatedAt: z.iso.datetime(),
@@ -91,6 +92,16 @@ export const GetRoomResponseSchema = z
   .strict();
 
 export type GetRoomResponse = z.infer<typeof GetRoomResponseSchema>;
+
+export const RoomLikeResponseSchema = z
+  .object({
+    likeCount: z.number().int().nonnegative(),
+    liked: z.boolean(),
+    requestId: z.string().min(1),
+  })
+  .strict();
+
+export type RoomLikeResponse = z.infer<typeof RoomLikeResponseSchema>;
 
 export const ListOwnedRoomsResponseSchema = z
   .object({

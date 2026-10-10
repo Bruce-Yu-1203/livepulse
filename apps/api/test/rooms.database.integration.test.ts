@@ -8,6 +8,7 @@ import {
   GetRoomResponseSchema,
   ListOwnedRoomsResponseSchema,
   ListRoomsResponseSchema,
+  RoomLikeResponseSchema,
   UpdateRoomResponseSchema,
 } from '@livepulse/contracts';
 import { createDatabaseClient } from '@livepulse/db';
@@ -80,6 +81,7 @@ describe('POST /api/v1/rooms', () => {
     expect(response.headers['x-request-id']).toBe(body.requestId);
     expect(body.room.status).toBe('DRAFT');
     expect(body.room.title).toBe(roomInput.title);
+    expect(body.room.likeCount).toBe(0);
     expect(body.room.version).toBe(1);
 
     const storedRoom = await database.room.findUniqueOrThrow({
@@ -312,6 +314,109 @@ describe('POST /api/v1/rooms', () => {
     expect(ApiErrorResponseSchema.parse(draft.json()).code).toBe(
       ApiErrorCode.NotFound,
     );
+  });
+
+  it('keeps room likes idempotent and returns the authoritative count', async () => {
+    const host = await database.user.findUniqueOrThrow({
+      where: { email: 'host@example.com' },
+    });
+    const room = await database.room.create({
+      data: {
+        ...roomInput,
+        hostId: host.id,
+        status: 'LIVE',
+      },
+    });
+    const viewerHeaders = await authenticatedHeaders('viewer@example.com');
+
+    const initial = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: viewerHeaders,
+        method: 'GET',
+        url: `/api/v1/rooms/${room.id}/likes/me`,
+      });
+    expect(RoomLikeResponseSchema.parse(initial.json())).toMatchObject({
+      likeCount: 0,
+      liked: false,
+    });
+
+    for (const expectedCount of [1, 1]) {
+      const liked = await app
+        .getHttpAdapter()
+        .getInstance()
+        .inject({
+          headers: viewerHeaders,
+          method: 'PUT',
+          url: `/api/v1/rooms/${room.id}/likes/me`,
+        });
+      expect(liked.statusCode).toBe(200);
+      expect(RoomLikeResponseSchema.parse(liked.json())).toMatchObject({
+        likeCount: expectedCount,
+        liked: true,
+      });
+    }
+
+    await expect(
+      database.roomLike.count({ where: { roomId: room.id } }),
+    ).resolves.toBe(1);
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const unliked = await app
+        .getHttpAdapter()
+        .getInstance()
+        .inject({
+          headers: viewerHeaders,
+          method: 'DELETE',
+          url: `/api/v1/rooms/${room.id}/likes/me`,
+        });
+      expect(unliked.statusCode).toBe(204);
+    }
+
+    await expect(
+      database.roomLike.count({ where: { roomId: room.id } }),
+    ).resolves.toBe(0);
+  });
+
+  it('protects likes with authentication, CSRF, and public visibility', async () => {
+    const host = await database.user.findUniqueOrThrow({
+      where: { email: 'host@example.com' },
+    });
+    const draft = await database.room.create({
+      data: { ...roomInput, hostId: host.id },
+    });
+    const viewerHeaders = await authenticatedHeaders('viewer@example.com');
+
+    const anonymous = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: 'PUT',
+        url: `/api/v1/rooms/${draft.id}/likes/me`,
+      });
+    expect(anonymous.statusCode).toBe(401);
+
+    const missingCsrf = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: { cookie: viewerHeaders.cookie },
+        method: 'PUT',
+        url: `/api/v1/rooms/${draft.id}/likes/me`,
+      });
+    expect(missingCsrf.statusCode).toBe(403);
+
+    const hiddenDraft = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: viewerHeaders,
+        method: 'PUT',
+        url: `/api/v1/rooms/${draft.id}/likes/me`,
+      });
+    expect(hiddenDraft.statusCode).toBe(404);
+    await expect(database.roomLike.count()).resolves.toBe(0);
   });
 
   it('rejects malformed identifiers and cursors with stable validation errors', async () => {

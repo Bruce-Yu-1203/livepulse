@@ -8,6 +8,7 @@ import {
   ListOwnedRoomsResponseSchema,
   ListRoomsQuerySchema,
   ListRoomsResponseSchema,
+  RoomLikeResponseSchema,
   UpdateRoomRequestSchema,
   UpdateRoomResponseSchema,
 } from './rooms.js';
@@ -51,6 +52,7 @@ describe('CreateRoomResponseSchema', () => {
         createdAt: '2026-10-09T14:30:00.000Z',
         hostId: '295d5bd9-d9da-44b2-8f5d-8839f13a4437',
         id: '99d30467-ed47-43b8-96b0-d36ab2ee60e0',
+        likeCount: 0,
         status: 'DRAFT',
         updatedAt: '2026-10-09T14:30:00.000Z',
         version: 1,
@@ -69,6 +71,7 @@ describe('CreateRoomResponseSchema', () => {
           createdAt: '2026-10-09T14:30:00.000Z',
           hostId: '295d5bd9-d9da-44b2-8f5d-8839f13a4437',
           id: '99d30467-ed47-43b8-96b0-d36ab2ee60e0',
+          likeCount: 0,
           status: 'LIVE',
           updatedAt: '2026-10-09T14:30:00.000Z',
           version: 1,
@@ -84,6 +87,7 @@ describe('public room queries', () => {
     createdAt: '2026-10-09T14:30:00.000Z',
     hostId: '295d5bd9-d9da-44b2-8f5d-8839f13a4437',
     id: '99d30467-ed47-43b8-96b0-d36ab2ee60e0',
+    likeCount: 3,
     status: 'LIVE' as const,
     updatedAt: '2026-10-09T14:30:00.000Z',
     version: 2,
@@ -139,6 +143,7 @@ describe('host room management', () => {
     createdAt: '2026-10-09T14:30:00.000Z',
     hostId: '295d5bd9-d9da-44b2-8f5d-8839f13a4437',
     id: '99d30467-ed47-43b8-96b0-d36ab2ee60e0',
+    likeCount: 0,
     status: 'DRAFT' as const,
     updatedAt: '2026-10-09T14:30:00.000Z',
     version: 1,
@@ -173,5 +178,25 @@ describe('host room management', () => {
     { expectedVersion: 1, unknown: true },
   ])('rejects invalid room updates: %o', (input) => {
     expect(UpdateRoomRequestSchema.safeParse(input).success).toBe(false);
+  });
+});
+
+describe('room likes', () => {
+  it('accepts an authenticated room-like summary', () => {
+    expect(
+      RoomLikeResponseSchema.parse({
+        likeCount: 12,
+        liked: true,
+        requestId: 'request-like-1',
+      }),
+    ).toEqual({ likeCount: 12, liked: true, requestId: 'request-like-1' });
+  });
+
+  it.each([
+    { likeCount: -1, liked: true, requestId: 'request-like-2' },
+    { likeCount: 1.5, liked: true, requestId: 'request-like-3' },
+    { likeCount: 1, liked: 'yes', requestId: 'request-like-4' },
+  ])('rejects an invalid room-like summary: %o', (response) => {
+    expect(RoomLikeResponseSchema.safeParse(response).success).toBe(false);
   });
 });

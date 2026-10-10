@@ -119,4 +119,46 @@ describe('authentication database constraints', () => {
       pool.query('DELETE FROM users WHERE id = $1', [hostId]),
     ).rejects.toMatchObject({ code: '23001' });
   });
+
+  it('enforces one like per room and user', async () => {
+    const hostId = randomUUID();
+    const viewerId = randomUUID();
+    const roomId = randomUUID();
+
+    await pool.query(
+      "INSERT INTO users (id, email, password_hash, role) VALUES ($1, $2, $3, 'HOST'), ($4, $5, $6, 'VIEWER')",
+      [
+        hostId,
+        'likes-host@example.com',
+        'password-hash',
+        viewerId,
+        'likes-viewer@example.com',
+        'password-hash',
+      ],
+    );
+    await pool.query(
+      `INSERT INTO rooms
+        (id, host_id, title, description, cover_image_url, demo_video_url, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'LIVE')`,
+      [
+        roomId,
+        hostId,
+        'Likeable room',
+        'A room with relational likes',
+        'https://cdn.example.com/cover.jpg',
+        'https://video.example.com/demo.mp4',
+      ],
+    );
+    await pool.query(
+      'INSERT INTO room_likes (room_id, user_id) VALUES ($1, $2)',
+      [roomId, viewerId],
+    );
+
+    await expect(
+      pool.query('INSERT INTO room_likes (room_id, user_id) VALUES ($1, $2)', [
+        roomId,
+        viewerId,
+      ]),
+    ).rejects.toMatchObject({ code: '23505' });
+  });
 });

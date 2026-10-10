@@ -12,6 +12,7 @@ const room: VisibleRoom = {
   description: 'Learn distributed systems with a live audience.',
   hostId: 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',
   id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  likeCount: 24,
   status: 'LIVE',
   title: 'Architecture Lab',
   updatedAt: '2026-10-09T15:30:00.000Z',
@@ -26,5 +27,6 @@ describe('RoomCard', () => {
     expect(html).toContain('Architecture Lab');
     expect(html).toContain('Live now');
     expect(html).toContain('Learn distributed systems');
+    expect(html).toContain('♡ 24');
   });
 });

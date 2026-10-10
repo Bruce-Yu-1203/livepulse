@@ -7,6 +7,7 @@ import { useState } from 'react';
 
 import { type ChatMessage, roomPresenceLabel } from '../lib/room-chat';
 import { useRoomChat } from '../lib/use-room-chat';
+import { RoomLikeButton } from './room-like-button';
 
 export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
   const chat = useRoomChat(room.id, room.status);
@@ -35,6 +36,14 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
           Your browser does not support embedded video.
         </video>
         {danmakuVisible ? <DanmakuLayer messages={chat.messages} /> : null}
+        <div className="absolute bottom-4 left-4 z-20">
+          <RoomLikeButton
+            authChecked={chat.authChecked}
+            initialLikeCount={room.likeCount}
+            roomId={room.id}
+            userId={chat.userId}
+          />
+        </div>
         <button
           className="absolute right-4 top-4 z-20 rounded-full border border-white/15 bg-black/65 px-3 py-2 text-xs font-semibold text-white backdrop-blur transition hover:bg-black/80"
           onClick={() => setDanmakuVisible((visible) => !visible)}
