@@ -26,6 +26,16 @@ describe('AuthTokenService', () => {
     expect(verified.payload.sub).toBe(user.id);
     expect(verified.payload.sid).toBe('99d30467-ed47-43b8-96b0-d36ab2ee60e0');
     expect(verified.payload.role).toBe('VIEWER');
+    await expect(
+      tokens.verifyAccessPrincipal(
+        credentials.token,
+        new Date('2026-10-09T01:01:00.000Z'),
+      ),
+    ).resolves.toEqual({
+      role: 'VIEWER',
+      sessionId: '99d30467-ed47-43b8-96b0-d36ab2ee60e0',
+      userId: user.id,
+    });
     expect(credentials.expiresAt.toISOString()).toBe(
       '2026-10-09T01:15:00.000Z',
     );

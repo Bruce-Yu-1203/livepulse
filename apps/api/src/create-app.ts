@@ -5,9 +5,11 @@ import { FastifyAdapter } from '@nestjs/platform-fastify';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import fastifyCookie from '@fastify/cookie';
 import type { FastifyInstance } from 'fastify';
+import type { Server } from 'node:http';
 
 import { AppModule } from './app.module.js';
 import { ApiExceptionFilter } from './http/api-exception.filter.js';
+import { RoomWebSocketServer } from './realtime/room-websocket.server.js';
 
 export async function createApp(
   options: NestApplicationOptions = {},
@@ -34,6 +36,7 @@ export async function createApp(
     void reply.header('x-request-id', request.id);
     done();
   });
+  app.get(RoomWebSocketServer).attach(app.getHttpServer() as Server);
 
   return app;
 }

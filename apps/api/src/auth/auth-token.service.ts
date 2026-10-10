@@ -14,12 +14,16 @@ import {
   refreshTokenLifetimeSeconds,
   resolveAuthConfig,
 } from './auth-config.js';
+import type { AuthenticatedPrincipal } from './authenticated-request.js';
 
 const issuer = 'livepulse-api';
 const audience = 'livepulse-web';
 const refreshTokenPattern =
   /^([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.([A-Za-z0-9_-]{43})$/i;
 const csrfTokenPattern = /^([A-Za-z0-9_-]{43})\.([A-Za-z0-9_-]{43})$/;
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const authenticatedRoles = new Set(['ADMIN', 'HOST', 'VIEWER']);
 
 export const accessCookieName = 'lp_access';
 export const anonymousCsrfContext = 'anonymous';
@@ -146,6 +150,31 @@ export class AuthTokenService {
       currentDate: now,
       issuer,
     });
+  }
+
+  public async verifyAccessPrincipal(
+    token: string,
+    now = new Date(),
+  ): Promise<AuthenticatedPrincipal | undefined> {
+    const verified = await this.verifyAccessToken(token, now);
+    const { role, sid, sub } = verified.payload;
+
+    if (
+      !sub ||
+      !uuidPattern.test(sub) ||
+      typeof sid !== 'string' ||
+      !uuidPattern.test(sid) ||
+      typeof role !== 'string' ||
+      !authenticatedRoles.has(role)
+    ) {
+      return undefined;
+    }
+
+    return {
+      role: role as AuthenticatedPrincipal['role'],
+      sessionId: sid,
+      userId: sub,
+    };
   }
 
   public get secureCookies(): boolean {

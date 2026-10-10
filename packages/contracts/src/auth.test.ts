@@ -95,6 +95,10 @@ describe('login and session contracts', () => {
       'ROOM_INVALID_STATUS_TRANSITION',
     );
     expect(ApiErrorCode.RoomVersionConflict).toBe('ROOM_VERSION_CONFLICT');
+    expect(ApiErrorCode.RealtimeAuthenticationRequired).toBe(
+      'REALTIME_AUTHENTICATION_REQUIRED',
+    );
+    expect(ApiErrorCode.RealtimeRateLimited).toBe('REALTIME_RATE_LIMITED');
     expect(ApiErrorCode.Unauthorized).toBe('AUTH_UNAUTHORIZED');
   });
 

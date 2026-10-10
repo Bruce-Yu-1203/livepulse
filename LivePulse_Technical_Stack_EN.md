@@ -99,6 +99,8 @@ Public room reads expose LIVE and ENDED rooms. DRAFT rooms remain private to hos
 
 The connection path is /ws and uses wss in public environments. The web, API, and WebSocket endpoint should share one site behind a reverse proxy. The handshake validates a short-lived identity cookie and an allowed Origin. Cookies use HttpOnly, Secure, and an appropriate SameSite setting. REST write operations require a signed double-submit CSRF token in a readable cookie and custom header, plus an allowed Origin. Authentication cookies remain HttpOnly. Guests may join public rooms but cannot send messages.
 
+The current Phase A vertical slice mounts /ws on the API HTTP server and performs in-memory fan-out within one process. It validates the production-shaped envelopes, Origin, identity cookie, live-room status, stable message IDs, idempotent retries, rate limits, frame size, and send-buffer bound. It intentionally emits message.created rather than message.accepted because Kafka durability and MongoDB history are not connected yet. The next reliability phase moves this unchanged contract into the dedicated gateway and replaces the in-memory publish step with Kafka, Redis, and the history worker.
+
 Example shared envelope:
 
 ```json

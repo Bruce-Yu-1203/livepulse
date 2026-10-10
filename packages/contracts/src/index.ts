@@ -55,3 +55,18 @@ export type {
   UpdateRoomResponse,
   VisibleRoom,
 } from './rooms.js';
+
+export {
+  ClientRealtimeEventSchema,
+  MessageCreatedEventSchema,
+  MessageSendEventSchema,
+  RealtimeErrorEventSchema,
+  RoomJoinedEventSchema,
+  RoomJoinEventSchema,
+  ServerRealtimeEventSchema,
+} from './realtime.js';
+export type {
+  ClientRealtimeEvent,
+  MessageCreatedEvent,
+  ServerRealtimeEvent,
+} from './realtime.js';

@@ -92,6 +92,14 @@ describe('repository foundation', () => {
     expect(eslintConfig).toContain("'**/out/**'");
   });
 
+  it('keeps compiled test copies out of Vitest discovery', async () => {
+    const vitestPath = resolve(process.cwd(), 'vitest.config.ts');
+    const vitestConfig = await readFile(vitestPath, 'utf8');
+
+    expect(vitestConfig).toContain('configDefaults.exclude');
+    expect(vitestConfig).toContain("'**/dist/**'");
+  });
+
   it('does not reformat the Next.js generated type references', async () => {
     const prettierIgnorePath = resolve(process.cwd(), '.prettierignore');
     const prettierIgnore = await readFile(prettierIgnorePath, 'utf8');

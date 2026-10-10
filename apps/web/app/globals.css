@@ -50,3 +50,24 @@ input,
 textarea {
   font: inherit;
 }
+
+@keyframes danmaku-slide {
+  from {
+    transform: translateX(105vw);
+  }
+
+  to {
+    transform: translateX(-120%);
+  }
+}
+
+.danmaku-message {
+  animation: danmaku-slide 9s linear forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .danmaku-message {
+    animation: none;
+    right: 1rem;
+  }
+}

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
+import { LiveRoomExperience } from '../../../components/live-room-experience';
 import { SiteHeader } from '../../../components/site-header';
 import { ApiRequestError, getRoom } from '../../../lib/api';
 import { formatRoomDate, roomStatusLabel } from '../../../lib/presentation';
@@ -44,19 +45,9 @@ export default async function RoomPage({
           >
             ← All rooms
           </Link>
-          <div className="mt-7 overflow-hidden rounded-[2rem] border border-white/10 bg-black shadow-2xl shadow-black/40">
-            <video
-              className="aspect-video w-full bg-zinc-950 object-cover"
-              controls
-              poster={room.coverImageUrl}
-              preload="metadata"
-              src={room.demoVideoUrl}
-            >
-              Your browser does not support embedded video.
-            </video>
-          </div>
+          <LiveRoomExperience room={room} />
 
-          <div className="grid gap-10 py-10 lg:grid-cols-[1fr_20rem] lg:py-14">
+          <div className="py-10 lg:py-14">
             <section>
               <div className="flex flex-wrap items-center gap-3">
                 <span
@@ -79,23 +70,6 @@ export default async function RoomPage({
                 {room.description}
               </p>
             </section>
-
-            <aside className="h-fit rounded-[1.5rem] border border-white/8 bg-white/[0.035] p-6">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-zinc-500">
-                Room access
-              </p>
-              <p className="mt-4 text-sm leading-6 text-zinc-300">
-                {isLive
-                  ? 'This room is live. Real-time chat will connect here in the next frontend milestone.'
-                  : 'This broadcast has ended. The demo stream remains available as a replay.'}
-              </p>
-              <Link
-                className="mt-6 block rounded-full bg-white px-5 py-3 text-center text-sm font-bold text-zinc-950 transition hover:bg-cyan-200"
-                href="/auth"
-              >
-                Sign in to participate
-              </Link>
-            </aside>
           </div>
         </main>
       </>

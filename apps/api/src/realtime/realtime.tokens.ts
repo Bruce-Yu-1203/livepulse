@@ -1,0 +1,1 @@
+export const REALTIME_ROOM_SOURCE = Symbol('REALTIME_ROOM_SOURCE');
