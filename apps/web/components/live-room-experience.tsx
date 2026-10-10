@@ -5,7 +5,7 @@ import Link from 'next/link';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 
-import type { ChatMessage } from '../lib/room-chat';
+import { type ChatMessage, roomPresenceLabel } from '../lib/room-chat';
 import { useRoomChat } from '../lib/use-room-chat';
 
 export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
@@ -50,6 +50,9 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
             <p className="text-sm font-semibold text-white">Live chat</p>
             <p className="mt-1 text-xs text-zinc-500">
               {connectionLabel(chat.connection)}
+              {chat.connection === 'connected'
+                ? ` · ${roomPresenceLabel(chat.onlineCount)}`
+                : ''}
             </p>
           </div>
           <span

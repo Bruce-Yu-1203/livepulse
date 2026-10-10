@@ -28,6 +28,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
     roomStatus === 'LIVE' ? 'connecting' : 'ended',
   );
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [onlineCount, setOnlineCount] = useState(0);
   const [userId, setUserId] = useState<string>();
   const [authChecked, setAuthChecked] = useState(false);
   const [error, setError] = useState<string>();
@@ -106,6 +107,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
   useEffect(() => {
     if (roomStatus !== 'LIVE') {
       setConnection('ended');
+      setOnlineCount(0);
       return;
     }
 
@@ -155,8 +157,14 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
         if (parsed.data.type === 'room.joined') {
           attempt = 0;
           setConnection('connected');
+          setOnlineCount(parsed.data.payload.connections);
           setError(undefined);
           void loadHistory();
+          return;
+        }
+
+        if (parsed.data.type === 'room.stats') {
+          setOnlineCount(parsed.data.payload.connections);
           return;
         }
 
@@ -196,6 +204,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
         }
 
         setConnection('reconnecting');
+        setOnlineCount(0);
         reconnectTimer = setTimeout(connect, reconnectDelay(attempt));
         attempt += 1;
       });
@@ -265,6 +274,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
       }
     },
     messages,
+    onlineCount,
     sendMessage,
     userId,
   };

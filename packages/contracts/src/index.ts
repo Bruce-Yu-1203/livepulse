@@ -58,15 +58,18 @@ export type {
 
 export {
   ClientRealtimeEventSchema,
+  DistributedRealtimeEventSchema,
   MessageCreatedEventSchema,
   MessageSendEventSchema,
   RealtimeErrorEventSchema,
   RoomJoinedEventSchema,
   RoomJoinEventSchema,
+  RoomStatsEventSchema,
   ServerRealtimeEventSchema,
 } from './realtime.js';
 export type {
   ClientRealtimeEvent,
+  DistributedRealtimeEvent,
   MessageCreatedEvent,
   ServerRealtimeEvent,
 } from './realtime.js';

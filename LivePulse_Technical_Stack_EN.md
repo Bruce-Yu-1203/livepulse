@@ -99,7 +99,7 @@ Public room reads expose LIVE and ENDED rooms. DRAFT rooms remain private to hos
 
 The connection path is /ws and uses wss in public environments. The web, API, and WebSocket endpoint should share one site behind a reverse proxy. The handshake validates a short-lived identity cookie and an allowed Origin. Cookies use HttpOnly, Secure, and an appropriate SameSite setting. REST write operations require a signed double-submit CSRF token in a readable cookie and custom header, plus an allowed Origin. Authentication cookies remain HttpOnly. Guests may join public rooms but cannot send messages.
 
-The current Phase A vertical slice mounts /ws on the API HTTP server and performs in-memory fan-out within one process. It validates the production-shaped envelopes, Origin, identity cookie, live-room status, stable message IDs, idempotent retries, rate limits, frame size, and send-buffer bound. Before broadcasting, it writes each message directly to MongoDB and emits message.created only after that write succeeds. The REST history endpoint uses opaque cursor pagination, and the browser merges history with live and optimistic messages by stable identifiers. The next reliability phase moves this unchanged contract into the dedicated gateway and replaces the direct MongoDB publish step with Kafka, Redis, and the history worker.
+The current Phase A vertical slice mounts /ws on the API HTTP server, keeps WebSocket objects and room membership local to each process, and uses Redis Pub/Sub for cross-instance fan-out. Redis sorted sets store leased connection presence so crashed instances expire without permanent count inflation. The gateway validates the production-shaped envelopes, Origin, identity cookie, live-room status, stable message IDs, idempotent retries, rate limits, frame size, and send-buffer bound. Before broadcasting, it writes each message directly to MongoDB and emits message.created only after that write succeeds. The REST history endpoint uses opaque cursor pagination, and the browser merges history with live and optimistic messages by stable identifiers. The next reliability phase moves this unchanged contract into the dedicated gateway and replaces the direct MongoDB publish step with Kafka and the history worker.
 
 Example shared envelope:
 
@@ -136,6 +136,8 @@ The same ID cannot carry different text. A retry must reuse the original payload
 ### 6.1 Recommended Path
 
 Gateway → Kafka chat.messages.v1 → Broadcast Worker → Redis room channel → every gateway subscribed to the room → local connections on each gateway.
+
+The current Phase A path is API gateway → MongoDB → Redis room-events channel → every API instance → local room connections. Redis Pub/Sub is deliberately treated as an at-most-once online path; reconnecting clients recover missed messages from MongoDB history. Kafka later becomes the durable acceptance boundary without changing the browser event contract.
 
 An independent History Worker consumes the same Kafka topic and writes to MongoDB. The gateway returns accepted after Kafka acknowledges the append. Fan-out and persistence operate independently, so a MongoDB outage does not immediately block Kafka ingestion until storage or lag reaches a protection threshold.
 

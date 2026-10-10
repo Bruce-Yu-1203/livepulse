@@ -44,6 +44,7 @@ export const RoomJoinedEventSchema = z
   .object({
     payload: z
       .object({
+        connections: z.number().int().nonnegative(),
         connectedAt: z.iso.datetime(),
         roomId: RoomIdSchema,
       })
@@ -72,6 +73,21 @@ export const MessageCreatedEventSchema = z
   })
   .strict();
 
+export const RoomStatsEventSchema = z
+  .object({
+    payload: z
+      .object({
+        connections: z.number().int().nonnegative(),
+        roomId: RoomIdSchema,
+        updatedAt: z.iso.datetime(),
+      })
+      .strict(),
+    requestId: RequestIdSchema,
+    type: z.literal('room.stats'),
+    v: EventVersionSchema,
+  })
+  .strict();
+
 export const RealtimeErrorEventSchema = z
   .object({
     payload: z
@@ -91,7 +107,16 @@ export const ServerRealtimeEventSchema = z.discriminatedUnion('type', [
   MessageCreatedEventSchema,
   RealtimeErrorEventSchema,
   RoomJoinedEventSchema,
+  RoomStatsEventSchema,
+]);
+
+export const DistributedRealtimeEventSchema = z.discriminatedUnion('type', [
+  MessageCreatedEventSchema,
+  RoomStatsEventSchema,
 ]);
 
 export type ServerRealtimeEvent = z.infer<typeof ServerRealtimeEventSchema>;
 export type MessageCreatedEvent = z.infer<typeof MessageCreatedEventSchema>;
+export type DistributedRealtimeEvent = z.infer<
+  typeof DistributedRealtimeEventSchema
+>;

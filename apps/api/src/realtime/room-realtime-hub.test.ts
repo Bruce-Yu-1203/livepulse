@@ -1,7 +1,14 @@
-import type { ServerRealtimeEvent } from '@livepulse/contracts';
+import type {
+  DistributedRealtimeEvent,
+  ServerRealtimeEvent,
+} from '@livepulse/contracts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { RealtimeRoomSource } from './realtime-room-source.js';
+import type {
+  RealtimeEventBus,
+  RealtimePresence,
+} from './realtime-coordination.js';
 import {
   type RealtimePeer,
   RoomRealtimeHub,
@@ -20,7 +27,7 @@ describe('RoomRealtimeHub', () => {
   afterEach(() => vi.useRealTimers());
 
   it('joins live rooms and broadcasts one stable message to every member', async () => {
-    const hub = new RoomRealtimeHub(roomSource(true), publisher());
+    const hub = createHub();
     const sender = peer('sender', true);
     const observer = peer('observer', false);
     await hub.handle(sender, joinEvent(1));
@@ -44,13 +51,30 @@ describe('RoomRealtimeHub', () => {
     ).toBe(stableMessageId(`${userId}:${roomId}:${uuid(1)}`));
 
     await hub.handle(sender, sendEvent(4, 1, 'Hello room'));
-    expect(sender.events).toHaveLength(3);
-    expect(observer.events).toHaveLength(2);
+    expect(eventsOfType(sender, 'message.created')).toHaveLength(2);
+    expect(eventsOfType(observer, 'message.created')).toHaveLength(1);
+  });
+
+  it('publishes leased presence updates when members join and leave', async () => {
+    const hub = createHub();
+    const first = peer('first', false);
+    const second = peer('second', false);
+
+    await hub.handle(first, joinEvent(1));
+    await hub.handle(second, joinEvent(2));
+
+    expect(eventsOfType(first, 'room.stats').at(-1)).toMatchObject({
+      payload: { connections: 2, roomId },
+    });
+    await hub.disconnect(second);
+    expect(eventsOfType(first, 'room.stats').at(-1)).toMatchObject({
+      payload: { connections: 1, roomId },
+    });
   });
 
   it('allows guests to read but rejects guest sends and ended-room joins', async () => {
     const source = roomSource(true);
-    const hub = new RoomRealtimeHub(source, publisher());
+    const hub = createHub(source);
     const guest = peer('guest', false);
     await hub.handle(guest, joinEvent(1));
     await hub.handle(guest, sendEvent(2, 1, 'Guest send'));
@@ -70,7 +94,7 @@ describe('RoomRealtimeHub', () => {
   });
 
   it('rejects invalid input, conflicting retries, and burst overflow', async () => {
-    const hub = new RoomRealtimeHub(roomSource(true), publisher());
+    const hub = createHub();
     const sender = peer('sender', true);
     await hub.handle(sender, { unexpected: true });
     expect(sender.events.at(-1)).toMatchObject({
@@ -97,7 +121,7 @@ describe('RoomRealtimeHub', () => {
   it('returns an explicit unavailable event when room validation fails', async () => {
     const source = roomSource(true);
     vi.mocked(source.isLive).mockRejectedValue(new Error('database offline'));
-    const hub = new RoomRealtimeHub(source, publisher());
+    const hub = createHub(source);
     const guest = peer('guest', false);
 
     await hub.handle(guest, joinEvent(1));
@@ -113,7 +137,12 @@ describe('RoomRealtimeHub', () => {
     vi.mocked(failingPublisher.publish).mockRejectedValue(
       new Error('MongoDB offline'),
     );
-    const hub = new RoomRealtimeHub(roomSource(true), failingPublisher);
+    const hub = new RoomRealtimeHub(
+      roomSource(true),
+      failingPublisher,
+      eventBus(),
+      presence(),
+    );
     const sender = peer('sender', true);
     const observer = peer('observer', false);
     await hub.handle(sender, joinEvent(1));
@@ -125,9 +154,39 @@ describe('RoomRealtimeHub', () => {
       payload: { code: 'SERVICE_UNAVAILABLE' },
       type: 'error',
     });
-    expect(observer.events).toHaveLength(1);
+    expect(eventsOfType(observer, 'message.created')).toHaveLength(0);
+  });
+
+  it('falls back to local fan-out when Redis publication fails', async () => {
+    const unavailableBus = eventBus();
+    vi.mocked(unavailableBus.publish).mockRejectedValue(
+      new Error('Redis offline'),
+    );
+    const hub = new RoomRealtimeHub(
+      roomSource(true),
+      publisher(),
+      unavailableBus,
+      presence(),
+    );
+    const sender = peer('sender', true);
+    const observer = peer('observer', false);
+    await hub.handle(sender, joinEvent(1));
+    await hub.handle(observer, joinEvent(2));
+
+    await hub.handle(sender, sendEvent(3, 1, 'Local fallback'));
+
+    expect(eventsOfType(sender, 'message.created').at(-1)).toMatchObject({
+      payload: { text: 'Local fallback' },
+    });
+    expect(eventsOfType(observer, 'message.created').at(-1)).toMatchObject({
+      payload: { text: 'Local fallback' },
+    });
   });
 });
+
+function createHub(source = roomSource(true)): RoomRealtimeHub {
+  return new RoomRealtimeHub(source, publisher(), eventBus(), presence());
+}
 
 function roomSource(live: boolean): RealtimeRoomSource {
   return { isLive: vi.fn().mockResolvedValue(live) };
@@ -142,6 +201,57 @@ function publisher() {
       }),
     ),
   };
+}
+
+function eventBus(): RealtimeEventBus {
+  const listeners = new Set<(event: DistributedRealtimeEvent) => void>();
+  return {
+    publish: vi.fn().mockImplementation((event: DistributedRealtimeEvent) => {
+      for (const listener of listeners) {
+        listener(event);
+      }
+      return Promise.resolve();
+    }),
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+}
+
+function presence(): RealtimePresence {
+  const roomMembers = new Map<string, Set<string>>();
+  return {
+    async join(joinedRoomId, connectionId) {
+      const members = roomMembers.get(joinedRoomId) ?? new Set<string>();
+      members.add(connectionId);
+      roomMembers.set(joinedRoomId, members);
+      return members.size;
+    },
+    async leave(leftRoomId, connectionId) {
+      const members = roomMembers.get(leftRoomId) ?? new Set<string>();
+      members.delete(connectionId);
+      return members.size;
+    },
+    async refresh(connections) {
+      return new Map(
+        [...new Set(connections.map(({ roomId: id }) => id))].map((id) => [
+          id,
+          roomMembers.get(id)?.size ?? 0,
+        ]),
+      );
+    },
+  };
+}
+
+function eventsOfType<T extends ServerRealtimeEvent['type']>(
+  target: ReturnType<typeof peer>,
+  type: T,
+): Extract<ServerRealtimeEvent, { type: T }>[] {
+  return target.events.filter(
+    (event): event is Extract<ServerRealtimeEvent, { type: T }> =>
+      event.type === type,
+  );
 }
 
 function peer(id: string, authenticated: boolean) {

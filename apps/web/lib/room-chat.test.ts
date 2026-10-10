@@ -7,6 +7,7 @@ import {
   mergeCreatedMessage,
   mergeHistoryMessages,
   reconnectDelay,
+  roomPresenceLabel,
   resolveWebSocketUrl,
 } from './room-chat';
 
@@ -109,5 +110,7 @@ describe('room chat state', () => {
     ).toBe('wss://live.example.com/ws');
     expect(reconnectDelay(0, () => 0.5)).toBe(1_000);
     expect(reconnectDelay(20, () => 0.5)).toBe(30_000);
+    expect(roomPresenceLabel(1)).toBe('1 person online');
+    expect(roomPresenceLabel(1_250)).toBe('1,250 people online');
   });
 });

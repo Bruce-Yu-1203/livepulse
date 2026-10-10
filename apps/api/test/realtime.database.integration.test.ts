@@ -9,6 +9,7 @@ import {
 } from '@livepulse/contracts';
 import { createDatabaseClient } from '@livepulse/db';
 import { MongoClient } from 'mongodb';
+import { createClient } from 'redis';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
 
@@ -22,6 +23,8 @@ import { createApp } from '../src/create-app.js';
 
 const databaseUrl = process.env.DATABASE_URL;
 const mongoUrl = process.env.MONGODB_URL;
+const redisUrl = process.env.REDIS_URL;
+const redisKeyPrefix = process.env.REDIS_KEY_PREFIX;
 
 if (!databaseUrl) {
   throw new Error('DATABASE_URL is required for realtime database tests');
@@ -31,8 +34,15 @@ if (!mongoUrl) {
   throw new Error('MONGODB_URL is required for realtime database tests');
 }
 
+if (!redisUrl || !redisKeyPrefix) {
+  throw new Error(
+    'REDIS_URL and REDIS_KEY_PREFIX are required for realtime database tests',
+  );
+}
+
 const database = createDatabaseClient(databaseUrl);
 const mongo = new MongoClient(mongoUrl);
+const redis = createClient({ url: redisUrl });
 const password = 'correct horse battery staple';
 const hostId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const viewerId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
@@ -41,10 +51,13 @@ const endedRoomId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 
 describe('room WebSocket gateway', () => {
   let app: NestFastifyApplication;
+  let secondApp: NestFastifyApplication;
   let websocketUrl: string;
+  let secondWebsocketUrl: string;
   let accessCookie: string;
 
   beforeAll(async () => {
+    await redis.connect();
     await removeFixtures();
     const passwordHash = await new ScryptPasswordHasher().hash(password);
     await database.user.createMany({
@@ -68,42 +81,47 @@ describe('room WebSocket gateway', () => {
     });
 
     app = await createApp({ logger: false });
+    secondApp = await createApp({ logger: false });
     await app.listen(0, '127.0.0.1');
+    await secondApp.listen(0, '127.0.0.1');
     websocketUrl = `${await app.getUrl().then((url) => url.replace('http:', 'ws:'))}/ws`;
+    secondWebsocketUrl = `${await secondApp.getUrl().then((url) => url.replace('http:', 'ws:'))}/ws`;
     accessCookie = await login();
   });
 
   afterAll(async () => {
     await app.close();
+    await secondApp.close();
     await removeFixtures();
     await database.$disconnect();
     await mongo.close();
+    await redis.close();
   });
 
   it('joins live rooms, blocks guest sends, and broadcasts one message', async () => {
     const sender = await connect(accessCookie);
-    const guest = await connect();
+    const guest = await connect(undefined, 'http://localhost:3000', true);
 
-    const senderJoined = nextEvent(sender);
+    const senderJoined = nextEventOfType(sender, 'room.joined');
     sender.send(JSON.stringify(joinEvent(liveRoomId, 1)));
-    expect(RoomJoinedEventSchema.parse(await senderJoined).payload.roomId).toBe(
-      liveRoomId,
-    );
+    expect(
+      RoomJoinedEventSchema.parse(await senderJoined).payload,
+    ).toMatchObject({ connections: 1, roomId: liveRoomId });
 
-    const guestJoined = nextEvent(guest);
+    const guestJoined = nextEventOfType(guest, 'room.joined');
     guest.send(JSON.stringify(joinEvent(liveRoomId, 2)));
-    expect(RoomJoinedEventSchema.parse(await guestJoined).payload.roomId).toBe(
-      liveRoomId,
-    );
+    expect(
+      RoomJoinedEventSchema.parse(await guestJoined).payload,
+    ).toMatchObject({ connections: 2, roomId: liveRoomId });
 
-    const guestRejected = nextEvent(guest);
+    const guestRejected = nextEventOfType(guest, 'error');
     guest.send(JSON.stringify(sendEvent(liveRoomId, 3, 1, 'Guest message')));
     expect(
       RealtimeErrorEventSchema.parse(await guestRejected).payload.code,
     ).toBe('REALTIME_AUTHENTICATION_REQUIRED');
 
-    const senderCreated = nextEvent(sender);
-    const guestCreated = nextEvent(guest);
+    const senderCreated = nextEventOfType(sender, 'message.created');
+    const guestCreated = nextEventOfType(guest, 'message.created');
     sender.send(JSON.stringify(sendEvent(liveRoomId, 4, 2, 'Hello live room')));
     const sent = ServerRealtimeEventSchema.parse(await senderCreated);
     const observed = ServerRealtimeEventSchema.parse(await guestCreated);
@@ -131,7 +149,7 @@ describe('room WebSocket gateway', () => {
 
   it('rejects ended-room joins and untrusted origins', async () => {
     const viewer = await connect(accessCookie);
-    const rejectedJoin = nextEvent(viewer);
+    const rejectedJoin = nextEventOfType(viewer, 'error');
     viewer.send(JSON.stringify(joinEvent(endedRoomId, 5)));
     expect(
       RealtimeErrorEventSchema.parse(await rejectedJoin).payload.code,
@@ -180,18 +198,26 @@ describe('room WebSocket gateway', () => {
   function connect(
     cookie?: string,
     origin = 'http://localhost:3000',
+    secondInstance = false,
   ): Promise<WebSocket> {
     return new Promise((resolve, reject) => {
-      const socket = new WebSocket(websocketUrl, {
-        ...(cookie ? { headers: { cookie } } : {}),
-        origin,
-      });
+      const socket = new WebSocket(
+        secondInstance ? secondWebsocketUrl : websocketUrl,
+        {
+          ...(cookie ? { headers: { cookie } } : {}),
+          origin,
+        },
+      );
       socket.once('open', () => resolve(socket));
       socket.once('error', reject);
     });
   }
 
   async function removeFixtures(): Promise<void> {
+    await redis.del([
+      `${redisKeyPrefix}:room:${liveRoomId}:presence`,
+      `${redisKeyPrefix}:room:${endedRoomId}:presence`,
+    ]);
     await mongo
       .db()
       .collection('messages')
@@ -208,15 +234,26 @@ describe('room WebSocket gateway', () => {
   }
 });
 
-function nextEvent(socket: WebSocket): Promise<unknown> {
+function nextEventOfType(
+  socket: WebSocket,
+  type: 'error' | 'message.created' | 'room.joined',
+): Promise<unknown> {
   return new Promise((resolve, reject) => {
-    socket.once('message', (data) => {
+    const receive = (data: WebSocket.RawData) => {
       try {
-        resolve(JSON.parse(data.toString()) as unknown);
+        const event = ServerRealtimeEventSchema.parse(
+          JSON.parse(data.toString()) as unknown,
+        );
+        if (event.type === type) {
+          socket.off('message', receive);
+          resolve(event);
+        }
       } catch (error) {
+        socket.off('message', receive);
         reject(error instanceof Error ? error : new Error('Invalid event'));
       }
-    });
+    };
+    socket.on('message', receive);
     socket.once('error', reject);
   });
 }

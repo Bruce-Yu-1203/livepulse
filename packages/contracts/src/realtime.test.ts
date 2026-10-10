@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ClientRealtimeEventSchema,
+  DistributedRealtimeEventSchema,
   MessageCreatedEventSchema,
   MessageSendEventSchema,
   RealtimeErrorEventSchema,
+  RoomJoinedEventSchema,
 } from './realtime.js';
 
 const requestId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -29,6 +31,18 @@ describe('realtime contracts', () => {
         v: 1,
       }).payload.text,
     ).toBe('Hello room');
+    expect(
+      RoomJoinedEventSchema.parse({
+        payload: {
+          connectedAt: '2026-10-10T12:00:00.000Z',
+          connections: 2,
+          roomId,
+        },
+        requestId,
+        type: 'room.joined',
+        v: 1,
+      }).payload.connections,
+    ).toBe(2);
   });
 
   it('rejects oversized messages and unknown fields', () => {
@@ -79,5 +93,31 @@ describe('realtime contracts', () => {
         v: 1,
       }).payload.retryAfterMs,
     ).toBe(500);
+  });
+
+  it('validates distributed room statistics', () => {
+    const event = DistributedRealtimeEventSchema.parse({
+      payload: {
+        connections: 12,
+        roomId,
+        updatedAt: '2026-10-10T12:00:00.000Z',
+      },
+      requestId,
+      type: 'room.stats',
+      v: 1,
+    });
+    expect(event.type === 'room.stats' && event.payload.connections).toBe(12);
+    expect(
+      DistributedRealtimeEventSchema.safeParse({
+        payload: {
+          connections: -1,
+          roomId,
+          updatedAt: '2026-10-10T12:00:00.000Z',
+        },
+        requestId,
+        type: 'room.stats',
+        v: 1,
+      }).success,
+    ).toBe(false);
   });
 });

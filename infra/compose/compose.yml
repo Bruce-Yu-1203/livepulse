@@ -32,6 +32,17 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql
 
+  redis:
+    image: redis:8.10.2-alpine3.23
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 5s
+    ports:
+      - '6379:6379'
+
 volumes:
   mongodb-data:
   postgres-data:

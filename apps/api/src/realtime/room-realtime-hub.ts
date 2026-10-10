@@ -1,8 +1,10 @@
 import { createHash, randomUUID } from 'node:crypto';
 
 import { Inject, Injectable } from '@nestjs/common';
+import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ApiErrorCode, ClientRealtimeEventSchema } from '@livepulse/contracts';
 import type {
+  DistributedRealtimeEvent,
   MessageCreatedEvent,
   ServerRealtimeEvent,
 } from '@livepulse/contracts';
@@ -10,8 +12,16 @@ import type {
 import type { AuthenticatedPrincipal } from '../auth/authenticated-request.js';
 import type { RealtimeMessagePublisher } from '../messages/messages.service.js';
 import { REALTIME_MESSAGE_PUBLISHER } from '../messages/messages.tokens.js';
+import type {
+  RealtimeEventBus,
+  RealtimePresence,
+} from './realtime-coordination.js';
 import type { RealtimeRoomSource } from './realtime-room-source.js';
-import { REALTIME_ROOM_SOURCE } from './realtime.tokens.js';
+import {
+  REALTIME_EVENT_BUS,
+  REALTIME_PRESENCE,
+  REALTIME_ROOM_SOURCE,
+} from './realtime.tokens.js';
 
 export interface RealtimePeer {
   id: string;
@@ -32,20 +42,45 @@ interface AcceptedMessage {
 const bucketCapacity = 5;
 const refillPerMillisecond = 1 / 1_000;
 const maxAcceptedMessages = 10_000;
+const presenceRefreshMilliseconds = 15_000;
 
 @Injectable()
-export class RoomRealtimeHub {
+export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
   private readonly roomMembers = new Map<string, Set<RealtimePeer>>();
   private readonly joinedRoomByPeer = new Map<string, string>();
   private readonly rateBuckets = new Map<string, RateBucket>();
   private readonly acceptedMessages = new Map<string, AcceptedMessage>();
+  private readonly unsubscribeFromBus: () => void;
+  private presenceTimer: ReturnType<typeof setInterval> | undefined;
 
   public constructor(
     @Inject(REALTIME_ROOM_SOURCE)
     private readonly rooms: RealtimeRoomSource,
     @Inject(REALTIME_MESSAGE_PUBLISHER)
     private readonly publisher: RealtimeMessagePublisher,
-  ) {}
+    @Inject(REALTIME_EVENT_BUS)
+    private readonly eventBus: RealtimeEventBus,
+    @Inject(REALTIME_PRESENCE)
+    private readonly presence: RealtimePresence,
+  ) {
+    this.unsubscribeFromBus = this.eventBus.subscribe((event) => {
+      this.broadcastLocal(event);
+    });
+  }
+
+  public onModuleInit(): void {
+    this.presenceTimer = setInterval(() => {
+      void this.refreshPresence();
+    }, presenceRefreshMilliseconds);
+    this.presenceTimer.unref();
+  }
+
+  public onModuleDestroy(): void {
+    if (this.presenceTimer) {
+      clearInterval(this.presenceTimer);
+    }
+    this.unsubscribeFromBus();
+  }
 
   public async handle(peer: RealtimePeer, input: unknown): Promise<void> {
     const parsed = ClientRealtimeEventSchema.safeParse(input);
@@ -68,11 +103,11 @@ export class RoomRealtimeHub {
     await this.sendMessage(peer, parsed.data);
   }
 
-  public disconnect(peer: RealtimePeer): void {
+  public async disconnect(peer: RealtimePeer): Promise<void> {
     const roomId = this.joinedRoomByPeer.get(peer.id);
 
     if (roomId) {
-      this.removeFromRoom(peer, roomId);
+      await this.removeFromRoom(peer, roomId);
     }
 
     this.rateBuckets.delete(peer.id);
@@ -101,19 +136,25 @@ export class RoomRealtimeHub {
 
     const previousRoomId = this.joinedRoomByPeer.get(peer.id);
     if (previousRoomId && previousRoomId !== roomId) {
-      this.removeFromRoom(peer, previousRoomId);
+      await this.removeFromRoom(peer, previousRoomId);
     }
 
     const members = this.roomMembers.get(roomId) ?? new Set<RealtimePeer>();
     members.add(peer);
     this.roomMembers.set(roomId, members);
     this.joinedRoomByPeer.set(peer.id, roomId);
+    const connections = await this.joinPresence(roomId, peer.id, members.size);
     peer.send({
-      payload: { connectedAt: new Date().toISOString(), roomId },
+      payload: {
+        connectedAt: new Date().toISOString(),
+        connections,
+        roomId,
+      },
       requestId,
       type: 'room.joined',
       v: 1,
     });
+    await this.publishStats(roomId, connections);
   }
 
   private async sendMessage(
@@ -248,8 +289,10 @@ export class RoomRealtimeHub {
 
     this.acceptedMessages.set(idempotencyKey, { event: created, text });
 
-    for (const member of this.roomMembers.get(roomId) ?? []) {
-      member.send(created);
+    try {
+      await this.eventBus.publish(created);
+    } catch {
+      this.broadcastLocal(created);
     }
   }
 
@@ -294,7 +337,10 @@ export class RoomRealtimeHub {
     }
   }
 
-  private removeFromRoom(peer: RealtimePeer, roomId: string): void {
+  private async removeFromRoom(
+    peer: RealtimePeer,
+    roomId: string,
+  ): Promise<void> {
     const members = this.roomMembers.get(roomId);
     members?.delete(peer);
 
@@ -303,6 +349,75 @@ export class RoomRealtimeHub {
     }
 
     this.joinedRoomByPeer.delete(peer.id);
+    let connections = members?.size ?? 0;
+    try {
+      connections = await this.presence.leave(roomId, peer.id);
+    } catch {
+      // Local membership remains available when Redis is temporarily offline.
+    }
+    await this.publishStats(roomId, connections);
+  }
+
+  private async joinPresence(
+    roomId: string,
+    connectionId: string,
+    localConnections: number,
+  ): Promise<number> {
+    try {
+      return await this.presence.join(roomId, connectionId);
+    } catch {
+      return localConnections;
+    }
+  }
+
+  private async refreshPresence(): Promise<void> {
+    if (this.joinedRoomByPeer.size === 0) {
+      return;
+    }
+
+    try {
+      const counts = await this.presence.refresh(
+        [...this.joinedRoomByPeer].map(([connectionId, roomId]) => ({
+          connectionId,
+          roomId,
+        })),
+      );
+      await Promise.all(
+        [...counts].map(([roomId, connections]) =>
+          this.publishStats(roomId, connections),
+        ),
+      );
+    } catch {
+      // Existing sockets stay usable and retry on the next lease refresh.
+    }
+  }
+
+  private async publishStats(
+    roomId: string,
+    connections: number,
+  ): Promise<void> {
+    const event: DistributedRealtimeEvent = {
+      payload: {
+        connections,
+        roomId,
+        updatedAt: new Date().toISOString(),
+      },
+      requestId: randomUUID(),
+      type: 'room.stats',
+      v: 1,
+    };
+
+    try {
+      await this.eventBus.publish(event);
+    } catch {
+      this.broadcastLocal(event);
+    }
+  }
+
+  private broadcastLocal(event: DistributedRealtimeEvent): void {
+    for (const member of this.roomMembers.get(event.payload.roomId) ?? []) {
+      member.send(event);
+    }
   }
 
   private sendError(

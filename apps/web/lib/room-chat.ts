@@ -117,6 +117,12 @@ export function reconnectDelay(attempt: number, random = Math.random): number {
   return Math.round(cappedBase * (0.8 + random() * 0.4));
 }
 
+export function roomPresenceLabel(connections: number): string {
+  return `${connections.toLocaleString('en')} ${
+    connections === 1 ? 'person' : 'people'
+  } online`;
+}
+
 function toChatMessage(message: RoomMessage): ChatMessage {
   return {
     acceptedAt: message.acceptedAt,

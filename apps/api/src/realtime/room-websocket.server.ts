@@ -126,8 +126,8 @@ export class RoomWebSocketServer implements OnModuleDestroy {
     socket.on('message', (data, isBinary) => {
       void this.receive(peer, data, isBinary);
     });
-    socket.on('close', () => this.hub.disconnect(peer));
-    socket.on('error', () => this.hub.disconnect(peer));
+    socket.on('close', () => void this.hub.disconnect(peer));
+    socket.on('error', () => void this.hub.disconnect(peer));
   }
 
   private async receive(
