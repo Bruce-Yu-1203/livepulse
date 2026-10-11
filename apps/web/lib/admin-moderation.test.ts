@@ -9,7 +9,7 @@ describe('admin moderation helpers', () => {
     expect(reportReasonLabel('SPAM')).toBe('Spam');
   });
 
-  it('removes the actioned report without mutating the queue', () => {
+  it('removes a resolved report without mutating the queue', () => {
     const reports = [report('a'), report('b')];
     const next = removeModerationReport(reports, 'a');
 

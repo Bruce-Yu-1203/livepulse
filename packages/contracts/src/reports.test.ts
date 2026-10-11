@@ -5,6 +5,8 @@ import {
   CreateReportResponseSchema,
   ListReportsResponseSchema,
   ModerateMessageParamsSchema,
+  UpdateReportParamsSchema,
+  UpdateReportRequestSchema,
 } from './reports.js';
 
 const messageId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -89,6 +91,18 @@ describe('message report contracts', () => {
     expect(
       ModerateMessageParamsSchema.safeParse({ messageId, roomId: 'invalid' })
         .success,
+    ).toBe(false);
+  });
+
+  it('only accepts the dismissed report transition', () => {
+    const reportId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+
+    expect(UpdateReportParamsSchema.parse({ reportId })).toEqual({ reportId });
+    expect(UpdateReportRequestSchema.parse({ status: 'DISMISSED' })).toEqual({
+      status: 'DISMISSED',
+    });
+    expect(
+      UpdateReportRequestSchema.safeParse({ status: 'ACTIONED' }).success,
     ).toBe(false);
   });
 });

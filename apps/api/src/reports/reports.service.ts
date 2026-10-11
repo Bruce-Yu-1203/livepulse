@@ -8,7 +8,9 @@ import { MessagesService } from '../messages/messages.service.js';
 import type { RealtimeEventBus } from '../realtime/realtime-coordination.js';
 import { REALTIME_EVENT_BUS } from '../realtime/realtime.tokens.js';
 import {
+  ReportAlreadyActionedError,
   ReportMessageNotFoundError,
+  ReportNotFoundError,
   ReportOwnMessageError,
 } from './reports.errors.js';
 import type { ReportRecord, ReportsRepository } from './reports.repository.js';
@@ -59,6 +61,25 @@ export class ReportsService {
         report,
       })),
     );
+  }
+
+  public async dismiss(
+    actor: AuthenticatedPrincipal,
+    reportId: string,
+  ): Promise<void> {
+    const result = await this.reports.dismiss({
+      actorId: actor.userId,
+      dismissedAt: new Date(),
+      reportId,
+    });
+
+    if (result === 'missing') {
+      throw new ReportNotFoundError();
+    }
+
+    if (result === 'actioned') {
+      throw new ReportAlreadyActionedError();
+    }
   }
 
   public async deleteMessage(

@@ -2,9 +2,12 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   HttpException,
   HttpStatus,
   Inject,
+  Param,
+  Patch,
   Post,
   Req,
   UseGuards,
@@ -14,6 +17,8 @@ import {
   CreateReportRequestSchema,
   type CreateReportResponse,
   type ListReportsResponse,
+  UpdateReportParamsSchema,
+  UpdateReportRequestSchema,
 } from '@livepulse/contracts';
 
 import { AccessTokenGuard } from '../auth/access-token.guard.js';
@@ -23,8 +28,10 @@ import { AllowedRoles } from '../authorization/allowed-roles.decorator.js';
 import { RolesGuard } from '../authorization/roles.guard.js';
 import { MessageDatabaseUnavailableError } from '../messages/messages.errors.js';
 import {
+  ReportAlreadyActionedError,
   ReportDatabaseUnavailableError,
   ReportMessageNotFoundError,
+  ReportNotFoundError,
   ReportOwnMessageError,
 } from './reports.errors.js';
 import { ReportsService } from './reports.service.js';
@@ -113,6 +120,46 @@ export class ReportsController {
         requestId: request.id,
       };
     } catch (error) {
+      this.throwUnavailable(error);
+    }
+  }
+
+  @AllowedRoles('ADMIN')
+  @Patch(':reportId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(AccessTokenGuard, CsrfGuard, RolesGuard)
+  public async dismiss(
+    @Param() params: unknown,
+    @Body() body: unknown,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<void> {
+    const parsedParams = UpdateReportParamsSchema.safeParse(params);
+    const parsedBody = UpdateReportRequestSchema.safeParse(body);
+
+    if (!parsedParams.success || !parsedBody.success) {
+      this.throwValidationError('The report update request is invalid');
+    }
+
+    try {
+      await this.reports.dismiss(request.auth, parsedParams.data.reportId);
+    } catch (error) {
+      if (error instanceof ReportNotFoundError) {
+        throw new HttpException(
+          { code: ApiErrorCode.NotFound, message: error.message },
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      if (error instanceof ReportAlreadyActionedError) {
+        throw new HttpException(
+          {
+            code: ApiErrorCode.ReportAlreadyActioned,
+            message: error.message,
+          },
+          HttpStatus.CONFLICT,
+        );
+      }
+
       this.throwUnavailable(error);
     }
   }

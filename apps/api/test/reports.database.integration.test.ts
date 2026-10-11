@@ -45,6 +45,7 @@ const reporterId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const roomId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const messageId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 const adminId = 'ffffffff-ffff-4fff-bfff-ffffffffffff';
+const secondMessageId = '99999999-9999-4999-8999-999999999999';
 
 describe('POST /api/v1/reports', () => {
   let app: NestFastifyApplication;
@@ -94,6 +95,7 @@ describe('POST /api/v1/reports', () => {
     });
     messages = new MongoMessagesRepository();
     await messages.create(message());
+    await messages.create(secondMessage());
 
     app = await createApp({ logger: false });
     await app.init();
@@ -189,6 +191,25 @@ describe('POST /api/v1/reports', () => {
     const viewerHeaders = await authenticatedHeaders(
       'report-viewer@example.com',
     );
+    const dismissalReportResponse = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: viewerHeaders,
+        method: 'POST',
+        payload: {
+          details: 'Context supports keeping this message',
+          messageId: secondMessageId,
+          reason: 'OTHER',
+          roomId,
+        },
+        url: '/api/v1/reports',
+      });
+    expect(dismissalReportResponse.statusCode).toBe(201);
+    const dismissalReport = CreateReportResponseSchema.parse(
+      dismissalReportResponse.json(),
+    ).report;
+
     const forbidden = await app.getHttpAdapter().getInstance().inject({
       headers: viewerHeaders,
       method: 'GET',
@@ -206,13 +227,77 @@ describe('POST /api/v1/reports', () => {
       url: '/api/v1/reports',
     });
     expect(queue.statusCode).toBe(200);
-    expect(ListReportsResponseSchema.parse(queue.json()).items).toMatchObject([
-      {
-        message: { messageId, text: 'Visit every link in this message' },
-        messageId,
-        status: 'PENDING',
-      },
-    ]);
+    const queueItems = ListReportsResponseSchema.parse(queue.json()).items;
+    expect(queueItems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.objectContaining({
+            messageId,
+            text: 'Visit every link in this message',
+          }),
+          messageId,
+          status: 'PENDING',
+        }),
+        expect.objectContaining({
+          id: dismissalReport.id,
+          message: expect.objectContaining({ messageId: secondMessageId }),
+          status: 'PENDING',
+        }),
+      ]),
+    );
+
+    const viewerDismissal = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: viewerHeaders,
+        method: 'PATCH',
+        payload: { status: 'DISMISSED' },
+        url: `/api/v1/reports/${dismissalReport.id}`,
+      });
+    expect(viewerDismissal.statusCode).toBe(403);
+
+    const missingCsrfDismissal = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: { cookie: adminHeaders.cookie },
+        method: 'PATCH',
+        payload: { status: 'DISMISSED' },
+        url: `/api/v1/reports/${dismissalReport.id}`,
+      });
+    expect(missingCsrfDismissal.statusCode).toBe(403);
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const dismissal = await app
+        .getHttpAdapter()
+        .getInstance()
+        .inject({
+          headers: adminHeaders,
+          method: 'PATCH',
+          payload: { status: 'DISMISSED' },
+          url: `/api/v1/reports/${dismissalReport.id}`,
+        });
+      expect(dismissal.statusCode).toBe(204);
+    }
+    await expect(
+      database.report.findUniqueOrThrow({
+        where: { id: dismissalReport.id },
+      }),
+    ).resolves.toMatchObject({ status: 'DISMISSED' });
+    await expect(
+      database.auditLog.count({
+        where: {
+          action: 'REPORT_DISMISSED',
+          actorId: adminId,
+          roomId,
+          targetId: dismissalReport.id,
+        },
+      }),
+    ).resolves.toBe(1);
+    await expect(
+      messages.findById(roomId, secondMessageId),
+    ).resolves.toMatchObject({ text: 'This message should remain visible' });
 
     const deletion = await app
       .getHttpAdapter()
@@ -240,6 +325,26 @@ describe('POST /api/v1/reports', () => {
         },
       }),
     ).resolves.toBe(1);
+
+    const actionedReport = queueItems.find(
+      (report) => report.messageId === messageId,
+    );
+    if (!actionedReport) {
+      throw new Error('Expected the actioned report in the moderation queue');
+    }
+    const dismissalConflict = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: adminHeaders,
+        method: 'PATCH',
+        payload: { status: 'DISMISSED' },
+        url: `/api/v1/reports/${actionedReport.id}`,
+      });
+    expect(dismissalConflict.statusCode).toBe(409);
+    expect(ApiErrorResponseSchema.parse(dismissalConflict.json()).code).toBe(
+      ApiErrorCode.ReportAlreadyActioned,
+    );
 
     const emptyQueue = await app.getHttpAdapter().getInstance().inject({
       headers: adminHeaders,
@@ -322,6 +427,17 @@ function message(): RoomMessage {
     messageId,
     roomId,
     text: 'Visit every link in this message',
+  };
+}
+
+function secondMessage(): RoomMessage {
+  return {
+    acceptedAt: '2026-10-10T21:01:00.000Z',
+    authorId,
+    clientMessageId: '22222222-2222-4222-8222-222222222222',
+    messageId: secondMessageId,
+    roomId,
+    text: 'This message should remain visible',
   };
 }
 

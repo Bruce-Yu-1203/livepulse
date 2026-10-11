@@ -69,3 +69,17 @@ export const ModerateMessageParamsSchema = z
     roomId: z.uuid(),
   })
   .strict();
+
+export const UpdateReportParamsSchema = z
+  .object({
+    reportId: z.uuid(),
+  })
+  .strict();
+
+export const UpdateReportRequestSchema = z
+  .object({
+    status: z.literal('DISMISSED'),
+  })
+  .strict();
+
+export type UpdateReportRequest = z.infer<typeof UpdateReportRequestSchema>;

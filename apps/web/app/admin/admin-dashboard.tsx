@@ -19,11 +19,15 @@ import {
 } from '../../lib/client-api';
 
 type AdminState = 'forbidden' | 'loading' | 'ready' | 'signed-out';
+type ModerationAction = 'delete' | 'dismiss';
 
 export function AdminDashboard() {
   const [state, setState] = useState<AdminState>('loading');
   const [reports, setReports] = useState<ModerationReport[]>([]);
-  const [deletingId, setDeletingId] = useState<string>();
+  const [pendingAction, setPendingAction] = useState<{
+    reportId: string;
+    type: ModerationAction;
+  }>();
   const [notice, setNotice] = useState<string>();
 
   useEffect(() => {
@@ -72,24 +76,35 @@ export function AdminDashboard() {
     };
   }, []);
 
-  async function deleteMessage(report: ModerationReport) {
-    setDeletingId(report.id);
+  async function resolveReport(
+    report: ModerationReport,
+    type: ModerationAction,
+  ) {
+    setPendingAction({ reportId: report.id, type });
     setNotice(undefined);
 
     try {
-      await clientApiVoidRequest(
-        `/api/v1/rooms/${report.roomId}/messages/${report.messageId}`,
-        { method: 'DELETE' },
-      );
+      if (type === 'delete') {
+        await clientApiVoidRequest(
+          `/api/v1/rooms/${report.roomId}/messages/${report.messageId}`,
+          { method: 'DELETE' },
+        );
+      } else {
+        await clientApiVoidRequest(`/api/v1/reports/${report.id}`, {
+          body: JSON.stringify({ status: 'DISMISSED' }),
+          headers: { 'content-type': 'application/json' },
+          method: 'PATCH',
+        });
+      }
       setReports((current) => removeModerationReport(current, report.id));
     } catch (error) {
       setNotice(
         error instanceof Error
           ? error.message
-          : 'The message could not be removed.',
+          : 'The moderation action could not be completed.',
       );
     } finally {
-      setDeletingId(undefined);
+      setPendingAction(undefined);
     }
   }
 
@@ -182,28 +197,61 @@ export function AdminDashboard() {
                 </p>
               ) : null}
 
-              <div className="mt-6 flex justify-end">
-                <button
-                  className="rounded-xl bg-rose-300 px-4 py-2.5 text-sm font-bold text-zinc-950 transition hover:bg-rose-200 disabled:cursor-wait disabled:opacity-45"
-                  disabled={
-                    !report.message ||
-                    Boolean(report.message.deletedAt) ||
-                    deletingId === report.id
-                  }
-                  onClick={() => void deleteMessage(report)}
-                  type="button"
-                >
-                  {deletingId === report.id
-                    ? 'Removing…'
-                    : report.message?.deletedAt
-                      ? 'Already removed'
-                      : 'Remove message'}
-                </button>
-              </div>
+              <ModerationReportActions
+                onDelete={() => void resolveReport(report, 'delete')}
+                onDismiss={() => void resolveReport(report, 'dismiss')}
+                pendingAction={
+                  pendingAction?.reportId === report.id
+                    ? pendingAction.type
+                    : undefined
+                }
+                report={report}
+              />
             </article>
           ))
         )}
       </section>
+    </div>
+  );
+}
+
+export function ModerationReportActions({
+  onDelete,
+  onDismiss,
+  pendingAction,
+  report,
+}: {
+  onDelete: () => void;
+  onDismiss: () => void;
+  pendingAction?: ModerationAction;
+  report: ModerationReport;
+}) {
+  return (
+    <div className="mt-6 flex flex-col justify-end gap-3 sm:flex-row">
+      <button
+        className="rounded-xl border border-white/12 px-4 py-2.5 text-sm font-bold text-zinc-200 transition hover:border-white/25 hover:bg-white/6 disabled:cursor-wait disabled:opacity-45"
+        disabled={Boolean(pendingAction)}
+        onClick={onDismiss}
+        type="button"
+      >
+        {pendingAction === 'dismiss' ? 'Dismissing…' : 'Keep message'}
+      </button>
+      <button
+        className="rounded-xl bg-rose-300 px-4 py-2.5 text-sm font-bold text-zinc-950 transition hover:bg-rose-200 disabled:cursor-wait disabled:opacity-45"
+        disabled={
+          !report.message ||
+          Boolean(report.message.deletedAt) ||
+          Boolean(pendingAction)
+        }
+        onClick={onDelete}
+        type="button"
+      >
+        {pendingAction === 'delete'
+          ? 'Removing…'
+          : report.message?.deletedAt
+            ? 'Already removed'
+            : 'Remove message'}
+      </button>
     </div>
   );
 }

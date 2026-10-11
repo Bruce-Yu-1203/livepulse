@@ -86,6 +86,7 @@ export const ApiErrorCode = {
   InvalidSession: 'AUTH_INVALID_SESSION',
   InternalError: 'INTERNAL_ERROR',
   NotFound: 'RESOURCE_NOT_FOUND',
+  ReportAlreadyActioned: 'REPORT_ALREADY_ACTIONED',
   RoomInvalidTransition: 'ROOM_INVALID_STATUS_TRANSITION',
   RoomVersionConflict: 'ROOM_VERSION_CONFLICT',
   RealtimeAuthenticationRequired: 'REALTIME_AUTHENTICATION_REQUIRED',

@@ -91,6 +91,7 @@ describe('login and session contracts', () => {
     expect(ApiErrorCode.Forbidden).toBe('AUTH_FORBIDDEN');
     expect(ApiErrorCode.InvalidCredentials).toBe('AUTH_INVALID_CREDENTIALS');
     expect(ApiErrorCode.InvalidSession).toBe('AUTH_INVALID_SESSION');
+    expect(ApiErrorCode.ReportAlreadyActioned).toBe('REPORT_ALREADY_ACTIONED');
     expect(ApiErrorCode.RoomInvalidTransition).toBe(
       'ROOM_INVALID_STATUS_TRANSITION',
     );

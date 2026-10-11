@@ -5,7 +5,9 @@ import type { AuthenticatedPrincipal } from '../auth/authenticated-request.js';
 import type { MessagesService } from '../messages/messages.service.js';
 import type { RealtimeEventBus } from '../realtime/realtime-coordination.js';
 import {
+  ReportAlreadyActionedError,
   ReportMessageNotFoundError,
+  ReportNotFoundError,
   ReportOwnMessageError,
 } from './reports.errors.js';
 import type { ReportsRepository } from './reports.repository.js';
@@ -15,6 +17,7 @@ const roomId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const messageId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const authorId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const reporterId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+const reportId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 
 describe('ReportsService', () => {
   it('verifies the message and creates an attributed report', async () => {
@@ -22,7 +25,7 @@ describe('ReportsService', () => {
     vi.mocked(repository.create).mockResolvedValue({
       createdAt: new Date('2026-10-10T21:00:00.000Z'),
       details: 'Repeated links',
-      id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+      id: reportId,
       messageId,
       reason: 'SPAM',
       reporterId,
@@ -86,7 +89,7 @@ describe('ReportsService', () => {
     const report = {
       createdAt: new Date('2026-10-10T21:00:00.000Z'),
       details: null,
-      id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+      id: reportId,
       messageId,
       reason: 'SPAM' as const,
       reporterId,
@@ -137,6 +140,46 @@ describe('ReportsService', () => {
       }),
     );
   });
+
+  it('dismisses a pending report without changing its message', async () => {
+    const repository = reportsRepository();
+    vi.mocked(repository.dismiss).mockResolvedValue('dismissed');
+    const messages = messagesService(message());
+    const service = new ReportsService(repository, messages, eventBus());
+
+    await service.dismiss(principal(reporterId), reportId);
+
+    expect(repository.dismiss).toHaveBeenCalledWith({
+      actorId: reporterId,
+      dismissedAt: expect.any(Date),
+      reportId,
+    });
+    expect(messages.delete).not.toHaveBeenCalled();
+  });
+
+  it('distinguishes missing reports from reports already actioned', async () => {
+    const missingRepository = reportsRepository();
+    vi.mocked(missingRepository.dismiss).mockResolvedValue('missing');
+    const missing = new ReportsService(
+      missingRepository,
+      messagesService(message()),
+      eventBus(),
+    );
+    await expect(
+      missing.dismiss(principal(reporterId), reportId),
+    ).rejects.toBeInstanceOf(ReportNotFoundError);
+
+    const actionedRepository = reportsRepository();
+    vi.mocked(actionedRepository.dismiss).mockResolvedValue('actioned');
+    const actioned = new ReportsService(
+      actionedRepository,
+      messagesService(message()),
+      eventBus(),
+    );
+    await expect(
+      actioned.dismiss(principal(reporterId), reportId),
+    ).rejects.toBeInstanceOf(ReportAlreadyActionedError);
+  });
 });
 
 function message(): RoomMessage {
@@ -162,6 +205,7 @@ function messagesService(
 function reportsRepository(): ReportsRepository {
   return {
     create: vi.fn(),
+    dismiss: vi.fn(),
     listPending: vi.fn(),
     recordDeletion: vi.fn().mockResolvedValue(undefined),
   };

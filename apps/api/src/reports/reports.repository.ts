@@ -29,6 +29,11 @@ export interface CreateReportRecord {
 
 export interface ReportsRepository {
   create(input: CreateReportRecord): Promise<ReportRecord>;
+  dismiss(input: {
+    actorId: string;
+    dismissedAt: Date;
+    reportId: string;
+  }): Promise<'actioned' | 'dismissed' | 'missing'>;
   listPending(take: number): Promise<ReportRecord[]>;
   recordDeletion(input: {
     actorId: string;
@@ -99,6 +104,64 @@ export class PrismaReportsRepository implements ReportsRepository {
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
         take,
         where: { status: 'PENDING' },
+      });
+    } catch (error) {
+      throwReportDatabaseError(error);
+    }
+  }
+
+  public async dismiss(input: {
+    actorId: string;
+    dismissedAt: Date;
+    reportId: string;
+  }): Promise<'actioned' | 'dismissed' | 'missing'> {
+    try {
+      return await this.database.client.$transaction(async (transaction) => {
+        const report = await transaction.report.findUnique({
+          select: { roomId: true, status: true },
+          where: { id: input.reportId },
+        });
+
+        if (!report) {
+          return 'missing';
+        }
+
+        if (report.status === 'DISMISSED') {
+          return 'dismissed';
+        }
+
+        if (report.status === 'ACTIONED') {
+          return 'actioned';
+        }
+
+        const update = await transaction.report.updateMany({
+          data: { status: 'DISMISSED', updatedAt: input.dismissedAt },
+          where: { id: input.reportId, status: 'PENDING' },
+        });
+
+        if (update.count === 1) {
+          await transaction.auditLog.create({
+            data: {
+              action: 'REPORT_DISMISSED',
+              actorId: input.actorId,
+              createdAt: input.dismissedAt,
+              roomId: report.roomId,
+              targetId: input.reportId,
+            },
+          });
+          return 'dismissed';
+        }
+
+        const current = await transaction.report.findUnique({
+          select: { status: true },
+          where: { id: input.reportId },
+        });
+
+        if (!current) {
+          return 'missing';
+        }
+
+        return current.status === 'DISMISSED' ? 'dismissed' : 'actioned';
       });
     } catch (error) {
       throwReportDatabaseError(error);

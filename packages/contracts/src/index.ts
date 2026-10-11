@@ -109,6 +109,8 @@ export {
   ReportReasonSchema,
   ReportSchema,
   ReportStatusSchema,
+  UpdateReportParamsSchema,
+  UpdateReportRequestSchema,
 } from './reports.js';
 export type {
   CreateReportRequest,
@@ -117,4 +119,5 @@ export type {
   ModerationReport,
   Report,
   ReportReason,
+  UpdateReportRequest,
 } from './reports.js';
