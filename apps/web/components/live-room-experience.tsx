@@ -9,6 +9,11 @@ import type { FormEvent } from 'react';
 import { useState } from 'react';
 
 import { clientApiRequest } from '../lib/client-api';
+import {
+  danmakuDensities,
+  danmakuLayout,
+  type DanmakuDensity,
+} from '../lib/danmaku';
 import { type ChatMessage, roomPresenceLabel } from '../lib/room-chat';
 import { canModerateRoom } from '../lib/room-moderation';
 import { useRoomChat } from '../lib/use-room-chat';
@@ -18,6 +23,8 @@ import { RoomLikeButton } from './room-like-button';
 export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
   const chat = useRoomChat(room.id, room.status);
   const [danmakuVisible, setDanmakuVisible] = useState(true);
+  const [danmakuDensity, setDanmakuDensity] =
+    useState<DanmakuDensity>('medium');
   const [mutedUserIds, setMutedUserIds] = useState<Set<string>>(new Set());
   const [mutingUserId, setMutingUserId] = useState<string>();
   const [moderationError, setModerationError] = useState<string>();
@@ -72,7 +79,9 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
         >
           Your browser does not support embedded video.
         </video>
-        {danmakuVisible ? <DanmakuLayer messages={chat.messages} /> : null}
+        {danmakuVisible ? (
+          <DanmakuLayer density={danmakuDensity} messages={chat.messages} />
+        ) : null}
         <div className="absolute bottom-4 left-4 z-20">
           <RoomLikeButton
             authChecked={chat.authChecked}
@@ -81,13 +90,34 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
             userId={chat.userId}
           />
         </div>
-        <button
-          className="absolute right-4 top-4 z-20 rounded-full border border-white/15 bg-black/65 px-3 py-2 text-xs font-semibold text-white backdrop-blur transition hover:bg-black/80"
-          onClick={() => setDanmakuVisible((visible) => !visible)}
-          type="button"
-        >
-          Danmaku {danmakuVisible ? 'on' : 'off'}
-        </button>
+        <div className="absolute right-4 top-4 z-20 flex items-center gap-2">
+          <label className="rounded-full border border-white/15 bg-black/65 px-3 py-2 text-xs font-semibold text-white backdrop-blur">
+            <span className="sr-only">Danmaku density</span>
+            <select
+              aria-label="Danmaku density"
+              className="bg-transparent capitalize outline-none disabled:opacity-50"
+              disabled={!danmakuVisible}
+              onChange={(event) =>
+                setDanmakuDensity(event.currentTarget.value as DanmakuDensity)
+              }
+              value={danmakuDensity}
+            >
+              {danmakuDensities.map((density) => (
+                <option className="bg-zinc-950" key={density} value={density}>
+                  {density} density
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            aria-pressed={danmakuVisible}
+            className="rounded-full border border-white/15 bg-black/65 px-3 py-2 text-xs font-semibold text-white backdrop-blur transition hover:bg-black/80"
+            onClick={() => setDanmakuVisible((visible) => !visible)}
+            type="button"
+          >
+            Danmaku {danmakuVisible ? 'on' : 'off'}
+          </button>
+        </div>
       </div>
 
       <aside className="flex min-h-[30rem] flex-col border-t border-white/10 bg-[#0d0e12] lg:border-l lg:border-t-0">
@@ -264,7 +294,15 @@ function formatMessageTime(acceptedAt: string | undefined): string {
   }).format(new Date(acceptedAt));
 }
 
-function DanmakuLayer({ messages }: { messages: ChatMessage[] }) {
+function DanmakuLayer({
+  density,
+  messages,
+}: {
+  density: DanmakuDensity;
+  messages: ChatMessage[];
+}) {
+  const layout = danmakuLayout(density);
+
   return (
     <div
       className="pointer-events-none absolute inset-0 z-10 overflow-hidden"
@@ -272,12 +310,12 @@ function DanmakuLayer({ messages }: { messages: ChatMessage[] }) {
     >
       {messages
         .filter((message) => !message.deletedAt)
-        .slice(-8)
+        .slice(-layout.limit)
         .map((message, index) => (
           <span
             className="danmaku-message absolute whitespace-nowrap rounded-full bg-black/45 px-3 py-1 text-sm font-medium text-white shadow-lg backdrop-blur-sm"
             key={`${message.id}:${index}`}
-            style={{ top: `${12 + (index % 6) * 12}%` }}
+            style={{ top: `${8 + (index % layout.lanes) * 10}%` }}
           >
             {message.text}
           </span>
