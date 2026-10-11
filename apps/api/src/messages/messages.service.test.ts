@@ -45,6 +45,18 @@ describe('MessagesService', () => {
       message: created,
     });
   });
+
+  it('finds a persisted message inside its room for moderation', async () => {
+    const stored = message(1, '2026-10-09T20:00:01.000Z');
+    const repository = messagesRepository([]);
+    vi.mocked(repository.findById).mockResolvedValue(stored);
+    const service = new MessagesService(repository, roomsService());
+
+    await expect(service.findById(roomId, stored.messageId)).resolves.toEqual(
+      stored,
+    );
+    expect(repository.findById).toHaveBeenCalledWith(roomId, stored.messageId);
+  });
 });
 
 function message(index: number, acceptedAt: string): RoomMessage {
@@ -61,6 +73,7 @@ function message(index: number, acceptedAt: string): RoomMessage {
 function messagesRepository(records: RoomMessage[]): MessagesRepository {
   return {
     create: vi.fn(),
+    findById: vi.fn(),
     list: vi.fn().mockResolvedValue(records),
   };
 }

@@ -64,6 +64,21 @@ describe('MongoDB message history', () => {
       }),
     ).resolves.toMatchObject([{ text: 'Message 1' }]);
   });
+
+  it('finds a message only when both its room and identifier match', async () => {
+    const stored = message(4, '2026-10-09T20:00:04.000Z');
+    await repository.create(stored);
+
+    await expect(
+      repository.findById(roomId, stored.messageId),
+    ).resolves.toEqual(stored);
+    await expect(
+      repository.findById(
+        'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+        stored.messageId,
+      ),
+    ).resolves.toBeUndefined();
+  });
 });
 
 function message(index: number, acceptedAt: string): RoomMessage {

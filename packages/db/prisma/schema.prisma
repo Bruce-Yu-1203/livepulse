@@ -24,6 +24,23 @@ enum RoomStatus {
   @@map("room_status")
 }
 
+enum ReportReason {
+  SPAM
+  HARASSMENT
+  HATE_SPEECH
+  OTHER
+
+  @@map("report_reason")
+}
+
+enum ReportStatus {
+  PENDING
+  ACTIONED
+  DISMISSED
+
+  @@map("report_status")
+}
+
 model User {
   id              String           @id @default(uuid()) @db.Uuid
   email           String           @unique @db.VarChar(320)
@@ -35,6 +52,7 @@ model User {
   hostedRooms     Room[]
   roomLikes       RoomLike[]
   roomMutes       RoomMute[]
+  reports         Report[]
 
   @@map("users")
 }
@@ -53,6 +71,7 @@ model Room {
   host          User       @relation(fields: [hostId], references: [id], onDelete: Restrict)
   likes         RoomLike[]
   mutes         RoomMute[]
+  reports       Report[]
 
   @@index([hostId])
   @@index([status, createdAt, id])
@@ -97,6 +116,25 @@ model AuditLog {
   @@index([actorId, createdAt])
   @@index([roomId, createdAt])
   @@map("audit_logs")
+}
+
+model Report {
+  id         String       @id @default(uuid()) @db.Uuid
+  reporterId String       @map("reporter_id") @db.Uuid
+  roomId     String       @map("room_id") @db.Uuid
+  messageId  String       @map("message_id") @db.Uuid
+  reason     ReportReason
+  details    String?      @db.VarChar(500)
+  status     ReportStatus @default(PENDING)
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  reporter   User         @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  room       Room         @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([reporterId, messageId])
+  @@index([roomId, messageId])
+  @@index([status, createdAt])
+  @@map("reports")
 }
 
 model RefreshSession {

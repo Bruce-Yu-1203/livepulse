@@ -30,6 +30,10 @@ export class MessagesService implements RealtimeMessagePublisher {
     return this.messages.create(message);
   }
 
+  public findById(roomId: string, messageId: string) {
+    return this.messages.findById(roomId, messageId);
+  }
+
   public async list(
     roomId: string,
     query: ListRoomMessagesQuery,

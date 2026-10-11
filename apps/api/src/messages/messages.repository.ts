@@ -24,6 +24,7 @@ export interface MessagesRepository {
     | { kind: 'created'; message: RoomMessage }
     | { kind: 'duplicate'; message: RoomMessage }
   >;
+  findById(roomId: string, messageId: string): Promise<RoomMessage | undefined>;
   list(input: {
     cursor?: MessageCursor;
     roomId: string;
@@ -72,6 +73,23 @@ export class MongoMessagesRepository
         return this.resolveDuplicate(message);
       }
 
+      throw new MessageDatabaseUnavailableError({ cause: error });
+    }
+  }
+
+  public async findById(
+    roomId: string,
+    messageId: string,
+  ): Promise<RoomMessage | undefined> {
+    try {
+      await this.ensureIndexes();
+      const document = await this.collection.findOne({
+        _id: messageId,
+        roomId,
+      });
+
+      return document ? toRoomMessage(document) : undefined;
+    } catch (error) {
       throw new MessageDatabaseUnavailableError({ cause: error });
     }
   }

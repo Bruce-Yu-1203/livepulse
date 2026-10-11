@@ -185,6 +185,8 @@ The current Phase A like path stores one room_likes row per room and user under 
 
 The Phase A moderation path stores one expiring room_mutes row per room and target user. A host or administrator upserts that row and appends a ROOM_USER_MUTED audit record in the same PostgreSQL transaction. Every new WebSocket message checks the shared SQL record before MongoDB persistence, so a mute created through one API instance also blocks a user connected to another instance. This is a correctness-first read on every send; a short-lived Redis cache with invalidation can be added after measuring load without changing PostgreSQL as the source of truth.
 
+The message-report path verifies the room and message pair against MongoDB before writing a PostgreSQL report. A composite unique constraint on reporter_id and message_id makes retries converge on one pending report. Creating the report and its MESSAGE_REPORTED audit record uses one SQL transaction, while the browser presents a bounded reason list and optional context only for another user's persisted messages. This cross-database workflow cannot be one atomic transaction; later message deletion keeps the report's message identifier available for investigation.
+
 The like cache does not use an unguarded INCR. In the first version, the statistics worker receives a change event, queries the current SQL COUNT, and refreshes Redis. Concurrent refreshes require per-room serialization and version protection. At larger scale, this can become a deduplicated incremental read model with reconciliation. The first path demonstrates correctness and does not claim unlimited like throughput.
 
 ### 7.2 MongoDB Message History
@@ -268,7 +270,7 @@ Database migrations run independently and use an expand-and-contract sequence to
 | Type | Focus |
 | --- | --- |
 | Unit | State machine, permissions, message schemas, stable IDs, conflict detection, and rate-limit boundaries |
-| Integration | SQL like and mute uniqueness, audited moderation, MongoDB idempotency, Kafka offsets, and Redis cross-gateway fan-out |
+| Integration | SQL like, mute, and report uniqueness; audited moderation; MongoDB idempotency; Kafka offsets; and Redis cross-gateway fan-out |
 | End to end | Login, join, send, like, end room, mute, delete, and reconnect |
 | Failure | Kill gateway after acceptance, crash after DB write before commit, interrupt Redis, and stop/recover MongoDB |
 | Load | Idle connections, steady fan-out, hot room, short burst, slow clients, and consumer recovery |

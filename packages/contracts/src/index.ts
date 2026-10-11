@@ -97,3 +97,17 @@ export type {
   ListRoomMessagesResponse,
   RoomMessage,
 } from './messages.js';
+
+export {
+  CreateReportRequestSchema,
+  CreateReportResponseSchema,
+  ReportReasonSchema,
+  ReportSchema,
+  ReportStatusSchema,
+} from './reports.js';
+export type {
+  CreateReportRequest,
+  CreateReportResponse,
+  Report,
+  ReportReason,
+} from './reports.js';

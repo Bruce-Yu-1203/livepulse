@@ -12,6 +12,7 @@ import { clientApiRequest } from '../lib/client-api';
 import { type ChatMessage, roomPresenceLabel } from '../lib/room-chat';
 import { canModerateRoom } from '../lib/room-moderation';
 import { useRoomChat } from '../lib/use-room-chat';
+import { MessageReportForm } from './message-report-form';
 import { RoomLikeButton } from './room-like-button';
 
 export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
@@ -129,6 +130,7 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
                 muted={mutedUserIds.has(message.authorId)}
                 muting={mutingUserId === message.authorId}
                 onMute={muteUser}
+                roomId={room.id}
               />
             ))
           ) : (
@@ -200,6 +202,7 @@ function ChatMessageRow({
   muted,
   muting,
   onMute,
+  roomId,
 }: {
   currentUserId: string | undefined;
   message: ChatMessage;
@@ -207,6 +210,7 @@ function ChatMessageRow({
   muted: boolean;
   muting: boolean;
   onMute(userId: string): void;
+  roomId: string;
 }) {
   return (
     <div className={message.status === 'failed' ? 'opacity-50' : undefined}>
@@ -237,6 +241,11 @@ function ChatMessageRow({
       <p className="mt-1 break-words text-sm leading-6 text-zinc-300">
         {message.text}
       </p>
+      {currentUserId &&
+      message.authorId !== currentUserId &&
+      message.status === 'sent' ? (
+        <MessageReportForm messageId={message.id} roomId={roomId} />
+      ) : null}
     </div>
   );
 }
