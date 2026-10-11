@@ -54,9 +54,19 @@ export const ModerationReportSchema = ReportSchema.extend({
 
 export type ModerationReport = z.infer<typeof ModerationReportSchema>;
 
+export const ListReportsQuerySchema = z
+  .object({
+    cursor: z.string().min(1).max(512).optional(),
+    limit: z.coerce.number().int().min(1).max(50).default(20),
+  })
+  .strict();
+
+export type ListReportsQuery = z.infer<typeof ListReportsQuerySchema>;
+
 export const ListReportsResponseSchema = z
   .object({
     items: z.array(ModerationReportSchema),
+    nextCursor: z.string().min(1).nullable(),
     requestId: z.string().min(1),
   })
   .strict();

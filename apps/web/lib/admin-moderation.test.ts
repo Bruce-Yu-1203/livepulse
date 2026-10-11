@@ -1,7 +1,11 @@
 import type { ModerationReport } from '@livepulse/contracts';
 import { describe, expect, it } from 'vitest';
 
-import { removeModerationReport, reportReasonLabel } from './admin-moderation';
+import {
+  mergeModerationReports,
+  removeModerationReport,
+  reportReasonLabel,
+} from './admin-moderation';
 
 describe('admin moderation helpers', () => {
   it('formats report reasons for people', () => {
@@ -15,6 +19,16 @@ describe('admin moderation helpers', () => {
 
     expect(next.map(({ id }) => id)).toEqual(['b']);
     expect(reports).toHaveLength(2);
+  });
+
+  it('appends report pages without duplicating overlapping records', () => {
+    const first = report('a');
+    const refreshed = { ...first, details: 'Fresh context' };
+
+    expect(mergeModerationReports([first], [refreshed, report('b')])).toEqual([
+      refreshed,
+      report('b'),
+    ]);
   });
 });
 

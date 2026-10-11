@@ -9,6 +9,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -16,6 +17,7 @@ import {
   ApiErrorCode,
   CreateReportRequestSchema,
   type CreateReportResponse,
+  ListReportsQuerySchema,
   type ListReportsResponse,
   UpdateReportParamsSchema,
   UpdateReportRequestSchema,
@@ -28,6 +30,7 @@ import { AllowedRoles } from '../authorization/allowed-roles.decorator.js';
 import { RolesGuard } from '../authorization/roles.guard.js';
 import { MessageDatabaseUnavailableError } from '../messages/messages.errors.js';
 import {
+  InvalidReportCursorError,
   ReportAlreadyActionedError,
   ReportDatabaseUnavailableError,
   ReportMessageNotFoundError,
@@ -100,13 +103,20 @@ export class ReportsController {
   @Get()
   @UseGuards(AccessTokenGuard, RolesGuard)
   public async list(
+    @Query() query: unknown,
     @Req() request: AuthenticatedRequest,
   ): Promise<ListReportsResponse> {
+    const parsed = ListReportsQuerySchema.safeParse(query);
+
+    if (!parsed.success) {
+      this.throwValidationError('The report-list query is invalid');
+    }
+
     try {
-      const items = await this.reports.listPending();
+      const page = await this.reports.listPending(parsed.data);
 
       return {
-        items: items.map(({ message, report }) => ({
+        items: page.items.map(({ message, report }) => ({
           createdAt: report.createdAt.toISOString(),
           details: report.details,
           id: report.id,
@@ -117,9 +127,13 @@ export class ReportsController {
           roomId: report.roomId,
           status: report.status,
         })),
+        nextCursor: page.nextCursor,
         requestId: request.id,
       };
     } catch (error) {
+      if (error instanceof InvalidReportCursorError) {
+        this.throwValidationError(error.message);
+      }
       this.throwUnavailable(error);
     }
   }

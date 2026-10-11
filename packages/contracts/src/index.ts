@@ -103,6 +103,7 @@ export type {
 export {
   CreateReportRequestSchema,
   CreateReportResponseSchema,
+  ListReportsQuerySchema,
   ListReportsResponseSchema,
   ModerateMessageParamsSchema,
   ModerationReportSchema,
@@ -115,6 +116,7 @@ export {
 export type {
   CreateReportRequest,
   CreateReportResponse,
+  ListReportsQuery,
   ListReportsResponse,
   ModerationReport,
   Report,

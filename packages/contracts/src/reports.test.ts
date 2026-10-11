@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CreateReportRequestSchema,
   CreateReportResponseSchema,
+  ListReportsQuerySchema,
   ListReportsResponseSchema,
   ModerateMessageParamsSchema,
   UpdateReportParamsSchema,
@@ -77,10 +78,19 @@ describe('message report contracts', () => {
           status: 'PENDING',
         },
       ],
+      nextCursor: 'next-report-page',
       requestId: 'request-list-reports',
     };
 
     expect(ListReportsResponseSchema.parse(response)).toEqual(response);
+  });
+
+  it('applies bounded moderation queue pagination', () => {
+    expect(ListReportsQuerySchema.parse({})).toEqual({ limit: 20 });
+    expect(
+      ListReportsQuerySchema.parse({ cursor: 'opaque-cursor', limit: '5' }),
+    ).toEqual({ cursor: 'opaque-cursor', limit: 5 });
+    expect(ListReportsQuerySchema.safeParse({ limit: 51 }).success).toBe(false);
   });
 
   it('requires valid room and message identifiers for deletion', () => {

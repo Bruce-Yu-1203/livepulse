@@ -5,6 +5,13 @@ export class ReportDatabaseUnavailableError extends Error {
   }
 }
 
+export class InvalidReportCursorError extends Error {
+  public constructor(options?: ErrorOptions) {
+    super('The report cursor is invalid', options);
+    this.name = 'InvalidReportCursorError';
+  }
+}
+
 export class ReportAlreadyActionedError extends Error {
   public constructor() {
     super('An actioned report cannot be dismissed');

@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import {
+  mergeModerationReports,
   removeModerationReport,
   reportReasonLabel,
 } from '../../lib/admin-moderation';
@@ -24,6 +25,8 @@ type ModerationAction = 'delete' | 'dismiss';
 export function AdminDashboard() {
   const [state, setState] = useState<AdminState>('loading');
   const [reports, setReports] = useState<ModerationReport[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>();
+  const [loadingMore, setLoadingMore] = useState(false);
   const [pendingAction, setPendingAction] = useState<{
     reportId: string;
     type: ModerationAction;
@@ -50,6 +53,7 @@ export function AdminDashboard() {
         );
         if (active) {
           setReports(response.items);
+          setNextCursor(response.nextCursor);
           setState('ready');
         }
       })
@@ -75,6 +79,33 @@ export function AdminDashboard() {
       active = false;
     };
   }, []);
+
+  async function loadMoreReports() {
+    if (!nextCursor || loadingMore) {
+      return;
+    }
+
+    setLoadingMore(true);
+    setNotice(undefined);
+
+    try {
+      const query = new URLSearchParams({ cursor: nextCursor, limit: '20' });
+      const response = await clientApiRequest(
+        `/api/v1/reports?${query.toString()}`,
+        ListReportsResponseSchema,
+      );
+      setReports((current) => mergeModerationReports(current, response.items));
+      setNextCursor(response.nextCursor);
+    } catch (error) {
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : 'More reports could not be loaded.',
+      );
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   async function resolveReport(
     report: ModerationReport,
@@ -161,7 +192,9 @@ export function AdminDashboard() {
           <div className="rounded-[2rem] border border-dashed border-white/10 px-6 py-16 text-center">
             <p className="text-lg font-semibold text-white">Queue cleared</p>
             <p className="mt-2 text-sm text-zinc-500">
-              There are no pending message reports.
+              {nextCursor
+                ? 'This batch is complete. Load the next reports to continue.'
+                : 'There are no pending message reports.'}
             </p>
           </div>
         ) : (
@@ -210,8 +243,38 @@ export function AdminDashboard() {
             </article>
           ))
         )}
+        <ModerationQueuePagination
+          hasNextPage={Boolean(nextCursor)}
+          loading={loadingMore}
+          onLoad={() => void loadMoreReports()}
+        />
       </section>
     </div>
+  );
+}
+
+export function ModerationQueuePagination({
+  hasNextPage,
+  loading,
+  onLoad,
+}: {
+  hasNextPage: boolean;
+  loading: boolean;
+  onLoad: () => void;
+}) {
+  if (!hasNextPage) {
+    return null;
+  }
+
+  return (
+    <button
+      className="mx-auto block rounded-full border border-white/12 px-5 py-2.5 text-sm font-bold text-zinc-200 transition hover:border-cyan-300/40 hover:text-cyan-200 disabled:cursor-wait disabled:opacity-50"
+      disabled={loading}
+      onClick={onLoad}
+      type="button"
+    >
+      {loading ? 'Loading…' : 'Load more reports'}
+    </button>
   );
 }
 

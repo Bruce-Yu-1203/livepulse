@@ -221,13 +221,40 @@ describe('POST /api/v1/reports', () => {
     );
 
     const adminHeaders = await authenticatedHeaders('report-admin@example.com');
-    const queue = await app.getHttpAdapter().getInstance().inject({
+    const invalidCursor = await app.getHttpAdapter().getInstance().inject({
       headers: adminHeaders,
       method: 'GET',
-      url: '/api/v1/reports',
+      url: '/api/v1/reports?cursor=not%2Bbase64url',
     });
-    expect(queue.statusCode).toBe(200);
-    const queueItems = ListReportsResponseSchema.parse(queue.json()).items;
+    expect(invalidCursor.statusCode).toBe(400);
+    expect(ApiErrorResponseSchema.parse(invalidCursor.json()).code).toBe(
+      ApiErrorCode.ValidationError,
+    );
+
+    const firstQueuePage = await app.getHttpAdapter().getInstance().inject({
+      headers: adminHeaders,
+      method: 'GET',
+      url: '/api/v1/reports?limit=1',
+    });
+    expect(firstQueuePage.statusCode).toBe(200);
+    const firstPage = ListReportsResponseSchema.parse(firstQueuePage.json());
+    expect(firstPage.items).toHaveLength(1);
+    expect(firstPage.nextCursor).toEqual(expect.any(String));
+
+    const secondQueuePage = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: adminHeaders,
+        method: 'GET',
+        url: `/api/v1/reports?limit=1&cursor=${encodeURIComponent(firstPage.nextCursor ?? '')}`,
+      });
+    expect(secondQueuePage.statusCode).toBe(200);
+    const secondPage = ListReportsResponseSchema.parse(secondQueuePage.json());
+    expect(secondPage.items).toHaveLength(1);
+    expect(secondPage.nextCursor).toBeNull();
+
+    const queueItems = [...firstPage.items, ...secondPage.items];
     expect(queueItems).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

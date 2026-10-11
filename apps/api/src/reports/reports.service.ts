@@ -1,12 +1,17 @@
 import { randomUUID } from 'node:crypto';
 
 import { Inject, Injectable } from '@nestjs/common';
-import type { CreateReportRequest, RoomMessage } from '@livepulse/contracts';
+import type {
+  CreateReportRequest,
+  ListReportsQuery,
+  RoomMessage,
+} from '@livepulse/contracts';
 
 import type { AuthenticatedPrincipal } from '../auth/authenticated-request.js';
 import { MessagesService } from '../messages/messages.service.js';
 import type { RealtimeEventBus } from '../realtime/realtime-coordination.js';
 import { REALTIME_EVENT_BUS } from '../realtime/realtime.tokens.js';
+import { ReportCursorCodec } from './report-cursor.js';
 import {
   ReportAlreadyActionedError,
   ReportMessageNotFoundError,
@@ -18,6 +23,8 @@ import { REPORTS_REPOSITORY } from './reports.tokens.js';
 
 @Injectable()
 export class ReportsService {
+  private readonly cursorCodec = new ReportCursorCodec();
+
   public constructor(
     @Inject(REPORTS_REPOSITORY)
     private readonly reports: ReportsRepository,
@@ -48,12 +55,22 @@ export class ReportsService {
     });
   }
 
-  public async listPending(): Promise<
-    Array<{ message: RoomMessage | null; report: ReportRecord }>
-  > {
-    const reports = await this.reports.listPending(50);
+  public async listPending(query: ListReportsQuery): Promise<{
+    items: Array<{ message: RoomMessage | null; report: ReportRecord }>;
+    nextCursor: string | null;
+  }> {
+    const cursor = query.cursor
+      ? this.cursorCodec.decode(query.cursor)
+      : undefined;
+    const records = await this.reports.listPending({
+      cursor,
+      take: query.limit + 1,
+    });
+    const hasNextPage = records.length > query.limit;
+    const reports = hasNextPage ? records.slice(0, query.limit) : records;
+    const lastReport = reports.at(-1);
 
-    return Promise.all(
+    const items = await Promise.all(
       reports.map(async (report) => ({
         message:
           (await this.messages.findById(report.roomId, report.messageId)) ??
@@ -61,6 +78,17 @@ export class ReportsService {
         report,
       })),
     );
+
+    return {
+      items,
+      nextCursor:
+        hasNextPage && lastReport
+          ? this.cursorCodec.encode({
+              createdAt: lastReport.createdAt,
+              id: lastReport.id,
+            })
+          : null,
+    };
   }
 
   public async dismiss(

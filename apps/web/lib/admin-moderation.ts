@@ -17,3 +17,16 @@ export function removeModerationReport(
 ): ModerationReport[] {
   return reports.filter((report) => report.id !== reportId);
 }
+
+export function mergeModerationReports(
+  current: ModerationReport[],
+  incoming: ModerationReport[],
+): ModerationReport[] {
+  const reports = new Map(current.map((report) => [report.id, report]));
+
+  for (const report of incoming) {
+    reports.set(report.id, report);
+  }
+
+  return [...reports.values()];
+}

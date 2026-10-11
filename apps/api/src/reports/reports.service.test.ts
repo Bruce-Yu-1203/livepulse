@@ -96,17 +96,26 @@ describe('ReportsService', () => {
       roomId,
       status: 'PENDING' as const,
     };
-    vi.mocked(repository.listPending).mockResolvedValue([report]);
+    const nextReport = {
+      ...report,
+      createdAt: new Date('2026-10-10T21:01:00.000Z'),
+      id: '99999999-9999-4999-8999-999999999999',
+    };
+    vi.mocked(repository.listPending).mockResolvedValue([report, nextReport]);
     const service = new ReportsService(
       repository,
       messagesService(message()),
       eventBus(),
     );
 
-    await expect(service.listPending()).resolves.toEqual([
-      { message: message(), report },
-    ]);
-    expect(repository.listPending).toHaveBeenCalledWith(50);
+    await expect(service.listPending({ limit: 1 })).resolves.toEqual({
+      items: [{ message: message(), report }],
+      nextCursor: expect.any(String),
+    });
+    expect(repository.listPending).toHaveBeenCalledWith({
+      cursor: undefined,
+      take: 2,
+    });
   });
 
   it('writes a tombstone, actions reports, and publishes a deletion event', async () => {

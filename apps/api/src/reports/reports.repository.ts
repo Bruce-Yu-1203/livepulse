@@ -3,6 +3,7 @@ import type { ReportReason } from '@livepulse/contracts';
 import { Prisma } from '@livepulse/db';
 
 import { DatabaseService } from '../database/database.service.js';
+import type { ReportCursor } from './report-cursor.js';
 import {
   ReportDatabaseUnavailableError,
   ReportMessageNotFoundError,
@@ -34,7 +35,10 @@ export interface ReportsRepository {
     dismissedAt: Date;
     reportId: string;
   }): Promise<'actioned' | 'dismissed' | 'missing'>;
-  listPending(take: number): Promise<ReportRecord[]>;
+  listPending(input: {
+    cursor: ReportCursor | undefined;
+    take: number;
+  }): Promise<ReportRecord[]>;
   recordDeletion(input: {
     actorId: string;
     deletedAt: Date;
@@ -98,12 +102,28 @@ export class PrismaReportsRepository implements ReportsRepository {
     }
   }
 
-  public async listPending(take: number): Promise<ReportRecord[]> {
+  public async listPending(input: {
+    cursor: ReportCursor | undefined;
+    take: number;
+  }): Promise<ReportRecord[]> {
     try {
       return await this.database.client.report.findMany({
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-        take,
-        where: { status: 'PENDING' },
+        take: input.take,
+        where: {
+          ...(input.cursor
+            ? {
+                OR: [
+                  { createdAt: { gt: input.cursor.createdAt } },
+                  {
+                    createdAt: input.cursor.createdAt,
+                    id: { gt: input.cursor.id },
+                  },
+                ],
+              }
+            : {}),
+          status: 'PENDING',
+        },
       });
     } catch (error) {
       throwReportDatabaseError(error);

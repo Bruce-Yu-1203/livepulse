@@ -2,7 +2,11 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
-import { AdminDashboard, ModerationReportActions } from './admin-dashboard';
+import {
+  AdminDashboard,
+  ModerationQueuePagination,
+  ModerationReportActions,
+} from './admin-dashboard';
 
 describe('AdminDashboard', () => {
   it('renders a non-sensitive loading shell before authorization resolves', () => {
@@ -40,5 +44,26 @@ describe('AdminDashboard', () => {
 
     expect(html).toContain('Keep message');
     expect(html).toContain('Remove message');
+  });
+
+  it('renders pending feedback for moderation queue pagination', () => {
+    const ready = renderToStaticMarkup(
+      createElement(ModerationQueuePagination, {
+        hasNextPage: true,
+        loading: false,
+        onLoad: () => undefined,
+      }),
+    );
+    const loading = renderToStaticMarkup(
+      createElement(ModerationQueuePagination, {
+        hasNextPage: true,
+        loading: true,
+        onLoad: () => undefined,
+      }),
+    );
+
+    expect(ready).toContain('Load more reports');
+    expect(loading).toContain('Loading…');
+    expect(loading).toContain('disabled=""');
   });
 });
