@@ -48,6 +48,7 @@ const hostId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const viewerId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const liveRoomId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const endedRoomId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+const originalProhibitedWords = process.env.PROHIBITED_WORDS;
 
 describe('room WebSocket gateway', () => {
   let app: NestFastifyApplication;
@@ -58,6 +59,7 @@ describe('room WebSocket gateway', () => {
   let hostHeaders: Record<string, string>;
 
   beforeAll(async () => {
+    process.env.PROHIBITED_WORDS = 'scam-offer';
     await redis.connect();
     await removeFixtures();
     const passwordHash = await new ScryptPasswordHasher().hash(password);
@@ -98,6 +100,11 @@ describe('room WebSocket gateway', () => {
     await database.$disconnect();
     await mongo.close();
     await redis.close();
+    if (originalProhibitedWords === undefined) {
+      delete process.env.PROHIBITED_WORDS;
+    } else {
+      process.env.PROHIBITED_WORDS = originalProhibitedWords;
+    }
   });
 
   it('joins live rooms, blocks guest sends, and broadcasts one message', async () => {
@@ -209,6 +216,39 @@ describe('room WebSocket gateway', () => {
       }),
     ).resolves.toBe(1);
     viewer.close();
+  });
+
+  it('rejects prohibited content without persisting it', async () => {
+    await database.roomMute.deleteMany({
+      where: { roomId: liveRoomId, userId: viewerId },
+    });
+    const sender = await connect(accessCookie);
+    const observer = await connect(undefined, 'http://localhost:3000', true);
+    const senderJoined = nextEventOfType(sender, 'room.joined');
+    sender.send(JSON.stringify(joinEvent(liveRoomId, 20)));
+    await senderJoined;
+    const observerJoined = nextEventOfType(observer, 'room.joined');
+    observer.send(JSON.stringify(joinEvent(liveRoomId, 21)));
+    await observerJoined;
+
+    const rejected = nextEventOfType(sender, 'error');
+    sender.send(
+      JSON.stringify(
+        sendEvent(liveRoomId, 22, 20, 'A limited SCAM-OFFER today'),
+      ),
+    );
+    expect(RealtimeErrorEventSchema.parse(await rejected).payload.code).toBe(
+      'REALTIME_CONTENT_BLOCKED',
+    );
+    await expect(
+      mongo.db().collection('messages').countDocuments({
+        roomId: liveRoomId,
+        text: 'A limited SCAM-OFFER today',
+      }),
+    ).resolves.toBe(0);
+
+    sender.close();
+    observer.close();
   });
 
   it('closes an expired authenticated handshake without retry ambiguity', async () => {

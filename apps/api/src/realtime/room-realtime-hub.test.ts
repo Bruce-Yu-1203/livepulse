@@ -9,6 +9,7 @@ import type {
   RealtimeEventBus,
   RealtimePresence,
 } from './realtime-coordination.js';
+import { ProhibitedContentFilter } from './prohibited-content.filter.js';
 import {
   type RealtimePeer,
   RoomRealtimeHub,
@@ -181,6 +182,32 @@ describe('RoomRealtimeHub', () => {
     expect(messagePublisher.publish).not.toHaveBeenCalled();
   });
 
+  it('rejects prohibited content before persistence and rate limiting', async () => {
+    const messagePublisher = publisher();
+    const hub = new RoomRealtimeHub(
+      roomSource(true),
+      messagePublisher,
+      eventBus(),
+      presence(),
+      contentFilter('scam-offer'),
+    );
+    const sender = peer('sender', true);
+    await hub.handle(sender, joinEvent(1));
+
+    for (let index = 1; index <= 6; index += 1) {
+      await hub.handle(
+        sender,
+        sendEvent(index + 1, index, 'Limited SCAM-OFFER today'),
+      );
+    }
+
+    expect(sender.events.at(-1)).toMatchObject({
+      payload: { code: 'REALTIME_CONTENT_BLOCKED' },
+      type: 'error',
+    });
+    expect(messagePublisher.publish).not.toHaveBeenCalled();
+  });
+
   it('fails closed when moderation validation is unavailable', async () => {
     const source = roomSource(true);
     vi.mocked(source.findActiveMuteExpiry).mockRejectedValue(
@@ -279,6 +306,18 @@ describe('RoomRealtimeHub', () => {
 
 function createHub(source = roomSource(true)): RoomRealtimeHub {
   return new RoomRealtimeHub(source, publisher(), eventBus(), presence());
+}
+
+function contentFilter(terms: string): ProhibitedContentFilter {
+  const previous = process.env.PROHIBITED_WORDS;
+  process.env.PROHIBITED_WORDS = terms;
+  const filter = new ProhibitedContentFilter();
+  if (previous === undefined) {
+    delete process.env.PROHIBITED_WORDS;
+  } else {
+    process.env.PROHIBITED_WORDS = previous;
+  }
+  return filter;
 }
 
 function roomSource(live: boolean): RealtimeRoomSource {

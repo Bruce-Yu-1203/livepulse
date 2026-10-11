@@ -99,6 +99,9 @@ describe('login and session contracts', () => {
     expect(ApiErrorCode.RealtimeAuthenticationRequired).toBe(
       'REALTIME_AUTHENTICATION_REQUIRED',
     );
+    expect(ApiErrorCode.RealtimeContentBlocked).toBe(
+      'REALTIME_CONTENT_BLOCKED',
+    );
     expect(ApiErrorCode.RealtimeRateLimited).toBe('REALTIME_RATE_LIMITED');
     expect(ApiErrorCode.Unauthorized).toBe('AUTH_UNAUTHORIZED');
   });

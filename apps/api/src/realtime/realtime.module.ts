@@ -5,6 +5,7 @@ import { DatabaseModule } from '../database/database.module.js';
 import { MessagesModule } from '../messages/messages.module.js';
 import { DatabaseRealtimeRoomSource } from './realtime-room-source.js';
 import { RedisRealtimeCoordinator } from './redis-realtime-coordinator.js';
+import { ProhibitedContentFilter } from './prohibited-content.filter.js';
 import { RoomRealtimeHub } from './room-realtime-hub.js';
 import { RoomWebSocketServer } from './room-websocket.server.js';
 import {
@@ -19,6 +20,7 @@ import {
     RoomRealtimeHub,
     RoomWebSocketServer,
     RedisRealtimeCoordinator,
+    ProhibitedContentFilter,
     {
       provide: REALTIME_ROOM_SOURCE,
       useClass: DatabaseRealtimeRoomSource,

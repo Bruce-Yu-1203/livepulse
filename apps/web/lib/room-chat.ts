@@ -1,3 +1,4 @@
+import { ApiErrorCode } from '@livepulse/contracts';
 import type { MessageCreatedEvent, RoomMessage } from '@livepulse/contracts';
 
 export interface ChatMessage {
@@ -147,6 +148,17 @@ export function roomPresenceLabel(connections: number): string {
   return `${connections.toLocaleString('en')} ${
     connections === 1 ? 'person' : 'people'
   } online`;
+}
+
+export function realtimeErrorMessage(error: {
+  code: string;
+  message: string;
+}): string {
+  if (error.code === ApiErrorCode.RealtimeContentBlocked) {
+    return 'Your message was blocked by the room content policy.';
+  }
+
+  return error.message;
 }
 
 function toChatMessage(message: RoomMessage): ChatMessage {

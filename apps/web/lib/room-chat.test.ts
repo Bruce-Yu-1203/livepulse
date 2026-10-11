@@ -8,6 +8,7 @@ import {
   mergeCreatedMessage,
   mergeHistoryMessages,
   reconnectDelay,
+  realtimeErrorMessage,
   roomPresenceLabel,
   resolveWebSocketUrl,
 } from './room-chat';
@@ -150,5 +151,20 @@ describe('room chat state', () => {
     expect(reconnectDelay(20, () => 0.5)).toBe(30_000);
     expect(roomPresenceLabel(1)).toBe('1 person online');
     expect(roomPresenceLabel(1_250)).toBe('1,250 people online');
+  });
+
+  it('shows a clear message when the server blocks prohibited content', () => {
+    expect(
+      realtimeErrorMessage({
+        code: 'REALTIME_CONTENT_BLOCKED',
+        message: 'Server fallback',
+      }),
+    ).toBe('Your message was blocked by the room content policy.');
+    expect(
+      realtimeErrorMessage({
+        code: 'SERVICE_UNAVAILABLE',
+        message: 'Try again later',
+      }),
+    ).toBe('Try again later');
   });
 });

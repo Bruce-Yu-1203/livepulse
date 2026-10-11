@@ -90,6 +90,7 @@ export const ApiErrorCode = {
   RoomInvalidTransition: 'ROOM_INVALID_STATUS_TRANSITION',
   RoomVersionConflict: 'ROOM_VERSION_CONFLICT',
   RealtimeAuthenticationRequired: 'REALTIME_AUTHENTICATION_REQUIRED',
+  RealtimeContentBlocked: 'REALTIME_CONTENT_BLOCKED',
   RealtimeInvalidEvent: 'REALTIME_INVALID_EVENT',
   RealtimeMessageConflict: 'REALTIME_MESSAGE_CONFLICT',
   RealtimeMuted: 'REALTIME_MUTED',

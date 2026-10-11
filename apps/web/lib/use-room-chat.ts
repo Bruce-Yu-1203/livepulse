@@ -19,6 +19,7 @@ import {
   mergeCreatedMessage,
   mergeHistoryMessages,
   reconnectDelay,
+  realtimeErrorMessage,
   resolveWebSocketUrl,
 } from './room-chat';
 
@@ -198,7 +199,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
           setMessages((current) => markMessageFailed(current, clientMessageId));
           requestMessagesRef.current.delete(parsed.data.requestId);
         }
-        setError(parsed.data.payload.message);
+        setError(realtimeErrorMessage(parsed.data.payload));
 
         if (parsed.data.payload.code === ApiErrorCode.RealtimeRoomNotLive) {
           setConnection('ended');

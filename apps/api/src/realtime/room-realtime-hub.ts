@@ -17,6 +17,7 @@ import type {
   RealtimePresence,
 } from './realtime-coordination.js';
 import type { RealtimeRoomSource } from './realtime-room-source.js';
+import { ProhibitedContentFilter } from './prohibited-content.filter.js';
 import {
   REALTIME_EVENT_BUS,
   REALTIME_PRESENCE,
@@ -62,6 +63,7 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
     private readonly eventBus: RealtimeEventBus,
     @Inject(REALTIME_PRESENCE)
     private readonly presence: RealtimePresence,
+    private readonly contentFilter: ProhibitedContentFilter = new ProhibitedContentFilter(),
   ) {
     this.unsubscribeFromBus = this.eventBus.subscribe((event) => {
       this.handleDistributedEvent(event);
@@ -242,6 +244,16 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
         ApiErrorCode.RealtimeMuted,
         'You are temporarily muted in this room',
         Math.max(0, muteExpiry.getTime() - Date.now()),
+      );
+      return;
+    }
+
+    if (this.contentFilter.blocks(text)) {
+      this.sendError(
+        peer,
+        event.requestId,
+        ApiErrorCode.RealtimeContentBlocked,
+        'This message was blocked by the content policy',
       );
       return;
     }
