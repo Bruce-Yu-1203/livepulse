@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { AuditLogsModule } from './audit-logs/audit-logs.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { HealthController } from './health/health.controller.js';
 import { HealthService } from './health/health.service.js';
@@ -11,6 +12,7 @@ import { RoomsModule } from './rooms/rooms.module.js';
 @Module({
   controllers: [HealthController],
   imports: [
+    AuditLogsModule,
     AuthModule,
     MessagesModule,
     RealtimeModule,

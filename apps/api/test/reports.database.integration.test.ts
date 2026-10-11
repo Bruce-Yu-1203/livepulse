@@ -5,6 +5,7 @@ import {
   ApiErrorCode,
   ApiErrorResponseSchema,
   CreateReportResponseSchema,
+  ListAuditLogsResponseSchema,
   ListReportsResponseSchema,
   type RoomMessage,
 } from '@livepulse/contracts';
@@ -371,6 +372,55 @@ describe('POST /api/v1/reports', () => {
     expect(dismissalConflict.statusCode).toBe(409);
     expect(ApiErrorResponseSchema.parse(dismissalConflict.json()).code).toBe(
       ApiErrorCode.ReportAlreadyActioned,
+    );
+
+    const forbiddenAuditHistory = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: viewerHeaders,
+        method: 'GET',
+        url: '/api/v1/audit-logs',
+      });
+    expect(forbiddenAuditHistory.statusCode).toBe(403);
+
+    const firstAuditPageResponse = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: adminHeaders,
+        method: 'GET',
+        url: '/api/v1/audit-logs?limit=2',
+      });
+    expect(firstAuditPageResponse.statusCode).toBe(200);
+    const firstAuditPage = ListAuditLogsResponseSchema.parse(
+      firstAuditPageResponse.json(),
+    );
+    expect(firstAuditPage.items).toHaveLength(2);
+    expect(firstAuditPage.nextCursor).toEqual(expect.any(String));
+
+    const secondAuditPageResponse = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: adminHeaders,
+        method: 'GET',
+        url: `/api/v1/audit-logs?limit=2&cursor=${encodeURIComponent(firstAuditPage.nextCursor ?? '')}`,
+      });
+    const secondAuditPage = ListAuditLogsResponseSchema.parse(
+      secondAuditPageResponse.json(),
+    );
+    expect(secondAuditPage.nextCursor).toBeNull();
+    expect(
+      [...firstAuditPage.items, ...secondAuditPage.items].map(
+        ({ action }) => action,
+      ),
+    ).toEqual(
+      expect.arrayContaining([
+        'MESSAGE_DELETED',
+        'MESSAGE_REPORTED',
+        'REPORT_DISMISSED',
+      ]),
     );
 
     const emptyQueue = await app.getHttpAdapter().getInstance().inject({

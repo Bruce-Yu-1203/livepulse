@@ -1,4 +1,9 @@
-import type { ModerationReport, ReportReason } from '@livepulse/contracts';
+import type {
+  AuditAction,
+  AuditLog,
+  ModerationReport,
+  ReportReason,
+} from '@livepulse/contracts';
 
 const reasonLabels: Record<ReportReason, string> = {
   HARASSMENT: 'Harassment',
@@ -7,8 +12,19 @@ const reasonLabels: Record<ReportReason, string> = {
   SPAM: 'Spam',
 };
 
+const auditActionLabels: Record<AuditAction, string> = {
+  MESSAGE_DELETED: 'Message removed',
+  MESSAGE_REPORTED: 'Message reported',
+  REPORT_DISMISSED: 'Report dismissed',
+  ROOM_USER_MUTED: 'Room user muted',
+};
+
 export function reportReasonLabel(reason: ReportReason): string {
   return reasonLabels[reason];
+}
+
+export function auditActionLabel(action: AuditAction): string {
+  return auditActionLabels[action];
 }
 
 export function removeModerationReport(
@@ -29,4 +45,17 @@ export function mergeModerationReports(
   }
 
   return [...reports.values()];
+}
+
+export function mergeAuditLogs(
+  current: AuditLog[],
+  incoming: AuditLog[],
+): AuditLog[] {
+  const logs = new Map(current.map((log) => [log.id, log]));
+
+  for (const log of incoming) {
+    logs.set(log.id, log);
+  }
+
+  return [...logs.values()];
 }

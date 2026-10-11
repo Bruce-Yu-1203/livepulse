@@ -91,6 +91,7 @@ A RESTful API is a resource-oriented interface style, not a low-latency broadcas
 | POST /api/v1/reports | Report content | 201 |
 | GET /api/v1/reports | Cursor-paginate the administrator's pending moderation queue | 200 or 403 |
 | PATCH /api/v1/reports/:id | Dismiss a pending report without deleting its message | 204, 403, or 409 |
+| GET /api/v1/audit-logs | Cursor-paginate administrator-visible moderation history | 200 or 403 |
 | GET /health/live and /health/ready | Process liveness and traffic readiness | 200 or 503 |
 | GET /metrics | Internal metrics scraping | Prometheus text format |
 
@@ -189,6 +190,8 @@ The Phase A moderation path stores one expiring room_mutes row per room and targ
 
 The message-report path verifies the room and message pair against MongoDB before writing a PostgreSQL report. A composite unique constraint on reporter_id and message_id makes retries converge on one pending report. Creating the report and its MESSAGE_REPORTED audit record uses one SQL transaction, while the browser presents a bounded reason list and optional context only for another user's persisted messages. The administrator queue returns explicit report and message DTOs rather than exposing database records. It uses an opaque createdAt-and-id cursor with ascending oldest-first ordering; removing an earlier item therefore does not shift later pages as offset pagination would. An administrator may dismiss a pending report while preserving the message; a conditional SQL update changes the report to DISMISSED and appends one REPORT_DISMISSED audit record in the same transaction, so retries remain idempotent and cannot override an already actioned report. Deletion first writes a durable MongoDB tombstone, then marks every matching pending PostgreSQL report as ACTIONED and appends a MESSAGE_DELETED audit record in one SQL transaction. Finally, it publishes message.deleted for low-latency UI updates. This cross-database workflow cannot be one atomic transaction: MongoDB history is authoritative if Redis Pub/Sub is missed, while a failed SQL step remains visible for operational reconciliation instead of restoring deleted text.
 
+The administrator audit-history endpoint returns an explicit allowlist of moderation actions and fields rather than raw database rows. It orders records newest first and uses an opaque createdAt-and-id cursor. The browser loads the pending queue and initial history in parallel, refreshes the first audit page after a successful action, and can independently load older activity. PostgreSQL remains the source of truth; the UI does not manufacture a successful audit entry optimistically.
+
 The like cache does not use an unguarded INCR. In the first version, the statistics worker receives a change event, queries the current SQL COUNT, and refreshes Redis. Concurrent refreshes require per-room serialization and version protection. At larger scale, this can become a deduplicated incremental read model with reconciliation. The first path demonstrates correctness and does not claim unlimited like throughput.
 
 ### 7.2 MongoDB Message History
@@ -272,7 +275,7 @@ Database migrations run independently and use an expand-and-contract sequence to
 | Type | Focus |
 | --- | --- |
 | Unit | State machine, permissions, message schemas, stable IDs, conflict detection, and rate-limit boundaries |
-| Integration | SQL like, mute, and report uniqueness; paginated administrator queue, idempotent dismissal, and audited tombstones; MongoDB idempotency; Kafka offsets; and Redis cross-gateway fan-out |
+| Integration | SQL like, mute, and report uniqueness; paginated administrator queue and audit history; idempotent dismissal and audited tombstones; MongoDB idempotency; Kafka offsets; and Redis cross-gateway fan-out |
 | End to end | Login, join, send, like, end room, mute, delete, and reconnect |
 | Failure | Kill gateway after acceptance, crash after DB write before commit, interrupt Redis, and stop/recover MongoDB |
 | Load | Idle connections, steady fan-out, hot room, short burst, slow clients, and consumer recovery |

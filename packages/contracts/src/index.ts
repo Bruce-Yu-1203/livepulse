@@ -1,4 +1,17 @@
 export {
+  AuditActionSchema,
+  AuditLogSchema,
+  ListAuditLogsQuerySchema,
+  ListAuditLogsResponseSchema,
+} from './audit-logs.js';
+export type {
+  AuditAction,
+  AuditLog,
+  ListAuditLogsQuery,
+  ListAuditLogsResponse,
+} from './audit-logs.js';
+
+export {
   RoomStatus,
   RoomStatusSchema,
   UserRole,

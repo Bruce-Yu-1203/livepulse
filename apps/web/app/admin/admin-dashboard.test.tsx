@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   AdminDashboard,
+  AuditHistoryPagination,
+  AuditTrail,
   ModerationQueuePagination,
   ModerationReportActions,
 } from './admin-dashboard';
@@ -65,5 +67,38 @@ describe('AdminDashboard', () => {
     expect(ready).toContain('Load more reports');
     expect(loading).toContain('Loading…');
     expect(loading).toContain('disabled=""');
+  });
+
+  it('renders explicit audit activity without exposing hidden fields', () => {
+    const html = renderToStaticMarkup(
+      createElement(AuditTrail, {
+        logs: [
+          {
+            action: 'REPORT_DISMISSED',
+            actorId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+            createdAt: '2026-10-11T16:00:00.000Z',
+            id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+            roomId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+            targetId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+          },
+        ],
+      }),
+    );
+
+    expect(html).toContain('Report dismissed');
+    expect(html).toContain('Open related room');
+    expect(html).toContain('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+  });
+
+  it('renders audit pagination feedback', () => {
+    const html = renderToStaticMarkup(
+      createElement(AuditHistoryPagination, {
+        hasNextPage: true,
+        loading: false,
+        onLoad: () => undefined,
+      }),
+    );
+
+    expect(html).toContain('Load more activity');
   });
 });

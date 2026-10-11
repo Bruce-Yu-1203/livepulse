@@ -1,7 +1,9 @@
 'use client';
 
 import {
+  type AuditLog,
   CurrentUserResponseSchema,
+  ListAuditLogsResponseSchema,
   ListReportsResponseSchema,
   type ModerationReport,
 } from '@livepulse/contracts';
@@ -9,6 +11,8 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import {
+  auditActionLabel,
+  mergeAuditLogs,
   mergeModerationReports,
   removeModerationReport,
   reportReasonLabel,
@@ -27,6 +31,9 @@ export function AdminDashboard() {
   const [reports, setReports] = useState<ModerationReport[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>();
   const [loadingMore, setLoadingMore] = useState(false);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [auditNextCursor, setAuditNextCursor] = useState<string | null>();
+  const [auditLoadingMore, setAuditLoadingMore] = useState(false);
   const [pendingAction, setPendingAction] = useState<{
     reportId: string;
     type: ModerationAction;
@@ -47,13 +54,15 @@ export function AdminDashboard() {
           return;
         }
 
-        const response = await clientApiRequest(
-          '/api/v1/reports',
-          ListReportsResponseSchema,
-        );
+        const [response, auditResponse] = await Promise.all([
+          clientApiRequest('/api/v1/reports', ListReportsResponseSchema),
+          clientApiRequest('/api/v1/audit-logs', ListAuditLogsResponseSchema),
+        ]);
         if (active) {
           setReports(response.items);
           setNextCursor(response.nextCursor);
+          setAuditLogs(auditResponse.items);
+          setAuditNextCursor(auditResponse.nextCursor);
           setState('ready');
         }
       })
@@ -107,6 +116,45 @@ export function AdminDashboard() {
     }
   }
 
+  async function loadMoreAuditLogs() {
+    if (!auditNextCursor || auditLoadingMore) {
+      return;
+    }
+
+    setAuditLoadingMore(true);
+    setNotice(undefined);
+
+    try {
+      const query = new URLSearchParams({
+        cursor: auditNextCursor,
+        limit: '20',
+      });
+      const response = await clientApiRequest(
+        `/api/v1/audit-logs?${query.toString()}`,
+        ListAuditLogsResponseSchema,
+      );
+      setAuditLogs((current) => mergeAuditLogs(current, response.items));
+      setAuditNextCursor(response.nextCursor);
+    } catch (error) {
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : 'More audit history could not be loaded.',
+      );
+    } finally {
+      setAuditLoadingMore(false);
+    }
+  }
+
+  async function refreshAuditLogs() {
+    const response = await clientApiRequest(
+      '/api/v1/audit-logs',
+      ListAuditLogsResponseSchema,
+    );
+    setAuditLogs(response.items);
+    setAuditNextCursor(response.nextCursor);
+  }
+
   async function resolveReport(
     report: ModerationReport,
     type: ModerationAction,
@@ -128,6 +176,13 @@ export function AdminDashboard() {
         });
       }
       setReports((current) => removeModerationReport(current, report.id));
+      try {
+        await refreshAuditLogs();
+      } catch {
+        setNotice(
+          'The action succeeded, but the audit history did not refresh.',
+        );
+      }
     } catch (error) {
       setNotice(
         error instanceof Error
@@ -249,7 +304,92 @@ export function AdminDashboard() {
           onLoad={() => void loadMoreReports()}
         />
       </section>
+
+      <section className="mt-16 border-t border-white/8 pt-10">
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-200">
+          Accountability
+        </p>
+        <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-white">
+          Recent audit history
+        </h2>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-500">
+          Newest first. Each entry records the actor, target, room, and server
+          time for a moderation event.
+        </p>
+        <AuditTrail logs={auditLogs} />
+        <AuditHistoryPagination
+          hasNextPage={Boolean(auditNextCursor)}
+          loading={auditLoadingMore}
+          onLoad={() => void loadMoreAuditLogs()}
+        />
+      </section>
     </div>
+  );
+}
+
+export function AuditTrail({ logs }: { logs: AuditLog[] }) {
+  if (logs.length === 0) {
+    return (
+      <p className="mt-6 rounded-2xl border border-dashed border-white/10 px-5 py-8 text-center text-sm text-zinc-500">
+        No moderation activity has been recorded yet.
+      </p>
+    );
+  }
+
+  return (
+    <ol className="mt-6 space-y-3">
+      {logs.map((log) => (
+        <li
+          className="rounded-2xl border border-white/8 bg-white/[0.025] px-5 py-4"
+          key={log.id}
+        >
+          <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+            <p className="font-semibold text-zinc-200">
+              {auditActionLabel(log.action)}
+            </p>
+            <time className="text-xs text-zinc-600" dateTime={log.createdAt}>
+              {formatReportTime(log.createdAt)}
+            </time>
+          </div>
+          <p className="mt-2 break-all text-xs leading-5 text-zinc-500">
+            Actor {log.actorId} · Target {log.targetId}
+          </p>
+          {log.roomId ? (
+            <Link
+              className="mt-2 inline-flex text-xs font-semibold text-cyan-300 transition hover:text-cyan-200"
+              href={`/rooms/${log.roomId}`}
+            >
+              Open related room
+            </Link>
+          ) : null}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+export function AuditHistoryPagination({
+  hasNextPage,
+  loading,
+  onLoad,
+}: {
+  hasNextPage: boolean;
+  loading: boolean;
+  onLoad: () => void;
+}) {
+  if (!hasNextPage) {
+    return null;
+  }
+
+  return (
+    <button
+      className="mx-auto mt-6 block rounded-full border border-white/12 px-5 py-2.5 text-sm font-bold text-zinc-200 transition hover:border-cyan-300/40 hover:text-cyan-200 disabled:cursor-wait disabled:opacity-50"
+      disabled={loading}
+      onClick={onLoad}
+      type="button"
+    >
+      {loading ? 'Loading…' : 'Load more activity'}
+    </button>
   );
 }
 
