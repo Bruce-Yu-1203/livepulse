@@ -91,6 +91,7 @@ export const ApiErrorCode = {
   RealtimeAuthenticationRequired: 'REALTIME_AUTHENTICATION_REQUIRED',
   RealtimeInvalidEvent: 'REALTIME_INVALID_EVENT',
   RealtimeMessageConflict: 'REALTIME_MESSAGE_CONFLICT',
+  RealtimeMuted: 'REALTIME_MUTED',
   RealtimeNotJoined: 'REALTIME_NOT_JOINED',
   RealtimeRateLimited: 'REALTIME_RATE_LIMITED',
   RealtimeRoomNotLive: 'REALTIME_ROOM_NOT_LIVE',

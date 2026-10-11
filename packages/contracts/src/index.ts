@@ -81,6 +81,17 @@ export {
   ListRoomMessagesResponseSchema,
   RoomMessageSchema,
 } from './messages.js';
+
+export {
+  MuteRoomUserRequestSchema,
+  MuteRoomUserResponseSchema,
+  RoomMuteSchema,
+} from './moderation.js';
+export type {
+  MuteRoomUserRequest,
+  MuteRoomUserResponse,
+  RoomMute,
+} from './moderation.js';
 export type {
   ListRoomMessagesQuery,
   ListRoomMessagesResponse,

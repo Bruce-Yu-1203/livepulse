@@ -1,0 +1,1 @@
+export const ROOM_MUTES_REPOSITORY = Symbol('ROOM_MUTES_REPOSITORY');

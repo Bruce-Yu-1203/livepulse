@@ -161,4 +161,57 @@ describe('authentication database constraints', () => {
       ]),
     ).rejects.toMatchObject({ code: '23505' });
   });
+
+  it('keeps one expiring mute per room and cascades it with the target', async () => {
+    const hostId = randomUUID();
+    const viewerId = randomUUID();
+    const roomId = randomUUID();
+
+    await pool.query(
+      "INSERT INTO users (id, email, password_hash, role) VALUES ($1, $2, $3, 'HOST'), ($4, $5, $6, 'VIEWER')",
+      [
+        hostId,
+        'mutes-host@example.com',
+        'password-hash',
+        viewerId,
+        'mutes-viewer@example.com',
+        'password-hash',
+      ],
+    );
+    await pool.query(
+      `INSERT INTO rooms
+        (id, host_id, title, description, cover_image_url, demo_video_url, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'LIVE')`,
+      [
+        roomId,
+        hostId,
+        'Moderated room',
+        'A room with expiring mutes',
+        'https://cdn.example.com/cover.jpg',
+        'https://video.example.com/demo.mp4',
+      ],
+    );
+    await pool.query(
+      `INSERT INTO room_mutes
+        (room_id, user_id, muted_by, expires_at)
+       VALUES ($1, $2, $3, NOW() + INTERVAL '10 minutes')`,
+      [roomId, viewerId, hostId],
+    );
+
+    await expect(
+      pool.query(
+        `INSERT INTO room_mutes
+          (room_id, user_id, muted_by, expires_at)
+         VALUES ($1, $2, $3, NOW() + INTERVAL '20 minutes')`,
+        [roomId, viewerId, hostId],
+      ),
+    ).rejects.toMatchObject({ code: '23505' });
+
+    await pool.query('DELETE FROM users WHERE id = $1', [viewerId]);
+    const result = await pool.query<{ count: string }>(
+      'SELECT COUNT(*) AS count FROM room_mutes WHERE room_id = $1',
+      [roomId],
+    );
+    expect(result.rows[0]?.count).toBe('0');
+  });
 });

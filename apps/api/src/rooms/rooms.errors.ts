@@ -46,3 +46,17 @@ export class RoomVersionConflictError extends Error {
     this.name = 'RoomVersionConflictError';
   }
 }
+
+export class RoomMuteSelfError extends Error {
+  public constructor() {
+    super('A moderator cannot mute their own account');
+    this.name = 'RoomMuteSelfError';
+  }
+}
+
+export class RoomMuteTargetNotFoundError extends Error {
+  public constructor(options?: ErrorOptions) {
+    super('The user to mute was not found', options);
+    this.name = 'RoomMuteTargetNotFoundError';
+  }
+}

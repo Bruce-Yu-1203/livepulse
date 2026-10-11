@@ -1,17 +1,31 @@
 'use client';
 
-import type { VisibleRoom } from '@livepulse/contracts';
+import {
+  MuteRoomUserResponseSchema,
+  type VisibleRoom,
+} from '@livepulse/contracts';
 import Link from 'next/link';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 
+import { clientApiRequest } from '../lib/client-api';
 import { type ChatMessage, roomPresenceLabel } from '../lib/room-chat';
+import { canModerateRoom } from '../lib/room-moderation';
 import { useRoomChat } from '../lib/use-room-chat';
 import { RoomLikeButton } from './room-like-button';
 
 export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
   const chat = useRoomChat(room.id, room.status);
   const [danmakuVisible, setDanmakuVisible] = useState(true);
+  const [mutedUserIds, setMutedUserIds] = useState<Set<string>>(new Set());
+  const [mutingUserId, setMutingUserId] = useState<string>();
+  const [moderationError, setModerationError] = useState<string>();
+  const canModerate = canModerateRoom(
+    chat.userRole,
+    chat.userId,
+    room.hostId,
+    room.status,
+  );
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -20,6 +34,28 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
 
     if (chat.sendMessage(String(data.get('message') ?? ''))) {
       form.reset();
+    }
+  }
+
+  async function muteUser(userId: string) {
+    setMutingUserId(userId);
+    setModerationError(undefined);
+
+    try {
+      await clientApiRequest(
+        `/api/v1/rooms/${room.id}/mutes`,
+        MuteRoomUserResponseSchema,
+        {
+          body: JSON.stringify({ durationMinutes: 10, userId }),
+          headers: { 'content-type': 'application/json' },
+          method: 'POST',
+        },
+      );
+      setMutedUserIds((current) => new Set(current).add(userId));
+    } catch {
+      setModerationError('This viewer could not be muted. Please try again.');
+    } finally {
+      setMutingUserId(undefined);
     }
   }
 
@@ -89,6 +125,10 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
                 currentUserId={chat.userId}
                 key={message.id}
                 message={message}
+                moderationEnabled={canModerate}
+                muted={mutedUserIds.has(message.authorId)}
+                muting={mutingUserId === message.authorId}
+                onMute={muteUser}
               />
             ))
           ) : (
@@ -142,6 +182,11 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
               {chat.error}
             </p>
           ) : null}
+          {moderationError ? (
+            <p className="mt-3 text-xs leading-5 text-rose-300" role="status">
+              {moderationError}
+            </p>
+          ) : null}
         </div>
       </aside>
     </div>
@@ -151,9 +196,17 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
 function ChatMessageRow({
   currentUserId,
   message,
+  moderationEnabled,
+  muted,
+  muting,
+  onMute,
 }: {
   currentUserId: string | undefined;
   message: ChatMessage;
+  moderationEnabled: boolean;
+  muted: boolean;
+  muting: boolean;
+  onMute(userId: string): void;
 }) {
   return (
     <div className={message.status === 'failed' ? 'opacity-50' : undefined}>
@@ -170,6 +223,16 @@ function ChatMessageRow({
               ? 'failed'
               : formatMessageTime(message.acceptedAt)}
         </span>
+        {moderationEnabled && message.authorId !== currentUserId ? (
+          <button
+            className="ml-auto rounded-full border border-rose-300/20 px-2 py-1 text-[0.65rem] font-semibold text-rose-200 transition hover:border-rose-300/50 disabled:cursor-wait disabled:opacity-50"
+            disabled={muted || muting}
+            onClick={() => onMute(message.authorId)}
+            type="button"
+          >
+            {muted ? 'Muted' : muting ? 'Muting…' : 'Mute 10m'}
+          </button>
+        ) : null}
       </div>
       <p className="mt-1 break-words text-sm leading-6 text-zinc-300">
         {message.text}

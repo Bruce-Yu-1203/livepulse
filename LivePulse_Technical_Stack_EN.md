@@ -100,7 +100,7 @@ Public room reads expose LIVE and ENDED rooms. DRAFT rooms remain private to hos
 
 The connection path is /ws and uses wss in public environments. The web, API, and WebSocket endpoint should share one site behind a reverse proxy. The handshake validates a short-lived identity cookie and an allowed Origin. Cookies use HttpOnly, Secure, and an appropriate SameSite setting. REST write operations require a signed double-submit CSRF token in a readable cookie and custom header, plus an allowed Origin. Authentication cookies remain HttpOnly. Guests may join public rooms but cannot send messages.
 
-The current Phase A vertical slice mounts /ws on the API HTTP server, keeps WebSocket objects and room membership local to each process, and uses Redis Pub/Sub for cross-instance fan-out. Redis sorted sets store leased connection presence so crashed instances expire without permanent count inflation. The gateway validates the production-shaped envelopes, Origin, identity cookie, live-room status, stable message IDs, idempotent retries, rate limits, frame size, and send-buffer bound. Before broadcasting, it writes each message directly to MongoDB and emits message.created only after that write succeeds. The REST history endpoint uses opaque cursor pagination, and the browser merges history with live and optimistic messages by stable identifiers. The next reliability phase moves this unchanged contract into the dedicated gateway and replaces the direct MongoDB publish step with Kafka and the history worker.
+The current Phase A vertical slice mounts /ws on the API HTTP server, keeps WebSocket objects and room membership local to each process, and uses Redis Pub/Sub for cross-instance fan-out. Redis sorted sets store leased connection presence so crashed instances expire without permanent count inflation. The gateway validates the production-shaped envelopes, Origin, identity cookie, live-room status, active room mute, stable message IDs, idempotent retries, rate limits, frame size, and send-buffer bound. Before broadcasting, it writes each message directly to MongoDB and emits message.created only after that write succeeds. The REST history endpoint uses opaque cursor pagination, and the browser merges history with live and optimistic messages by stable identifiers. The next reliability phase moves this unchanged contract into the dedicated gateway and replaces the direct MongoDB publish step with Kafka and the history worker.
 
 Example shared envelope:
 
@@ -176,12 +176,14 @@ Partitions must not be added casually to the chat topic because key remapping ca
 | room_likes | composite primary key of room_id and user_id, created_at |
 | room_mutes | room_id, user_id, muted_by, expires_at, composite unique constraint |
 | reports | id, reporter_id, room_id, message_id, reason, status |
-| audit_logs | id, actor_id, action, target_id, created_at |
+| audit_logs | id, actor_id, action, target_id, room_id, created_at |
 | outbox_events | unique event_id, aggregate_id, payload, created_at, published_at, attempts |
 
 PostgreSQL owns facts that require transactions and uniqueness. It does not store every chat message. A like mutation and its outbox event are written in one transaction. The outbox relay marks the event as published after Kafka accepts it and retries failures, so downstream consumers must still be idempotent.
 
 The current Phase A like path stores one room_likes row per room and user under a composite primary key. PUT uses an upsert, DELETE uses deleteMany, and both operations converge to the same database state when repeated. Public room responses calculate the count from PostgreSQL, while the interactive button receives that initial count from the server-rendered page, loads the authenticated user's state after hydration, and rolls back its optimistic update if the mutation fails. The outbox and Redis statistics cache remain a later scaling phase.
+
+The Phase A moderation path stores one expiring room_mutes row per room and target user. A host or administrator upserts that row and appends a ROOM_USER_MUTED audit record in the same PostgreSQL transaction. Every new WebSocket message checks the shared SQL record before MongoDB persistence, so a mute created through one API instance also blocks a user connected to another instance. This is a correctness-first read on every send; a short-lived Redis cache with invalidation can be added after measuring load without changing PostgreSQL as the source of truth.
 
 The like cache does not use an unguarded INCR. In the first version, the statistics worker receives a change event, queries the current SQL COUNT, and refreshes Redis. Concurrent refreshes require per-room serialization and version protection. At larger scale, this can become a deduplicated incremental read model with reconciliation. The first path demonstrates correctness and does not claim unlimited like throughput.
 
@@ -266,7 +268,7 @@ Database migrations run independently and use an expand-and-contract sequence to
 | Type | Focus |
 | --- | --- |
 | Unit | State machine, permissions, message schemas, stable IDs, conflict detection, and rate-limit boundaries |
-| Integration | SQL like uniqueness and outbox, MongoDB idempotent batch writes, Kafka offsets, and Redis cross-gateway fan-out |
+| Integration | SQL like and mute uniqueness, audited moderation, MongoDB idempotency, Kafka offsets, and Redis cross-gateway fan-out |
 | End to end | Login, join, send, like, end room, mute, delete, and reconnect |
 | Failure | Kill gateway after acceptance, crash after DB write before commit, interrupt Redis, and stop/recover MongoDB |
 | Load | Idle connections, steady fan-out, hot room, short burst, slow clients, and consumer recovery |

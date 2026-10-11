@@ -3,6 +3,10 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module.js';
 import { DatabaseModule } from '../database/database.module.js';
 import { RolesGuard } from '../authorization/roles.guard.js';
+import { RoomMutesController } from './room-mutes.controller.js';
+import { PrismaRoomMutesRepository } from './room-mutes.repository.js';
+import { RoomMutesService } from './room-mutes.service.js';
+import { ROOM_MUTES_REPOSITORY } from './room-mutes.tokens.js';
 import { RoomLikesController } from './room-likes.controller.js';
 import { PrismaRoomLikesRepository } from './room-likes.repository.js';
 import { RoomLikesService } from './room-likes.service.js';
@@ -13,13 +17,18 @@ import { RoomsService } from './rooms.service.js';
 import { ROOMS_REPOSITORY } from './rooms.tokens.js';
 
 @Module({
-  controllers: [RoomsController, RoomLikesController],
+  controllers: [RoomsController, RoomLikesController, RoomMutesController],
   exports: [RoomsService],
   imports: [AuthModule, DatabaseModule],
   providers: [
     RoomsService,
     RoomLikesService,
+    RoomMutesService,
     RolesGuard,
+    {
+      provide: ROOM_MUTES_REPOSITORY,
+      useClass: PrismaRoomMutesRepository,
+    },
     {
       provide: ROOM_LIKES_REPOSITORY,
       useClass: PrismaRoomLikesRepository,

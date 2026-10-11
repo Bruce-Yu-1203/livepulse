@@ -55,6 +55,7 @@ describe('room WebSocket gateway', () => {
   let websocketUrl: string;
   let secondWebsocketUrl: string;
   let accessCookie: string;
+  let hostHeaders: Record<string, string>;
 
   beforeAll(async () => {
     await redis.connect();
@@ -86,7 +87,8 @@ describe('room WebSocket gateway', () => {
     await secondApp.listen(0, '127.0.0.1');
     websocketUrl = `${await app.getUrl().then((url) => url.replace('http:', 'ws:'))}/ws`;
     secondWebsocketUrl = `${await secondApp.getUrl().then((url) => url.replace('http:', 'ws:'))}/ws`;
-    accessCookie = await login();
+    accessCookie = (await login('realtime-viewer@example.com')).cookie;
+    hostHeaders = (await login('realtime-host@example.com')).headers;
   });
 
   afterAll(async () => {
@@ -161,6 +163,54 @@ describe('room WebSocket gateway', () => {
     ).rejects.toThrow('Unexpected server response: 403');
   });
 
+  it('enforces a mute created on one instance against another instance', async () => {
+    const viewer = await connect(accessCookie, 'http://localhost:3000', true);
+    const joined = nextEventOfType(viewer, 'room.joined');
+    viewer.send(JSON.stringify(joinEvent(liveRoomId, 10)));
+    await joined;
+
+    const muted = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: hostHeaders,
+        method: 'POST',
+        payload: { durationMinutes: 10, userId: viewerId },
+        url: `/api/v1/rooms/${liveRoomId}/mutes`,
+      });
+    expect(muted.statusCode).toBe(201);
+
+    const rejected = nextEventOfType(viewer, 'error');
+    viewer.send(
+      JSON.stringify(
+        sendEvent(liveRoomId, 11, 10, 'This message must not persist'),
+      ),
+    );
+    expect(
+      RealtimeErrorEventSchema.parse(await rejected).payload,
+    ).toMatchObject({
+      code: 'REALTIME_MUTED',
+      retryAfterMs: expect.any(Number),
+    });
+    await expect(
+      mongo.db().collection('messages').countDocuments({
+        roomId: liveRoomId,
+        text: 'This message must not persist',
+      }),
+    ).resolves.toBe(0);
+    await expect(
+      database.auditLog.count({
+        where: {
+          action: 'ROOM_USER_MUTED',
+          actorId: hostId,
+          roomId: liveRoomId,
+          targetId: viewerId,
+        },
+      }),
+    ).resolves.toBe(1);
+    viewer.close();
+  });
+
   it('closes an expired authenticated handshake without retry ambiguity', async () => {
     const socket = await connect(`${accessCookieName}=expired-token`);
 
@@ -171,7 +221,10 @@ describe('room WebSocket gateway', () => {
     ).resolves.toBe(4401);
   });
 
-  async function login(): Promise<string> {
+  async function login(email: string): Promise<{
+    cookie: string;
+    headers: Record<string, string>;
+  }> {
     const csrfResponse = await app.getHttpAdapter().getInstance().inject({
       method: 'GET',
       url: '/api/v1/auth/csrf',
@@ -188,11 +241,27 @@ describe('room WebSocket gateway', () => {
           origin: 'http://localhost:3000',
         },
         method: 'POST',
-        payload: { email: 'realtime-viewer@example.com', password },
+        payload: { email, password },
         url: '/api/v1/auth/login',
       });
     expect(response.statusCode).toBe(200);
-    return cookiePair(getSetCookie(response.headers, accessCookieName));
+    const accessCookie = cookiePair(
+      getSetCookie(response.headers, accessCookieName),
+    );
+    const authenticatedCsrfCookie = getSetCookie(
+      response.headers,
+      csrfCookieName,
+    );
+    const authenticatedCsrfToken = cookieValue(authenticatedCsrfCookie);
+
+    return {
+      cookie: accessCookie,
+      headers: {
+        cookie: `${accessCookie}; ${cookiePair(authenticatedCsrfCookie)}`,
+        [csrfHeaderName]: authenticatedCsrfToken,
+        origin: 'http://localhost:3000',
+      },
+    };
   }
 
   function connect(
@@ -222,6 +291,9 @@ describe('room WebSocket gateway', () => {
       .db()
       .collection('messages')
       .deleteMany({ roomId: { $in: [liveRoomId, endedRoomId] } });
+    await database.auditLog.deleteMany({
+      where: { roomId: { in: [liveRoomId, endedRoomId] } },
+    });
     await database.room.deleteMany({
       where: { id: { in: [liveRoomId, endedRoomId] } },
     });

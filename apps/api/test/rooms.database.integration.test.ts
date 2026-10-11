@@ -8,6 +8,7 @@ import {
   GetRoomResponseSchema,
   ListOwnedRoomsResponseSchema,
   ListRoomsResponseSchema,
+  MuteRoomUserResponseSchema,
   RoomLikeResponseSchema,
   UpdateRoomResponseSchema,
 } from '@livepulse/contracts';
@@ -47,6 +48,7 @@ describe('POST /api/v1/rooms', () => {
   });
 
   beforeEach(async () => {
+    await database.auditLog.deleteMany();
     await database.room.deleteMany();
     await database.refreshSession.deleteMany();
     await database.user.deleteMany();
@@ -417,6 +419,82 @@ describe('POST /api/v1/rooms', () => {
       });
     expect(hiddenDraft.statusCode).toBe(404);
     await expect(database.roomLike.count()).resolves.toBe(0);
+  });
+
+  it('upserts expiring room mutes and audits every host action', async () => {
+    const host = await database.user.findUniqueOrThrow({
+      where: { email: 'host@example.com' },
+    });
+    const viewer = await database.user.findUniqueOrThrow({
+      where: { email: 'viewer@example.com' },
+    });
+    const room = await database.room.create({
+      data: { ...roomInput, hostId: host.id, status: 'LIVE' },
+    });
+    const headers = await authenticatedHeaders('host@example.com');
+
+    for (const durationMinutes of [5, 10]) {
+      const response = await app
+        .getHttpAdapter()
+        .getInstance()
+        .inject({
+          headers,
+          method: 'POST',
+          payload: { durationMinutes, userId: viewer.id },
+          url: `/api/v1/rooms/${room.id}/mutes`,
+        });
+
+      expect(response.statusCode).toBe(201);
+      expect(
+        MuteRoomUserResponseSchema.parse(response.json()).mute,
+      ).toMatchObject({
+        mutedBy: host.id,
+        roomId: room.id,
+        userId: viewer.id,
+      });
+    }
+
+    await expect(
+      database.roomMute.count({
+        where: { roomId: room.id, userId: viewer.id },
+      }),
+    ).resolves.toBe(1);
+    await expect(
+      database.auditLog.count({
+        where: {
+          action: 'ROOM_USER_MUTED',
+          actorId: host.id,
+          roomId: room.id,
+          targetId: viewer.id,
+        },
+      }),
+    ).resolves.toBe(2);
+  });
+
+  it('rejects room mute attempts from viewers', async () => {
+    const host = await database.user.findUniqueOrThrow({
+      where: { email: 'host@example.com' },
+    });
+    const room = await database.room.create({
+      data: { ...roomInput, hostId: host.id, status: 'LIVE' },
+    });
+    const headers = await authenticatedHeaders('viewer@example.com');
+    const response = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers,
+        method: 'POST',
+        payload: { durationMinutes: 10, userId: host.id },
+        url: `/api/v1/rooms/${room.id}/mutes`,
+      });
+
+    expect(response.statusCode).toBe(403);
+    expect(ApiErrorResponseSchema.parse(response.json()).code).toBe(
+      ApiErrorCode.Forbidden,
+    );
+    await expect(database.roomMute.count()).resolves.toBe(0);
+    await expect(database.auditLog.count()).resolves.toBe(0);
   });
 
   it('rejects malformed identifiers and cursors with stable validation errors', async () => {

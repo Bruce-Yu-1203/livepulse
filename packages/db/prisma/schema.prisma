@@ -34,6 +34,7 @@ model User {
   refreshSessions RefreshSession[]
   hostedRooms     Room[]
   roomLikes       RoomLike[]
+  roomMutes       RoomMute[]
 
   @@map("users")
 }
@@ -51,6 +52,7 @@ model Room {
   updatedAt     DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   host          User       @relation(fields: [hostId], references: [id], onDelete: Restrict)
   likes         RoomLike[]
+  mutes         RoomMute[]
 
   @@index([hostId])
   @@index([status, createdAt, id])
@@ -67,6 +69,34 @@ model RoomLike {
   @@id([roomId, userId])
   @@index([userId])
   @@map("room_likes")
+}
+
+model RoomMute {
+  roomId      String   @map("room_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  mutedBy     String   @map("muted_by") @db.Uuid
+  effectiveAt DateTime @default(now()) @map("effective_at") @db.Timestamptz(3)
+  expiresAt   DateTime @map("expires_at") @db.Timestamptz(3)
+  room        Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([roomId, userId])
+  @@index([expiresAt])
+  @@index([userId])
+  @@map("room_mutes")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  actorId   String   @map("actor_id") @db.Uuid
+  action    String   @db.VarChar(64)
+  targetId  String   @map("target_id") @db.Uuid
+  roomId    String?  @map("room_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([actorId, createdAt])
+  @@index([roomId, createdAt])
+  @@map("audit_logs")
 }
 
 model RefreshSession {

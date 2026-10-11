@@ -224,6 +224,28 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    const muteExpiry = await this.activeMuteExpiry(
+      peer,
+      event.requestId,
+      roomId,
+      peer.principal.userId,
+    );
+
+    if (muteExpiry === undefined) {
+      return;
+    }
+
+    if (muteExpiry) {
+      this.sendError(
+        peer,
+        event.requestId,
+        ApiErrorCode.RealtimeMuted,
+        'You are temporarily muted in this room',
+        Math.max(0, muteExpiry.getTime() - Date.now()),
+      );
+      return;
+    }
+
     const retryAfterMs = this.consumeRateToken(peer.id);
     if (retryAfterMs !== undefined) {
       this.sendError(
@@ -332,6 +354,25 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
         requestId,
         ApiErrorCode.ServiceUnavailable,
         'Realtime room validation is temporarily unavailable',
+      );
+      return undefined;
+    }
+  }
+
+  private async activeMuteExpiry(
+    peer: RealtimePeer,
+    requestId: string,
+    roomId: string,
+    userId: string,
+  ): Promise<Date | null | undefined> {
+    try {
+      return await this.rooms.findActiveMuteExpiry(roomId, userId);
+    } catch {
+      this.sendError(
+        peer,
+        requestId,
+        ApiErrorCode.ServiceUnavailable,
+        'Realtime moderation validation is temporarily unavailable',
       );
       return undefined;
     }

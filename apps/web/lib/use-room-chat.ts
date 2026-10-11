@@ -7,6 +7,7 @@ import {
   ServerRealtimeEventSchema,
 } from '@livepulse/contracts';
 import type { RoomStatus } from '@livepulse/contracts';
+import type { UserRole } from '@livepulse/contracts';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ClientApiError, clientApiRequest } from './client-api';
@@ -30,6 +31,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [onlineCount, setOnlineCount] = useState(0);
   const [userId, setUserId] = useState<string>();
+  const [userRole, setUserRole] = useState<UserRole>();
   const [authChecked, setAuthChecked] = useState(false);
   const [error, setError] = useState<string>();
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -83,6 +85,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
       .then((response) => {
         if (active) {
           setUserId(response.user.id);
+          setUserRole(response.user.role);
         }
       })
       .catch((caught: unknown) => {
@@ -198,6 +201,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
         if (event.code === 4401) {
           cancelled = true;
           setUserId(undefined);
+          setUserRole(undefined);
           setAuthChecked(true);
           setError('Your session expired. Sign in again to rejoin chat.');
           return;
@@ -277,5 +281,6 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
     onlineCount,
     sendMessage,
     userId,
+    userRole,
   };
 }

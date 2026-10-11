@@ -157,6 +157,54 @@ describe('RoomRealtimeHub', () => {
     expect(eventsOfType(observer, 'message.created')).toHaveLength(0);
   });
 
+  it('rejects messages from an actively muted user before persistence', async () => {
+    const source = roomSource(true);
+    vi.mocked(source.findActiveMuteExpiry).mockResolvedValue(
+      new Date('2026-10-09T20:10:00.000Z'),
+    );
+    const messagePublisher = publisher();
+    const hub = new RoomRealtimeHub(
+      source,
+      messagePublisher,
+      eventBus(),
+      presence(),
+    );
+    const sender = peer('sender', true);
+    await hub.handle(sender, joinEvent(1));
+
+    await hub.handle(sender, sendEvent(2, 1, 'Muted message'));
+
+    expect(sender.events.at(-1)).toMatchObject({
+      payload: { code: 'REALTIME_MUTED', retryAfterMs: 600_000 },
+      type: 'error',
+    });
+    expect(messagePublisher.publish).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when moderation validation is unavailable', async () => {
+    const source = roomSource(true);
+    vi.mocked(source.findActiveMuteExpiry).mockRejectedValue(
+      new Error('database offline'),
+    );
+    const messagePublisher = publisher();
+    const hub = new RoomRealtimeHub(
+      source,
+      messagePublisher,
+      eventBus(),
+      presence(),
+    );
+    const sender = peer('sender', true);
+    await hub.handle(sender, joinEvent(1));
+
+    await hub.handle(sender, sendEvent(2, 1, 'Unchecked message'));
+
+    expect(sender.events.at(-1)).toMatchObject({
+      payload: { code: 'SERVICE_UNAVAILABLE' },
+      type: 'error',
+    });
+    expect(messagePublisher.publish).not.toHaveBeenCalled();
+  });
+
   it('falls back to local fan-out when Redis publication fails', async () => {
     const unavailableBus = eventBus();
     vi.mocked(unavailableBus.publish).mockRejectedValue(
@@ -189,7 +237,10 @@ function createHub(source = roomSource(true)): RoomRealtimeHub {
 }
 
 function roomSource(live: boolean): RealtimeRoomSource {
-  return { isLive: vi.fn().mockResolvedValue(live) };
+  return {
+    findActiveMuteExpiry: vi.fn().mockResolvedValue(null),
+    isLive: vi.fn().mockResolvedValue(live),
+  };
 }
 
 function publisher() {
