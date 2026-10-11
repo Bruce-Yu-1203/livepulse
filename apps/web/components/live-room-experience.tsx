@@ -227,7 +227,9 @@ function ChatMessageRow({
               ? 'failed'
               : formatMessageTime(message.acceptedAt)}
         </span>
-        {moderationEnabled && message.authorId !== currentUserId ? (
+        {moderationEnabled &&
+        message.authorId !== currentUserId &&
+        !message.deletedAt ? (
           <button
             className="ml-auto rounded-full border border-rose-300/20 px-2 py-1 text-[0.65rem] font-semibold text-rose-200 transition hover:border-rose-300/50 disabled:cursor-wait disabled:opacity-50"
             disabled={muted || muting}
@@ -243,7 +245,8 @@ function ChatMessageRow({
       </p>
       {currentUserId &&
       message.authorId !== currentUserId &&
-      message.status === 'sent' ? (
+      message.status === 'sent' &&
+      !message.deletedAt ? (
         <MessageReportForm messageId={message.id} roomId={roomId} />
       ) : null}
     </div>
@@ -267,15 +270,18 @@ function DanmakuLayer({ messages }: { messages: ChatMessage[] }) {
       className="pointer-events-none absolute inset-0 z-10 overflow-hidden"
       aria-hidden="true"
     >
-      {messages.slice(-8).map((message, index) => (
-        <span
-          className="danmaku-message absolute whitespace-nowrap rounded-full bg-black/45 px-3 py-1 text-sm font-medium text-white shadow-lg backdrop-blur-sm"
-          key={`${message.id}:${index}`}
-          style={{ top: `${12 + (index % 6) * 12}%` }}
-        >
-          {message.text}
-        </span>
-      ))}
+      {messages
+        .filter((message) => !message.deletedAt)
+        .slice(-8)
+        .map((message, index) => (
+          <span
+            className="danmaku-message absolute whitespace-nowrap rounded-full bg-black/45 px-3 py-1 text-sm font-medium text-white shadow-lg backdrop-blur-sm"
+            key={`${message.id}:${index}`}
+            style={{ top: `${12 + (index % 6) * 12}%` }}
+          >
+            {message.text}
+          </span>
+        ))}
     </div>
   );
 }

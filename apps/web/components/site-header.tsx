@@ -27,6 +27,12 @@ export function SiteHeader() {
             Studio
           </Link>
           <Link
+            className="hidden rounded-full px-4 py-2 text-zinc-300 transition hover:bg-white/8 hover:text-white sm:inline-flex"
+            href="/admin"
+          >
+            Moderation
+          </Link>
+          <Link
             className="rounded-full bg-white px-4 py-2 font-semibold text-zinc-950 transition hover:bg-cyan-200"
             href="/auth"
           >

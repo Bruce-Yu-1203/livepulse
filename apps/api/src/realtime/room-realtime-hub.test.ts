@@ -230,6 +230,51 @@ describe('RoomRealtimeHub', () => {
       payload: { text: 'Local fallback' },
     });
   });
+
+  it('purges accepted-message cache entries after a tombstone', async () => {
+    const messagePublisher = publisher();
+    vi.mocked(messagePublisher.publish)
+      .mockResolvedValueOnce({
+        kind: 'created',
+        message: {
+          acceptedAt: '2026-10-09T20:00:00.000Z',
+          authorId: userId,
+          clientMessageId: uuid(1),
+          messageId: stableMessageId(`${userId}:${roomId}:${uuid(1)}`),
+          roomId,
+          text: 'Removed later',
+        },
+      })
+      .mockResolvedValueOnce({ kind: 'conflict' });
+    const bus = eventBus();
+    const hub = new RoomRealtimeHub(
+      roomSource(true),
+      messagePublisher,
+      bus,
+      presence(),
+    );
+    const sender = peer('sender', true);
+    await hub.handle(sender, joinEvent(1));
+    await hub.handle(sender, sendEvent(2, 1, 'Removed later'));
+
+    await bus.publish({
+      payload: {
+        deletedAt: '2026-10-09T20:01:00.000Z',
+        messageId: stableMessageId(`${userId}:${roomId}:${uuid(1)}`),
+        roomId,
+      },
+      requestId: uuid(3),
+      type: 'message.deleted',
+      v: 1,
+    });
+    await hub.handle(sender, sendEvent(4, 1, 'Removed later'));
+
+    expect(messagePublisher.publish).toHaveBeenCalledTimes(2);
+    expect(sender.events.at(-1)).toMatchObject({
+      payload: { code: 'REALTIME_MESSAGE_CONFLICT' },
+      type: 'error',
+    });
+  });
 });
 
 function createHub(source = roomSource(true)): RoomRealtimeHub {

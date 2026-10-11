@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { RoomMessageSchema } from './messages.js';
+
 export const ReportReasonSchema = z.enum([
   'SPAM',
   'HARASSMENT',
@@ -45,3 +47,25 @@ export const CreateReportResponseSchema = z
   .strict();
 
 export type CreateReportResponse = z.infer<typeof CreateReportResponseSchema>;
+
+export const ModerationReportSchema = ReportSchema.extend({
+  message: RoomMessageSchema.nullable(),
+}).strict();
+
+export type ModerationReport = z.infer<typeof ModerationReportSchema>;
+
+export const ListReportsResponseSchema = z
+  .object({
+    items: z.array(ModerationReportSchema),
+    requestId: z.string().min(1),
+  })
+  .strict();
+
+export type ListReportsResponse = z.infer<typeof ListReportsResponseSchema>;
+
+export const ModerateMessageParamsSchema = z
+  .object({
+    messageId: z.uuid(),
+    roomId: z.uuid(),
+  })
+  .strict();

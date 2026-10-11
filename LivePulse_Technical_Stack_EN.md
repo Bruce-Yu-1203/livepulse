@@ -89,6 +89,7 @@ A RESTful API is a resource-oriented interface style, not a low-latency broadcas
 | POST /api/v1/rooms/:id/mutes | Mute a room user as the host | 201 or 403 |
 | DELETE /api/v1/rooms/:id/messages/:messageId | Moderation deletion | 204 or 403 |
 | POST /api/v1/reports | Report content | 201 |
+| GET /api/v1/reports | List the administrator's pending moderation queue | 200 or 403 |
 | GET /health/live and /health/ready | Process liveness and traffic readiness | 200 or 503 |
 | GET /metrics | Internal metrics scraping | Prometheus text format |
 
@@ -185,15 +186,15 @@ The current Phase A like path stores one room_likes row per room and user under 
 
 The Phase A moderation path stores one expiring room_mutes row per room and target user. A host or administrator upserts that row and appends a ROOM_USER_MUTED audit record in the same PostgreSQL transaction. Every new WebSocket message checks the shared SQL record before MongoDB persistence, so a mute created through one API instance also blocks a user connected to another instance. This is a correctness-first read on every send; a short-lived Redis cache with invalidation can be added after measuring load without changing PostgreSQL as the source of truth.
 
-The message-report path verifies the room and message pair against MongoDB before writing a PostgreSQL report. A composite unique constraint on reporter_id and message_id makes retries converge on one pending report. Creating the report and its MESSAGE_REPORTED audit record uses one SQL transaction, while the browser presents a bounded reason list and optional context only for another user's persisted messages. This cross-database workflow cannot be one atomic transaction; later message deletion keeps the report's message identifier available for investigation.
+The message-report path verifies the room and message pair against MongoDB before writing a PostgreSQL report. A composite unique constraint on reporter_id and message_id makes retries converge on one pending report. Creating the report and its MESSAGE_REPORTED audit record uses one SQL transaction, while the browser presents a bounded reason list and optional context only for another user's persisted messages. The administrator queue returns explicit report and message DTOs rather than exposing database records. Deletion first writes a durable MongoDB tombstone, then marks every matching pending PostgreSQL report as ACTIONED and appends a MESSAGE_DELETED audit record in one SQL transaction. Finally, it publishes message.deleted for low-latency UI updates. This cross-database workflow cannot be one atomic transaction: MongoDB history is authoritative if Redis Pub/Sub is missed, while a failed SQL step remains visible for operational reconciliation instead of restoring deleted text.
 
 The like cache does not use an unguarded INCR. In the first version, the statistics worker receives a change event, queries the current SQL COUNT, and refreshes Redis. Concurrent refreshes require per-room serialization and version protection. At larger scale, this can become a deduplicated incremental read model with reconciliation. The first path demonstrates correctness and does not claim unlimited like throughput.
 
 ### 7.2 MongoDB Message History
 
-The Phase A messages collection contains _id=messageId, roomId, authorId, clientMessageId, text, and acceptedAt. A unique roomId/authorId/clientMessageId index makes client retries idempotent, while a roomId/acceptedAt/_id index supports deterministic cursor pagination. The direct write occurs before local fan-out, so a MongoDB failure rejects the send instead of displaying a message that cannot be recovered.
+The Phase A messages collection contains _id=messageId, roomId, authorId, clientMessageId, text, acceptedAt, and an optional deletedAt tombstone. A unique roomId/authorId/clientMessageId index makes client retries idempotent, while a roomId/acceptedAt/_id index supports deterministic cursor pagination. Moderation replaces the original text with a stable removal notice and sets deletedAt; later retries and stale message.created events cannot restore it. The direct write occurs before local fan-out, so a MongoDB failure rejects the send instead of displaying a message that cannot be recovered.
 
-The Kafka phase extends each document with payloadHash, partition, offset, deletedAt, and expiresAt. The server stores offset in a sortable 64-bit type and serializes it as a string in APIs.
+The Kafka phase extends each document with payloadHash, partition, offset, and expiresAt. The server stores offset in a sortable 64-bit type and serializes it as a string in APIs.
 
 Indexes include the unique _id, a compound roomId/partition/offset pagination index, and a single-field expiresAt TTL index. TTL deletion runs asynchronously in the background and does not guarantee deletion at the exact expiry time, so reads also filter expiresAt.
 
@@ -270,7 +271,7 @@ Database migrations run independently and use an expand-and-contract sequence to
 | Type | Focus |
 | --- | --- |
 | Unit | State machine, permissions, message schemas, stable IDs, conflict detection, and rate-limit boundaries |
-| Integration | SQL like, mute, and report uniqueness; audited moderation; MongoDB idempotency; Kafka offsets; and Redis cross-gateway fan-out |
+| Integration | SQL like, mute, and report uniqueness; administrator queue and audited tombstones; MongoDB idempotency; Kafka offsets; and Redis cross-gateway fan-out |
 | End to end | Login, join, send, like, end room, mute, delete, and reconnect |
 | Failure | Kill gateway after acceptance, crash after DB write before commit, interrupt Redis, and stop/recover MongoDB |
 | Load | Idle connections, steady fan-out, hot room, short burst, slow clients, and consumer recovery |

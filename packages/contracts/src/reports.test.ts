@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   CreateReportRequestSchema,
   CreateReportResponseSchema,
+  ListReportsResponseSchema,
+  ModerateMessageParamsSchema,
 } from './reports.js';
 
 const messageId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -49,5 +51,44 @@ describe('message report contracts', () => {
     { extra: true, messageId, reason: 'SPAM', roomId },
   ])('rejects an invalid report request: %o', (request) => {
     expect(CreateReportRequestSchema.safeParse(request).success).toBe(false);
+  });
+
+  it('accepts an administrator queue item with its message snapshot', () => {
+    const response = {
+      items: [
+        {
+          createdAt: '2026-10-10T21:00:00.000Z',
+          details: 'Repeated links',
+          id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+          message: {
+            acceptedAt: '2026-10-10T20:59:00.000Z',
+            authorId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+            clientMessageId: 'ffffffff-ffff-4fff-bfff-ffffffffffff',
+            messageId,
+            roomId,
+            text: 'Suspicious content',
+          },
+          messageId,
+          reason: 'SPAM',
+          reporterId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+          roomId,
+          status: 'PENDING',
+        },
+      ],
+      requestId: 'request-list-reports',
+    };
+
+    expect(ListReportsResponseSchema.parse(response)).toEqual(response);
+  });
+
+  it('requires valid room and message identifiers for deletion', () => {
+    expect(ModerateMessageParamsSchema.parse({ messageId, roomId })).toEqual({
+      messageId,
+      roomId,
+    });
+    expect(
+      ModerateMessageParamsSchema.safeParse({ messageId, roomId: 'invalid' })
+        .success,
+    ).toBe(false);
   });
 });

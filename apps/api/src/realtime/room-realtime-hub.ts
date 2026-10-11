@@ -64,7 +64,7 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
     private readonly presence: RealtimePresence,
   ) {
     this.unsubscribeFromBus = this.eventBus.subscribe((event) => {
-      this.broadcastLocal(event);
+      this.handleDistributedEvent(event);
     });
   }
 
@@ -459,6 +459,18 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
     for (const member of this.roomMembers.get(event.payload.roomId) ?? []) {
       member.send(event);
     }
+  }
+
+  private handleDistributedEvent(event: DistributedRealtimeEvent): void {
+    if (event.type === 'message.deleted') {
+      for (const [key, accepted] of this.acceptedMessages) {
+        if (accepted.event.payload.messageId === event.payload.messageId) {
+          this.acceptedMessages.delete(key);
+        }
+      }
+    }
+
+    this.broadcastLocal(event);
   }
 
   private sendError(

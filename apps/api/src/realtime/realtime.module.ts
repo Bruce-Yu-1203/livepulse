@@ -32,6 +32,6 @@ import {
       useExisting: RedisRealtimeCoordinator,
     },
   ],
-  exports: [RoomWebSocketServer],
+  exports: [REALTIME_EVENT_BUS, RoomWebSocketServer],
 })
 export class RealtimeModule {}

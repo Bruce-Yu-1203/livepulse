@@ -4,6 +4,7 @@ export interface ChatMessage {
   acceptedAt?: string;
   authorId: string;
   clientMessageId: string;
+  deletedAt?: string;
   id: string;
   status: 'failed' | 'pending' | 'sent';
   text: string;
@@ -48,6 +49,10 @@ export function mergeCreatedMessage(
     return [...messages, created].slice(-150);
   }
 
+  if (messages[existingIndex]?.deletedAt) {
+    return messages;
+  }
+
   return messages.map((message, index) =>
     index === existingIndex ? created : message,
   );
@@ -69,7 +74,11 @@ export function mergeHistoryMessages(
 
     if (matchingKey) {
       const existing = unique.get(matchingKey);
-      if (message.status === 'sent' || existing?.status !== 'sent') {
+      if (
+        message.deletedAt ||
+        (!existing?.deletedAt &&
+          (message.status === 'sent' || existing?.status !== 'sent'))
+      ) {
         unique.set(matchingKey, message);
       }
     } else {
@@ -94,6 +103,23 @@ export function markMessageFailed(
   return messages.map((message) =>
     message.clientMessageId === clientMessageId
       ? { ...message, status: 'failed' }
+      : message,
+  );
+}
+
+export function markMessageDeleted(
+  messages: ChatMessage[],
+  messageId: string,
+  deletedAt: string,
+): ChatMessage[] {
+  return messages.map((message) =>
+    message.id === messageId
+      ? {
+          ...message,
+          deletedAt,
+          status: 'sent',
+          text: 'Message removed by moderation',
+        }
       : message,
   );
 }
@@ -128,6 +154,7 @@ function toChatMessage(message: RoomMessage): ChatMessage {
     acceptedAt: message.acceptedAt,
     authorId: message.authorId,
     clientMessageId: message.clientMessageId,
+    ...(message.deletedAt ? { deletedAt: message.deletedAt } : {}),
     id: message.messageId,
     status: 'sent',
     text: message.text,

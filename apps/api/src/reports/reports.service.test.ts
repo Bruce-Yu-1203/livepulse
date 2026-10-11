@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { AuthenticatedPrincipal } from '../auth/authenticated-request.js';
 import type { MessagesService } from '../messages/messages.service.js';
+import type { RealtimeEventBus } from '../realtime/realtime-coordination.js';
 import {
   ReportMessageNotFoundError,
   ReportOwnMessageError,
@@ -29,7 +30,7 @@ describe('ReportsService', () => {
       status: 'PENDING',
     });
     const messages = messagesService(message());
-    const service = new ReportsService(repository, messages);
+    const service = new ReportsService(repository, messages, eventBus());
 
     await expect(
       service.create(principal(reporterId), {
@@ -51,7 +52,11 @@ describe('ReportsService', () => {
 
   it('rejects a missing message and an author reporting themselves', async () => {
     const repository = reportsRepository();
-    const missing = new ReportsService(repository, messagesService(undefined));
+    const missing = new ReportsService(
+      repository,
+      messagesService(undefined),
+      eventBus(),
+    );
 
     await expect(
       missing.create(principal(reporterId), {
@@ -61,7 +66,11 @@ describe('ReportsService', () => {
       }),
     ).rejects.toBeInstanceOf(ReportMessageNotFoundError);
 
-    const own = new ReportsService(repository, messagesService(message()));
+    const own = new ReportsService(
+      repository,
+      messagesService(message()),
+      eventBus(),
+    );
     await expect(
       own.create(principal(authorId), {
         messageId,
@@ -70,6 +79,63 @@ describe('ReportsService', () => {
       }),
     ).rejects.toBeInstanceOf(ReportOwnMessageError);
     expect(repository.create).not.toHaveBeenCalled();
+  });
+
+  it('hydrates the pending queue with MongoDB message snapshots', async () => {
+    const repository = reportsRepository();
+    const report = {
+      createdAt: new Date('2026-10-10T21:00:00.000Z'),
+      details: null,
+      id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+      messageId,
+      reason: 'SPAM' as const,
+      reporterId,
+      roomId,
+      status: 'PENDING' as const,
+    };
+    vi.mocked(repository.listPending).mockResolvedValue([report]);
+    const service = new ReportsService(
+      repository,
+      messagesService(message()),
+      eventBus(),
+    );
+
+    await expect(service.listPending()).resolves.toEqual([
+      { message: message(), report },
+    ]);
+    expect(repository.listPending).toHaveBeenCalledWith(50);
+  });
+
+  it('writes a tombstone, actions reports, and publishes a deletion event', async () => {
+    const repository = reportsRepository();
+    const messages = messagesService(message());
+    vi.mocked(messages.delete).mockResolvedValue({
+      ...message(),
+      deletedAt: '2026-10-11T01:00:00.000Z',
+      text: 'Message removed by moderation',
+    });
+    const bus = eventBus();
+    const service = new ReportsService(repository, messages, bus);
+
+    await service.deleteMessage(principal(reporterId), roomId, messageId);
+
+    expect(messages.delete).toHaveBeenCalledWith(
+      roomId,
+      messageId,
+      expect.any(Date),
+    );
+    expect(repository.recordDeletion).toHaveBeenCalledWith({
+      actorId: reporterId,
+      deletedAt: expect.any(Date),
+      messageId,
+      roomId,
+    });
+    expect(bus.publish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({ messageId, roomId }),
+        type: 'message.deleted',
+      }),
+    );
   });
 });
 
@@ -88,12 +154,24 @@ function messagesService(
   stored: RoomMessage | undefined,
 ): MessagesService & { findById: ReturnType<typeof vi.fn> } {
   return {
+    delete: vi.fn(),
     findById: vi.fn().mockResolvedValue(stored),
   } as unknown as MessagesService & { findById: ReturnType<typeof vi.fn> };
 }
 
 function reportsRepository(): ReportsRepository {
-  return { create: vi.fn() };
+  return {
+    create: vi.fn(),
+    listPending: vi.fn(),
+    recordDeletion: vi.fn().mockResolvedValue(undefined),
+  };
+}
+
+function eventBus(): RealtimeEventBus {
+  return {
+    publish: vi.fn().mockResolvedValue(undefined),
+    subscribe: vi.fn(),
+  };
 }
 
 function principal(userId: string): AuthenticatedPrincipal {

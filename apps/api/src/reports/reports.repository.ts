@@ -29,6 +29,13 @@ export interface CreateReportRecord {
 
 export interface ReportsRepository {
   create(input: CreateReportRecord): Promise<ReportRecord>;
+  listPending(take: number): Promise<ReportRecord[]>;
+  recordDeletion(input: {
+    actorId: string;
+    deletedAt: Date;
+    messageId: string;
+    roomId: string;
+  }): Promise<void>;
 }
 
 @Injectable()
@@ -82,6 +89,49 @@ export class PrismaReportsRepository implements ReportsRepository {
         return this.findConcurrentReport(input, error);
       }
 
+      throwReportDatabaseError(error);
+    }
+  }
+
+  public async listPending(take: number): Promise<ReportRecord[]> {
+    try {
+      return await this.database.client.report.findMany({
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        take,
+        where: { status: 'PENDING' },
+      });
+    } catch (error) {
+      throwReportDatabaseError(error);
+    }
+  }
+
+  public async recordDeletion(input: {
+    actorId: string;
+    deletedAt: Date;
+    messageId: string;
+    roomId: string;
+  }): Promise<void> {
+    try {
+      await this.database.client.$transaction([
+        this.database.client.report.updateMany({
+          data: { status: 'ACTIONED' },
+          where: {
+            messageId: input.messageId,
+            roomId: input.roomId,
+            status: 'PENDING',
+          },
+        }),
+        this.database.client.auditLog.create({
+          data: {
+            action: 'MESSAGE_DELETED',
+            actorId: input.actorId,
+            createdAt: input.deletedAt,
+            roomId: input.roomId,
+            targetId: input.messageId,
+          },
+        }),
+      ]);
+    } catch (error) {
       throwReportDatabaseError(error);
     }
   }

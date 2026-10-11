@@ -73,6 +73,21 @@ export const MessageCreatedEventSchema = z
   })
   .strict();
 
+export const MessageDeletedEventSchema = z
+  .object({
+    payload: z
+      .object({
+        deletedAt: z.iso.datetime(),
+        messageId: MessageIdSchema,
+        roomId: RoomIdSchema,
+      })
+      .strict(),
+    requestId: RequestIdSchema,
+    type: z.literal('message.deleted'),
+    v: EventVersionSchema,
+  })
+  .strict();
+
 export const RoomStatsEventSchema = z
   .object({
     payload: z
@@ -105,6 +120,7 @@ export const RealtimeErrorEventSchema = z
 
 export const ServerRealtimeEventSchema = z.discriminatedUnion('type', [
   MessageCreatedEventSchema,
+  MessageDeletedEventSchema,
   RealtimeErrorEventSchema,
   RoomJoinedEventSchema,
   RoomStatsEventSchema,
@@ -112,11 +128,13 @@ export const ServerRealtimeEventSchema = z.discriminatedUnion('type', [
 
 export const DistributedRealtimeEventSchema = z.discriminatedUnion('type', [
   MessageCreatedEventSchema,
+  MessageDeletedEventSchema,
   RoomStatsEventSchema,
 ]);
 
 export type ServerRealtimeEvent = z.infer<typeof ServerRealtimeEventSchema>;
 export type MessageCreatedEvent = z.infer<typeof MessageCreatedEventSchema>;
+export type MessageDeletedEvent = z.infer<typeof MessageDeletedEventSchema>;
 export type DistributedRealtimeEvent = z.infer<
   typeof DistributedRealtimeEventSchema
 >;

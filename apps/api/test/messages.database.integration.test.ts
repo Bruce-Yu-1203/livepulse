@@ -79,6 +79,29 @@ describe('MongoDB message history', () => {
       ),
     ).resolves.toBeUndefined();
   });
+
+  it('replaces prohibited text with a persistent tombstone', async () => {
+    const stored = message(5, '2026-10-09T20:00:05.000Z');
+    const deletedAt = new Date('2026-10-11T01:00:00.000Z');
+    await repository.create(stored);
+
+    await expect(
+      repository.delete(roomId, stored.messageId, deletedAt),
+    ).resolves.toMatchObject({
+      deletedAt: deletedAt.toISOString(),
+      messageId: stored.messageId,
+      text: 'Message removed by moderation',
+    });
+    await expect(
+      repository.findById(roomId, stored.messageId),
+    ).resolves.toMatchObject({
+      deletedAt: deletedAt.toISOString(),
+      text: 'Message removed by moderation',
+    });
+    await expect(repository.create(stored)).resolves.toEqual({
+      kind: 'conflict',
+    });
+  });
 });
 
 function message(index: number, acceptedAt: string): RoomMessage {

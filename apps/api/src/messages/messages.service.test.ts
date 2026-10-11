@@ -57,6 +57,27 @@ describe('MessagesService', () => {
     );
     expect(repository.findById).toHaveBeenCalledWith(roomId, stored.messageId);
   });
+
+  it('delegates an idempotent moderation tombstone write', async () => {
+    const stored = message(1, '2026-10-09T20:00:01.000Z');
+    const deletedAt = new Date('2026-10-11T01:00:00.000Z');
+    const repository = messagesRepository([]);
+    vi.mocked(repository.delete).mockResolvedValue({
+      ...stored,
+      deletedAt: deletedAt.toISOString(),
+      text: 'Message removed by moderation',
+    });
+    const service = new MessagesService(repository, roomsService());
+
+    await expect(
+      service.delete(roomId, stored.messageId, deletedAt),
+    ).resolves.toMatchObject({ deletedAt: deletedAt.toISOString() });
+    expect(repository.delete).toHaveBeenCalledWith(
+      roomId,
+      stored.messageId,
+      deletedAt,
+    );
+  });
 });
 
 function message(index: number, acceptedAt: string): RoomMessage {
@@ -73,6 +94,7 @@ function message(index: number, acceptedAt: string): RoomMessage {
 function messagesRepository(records: RoomMessage[]): MessagesRepository {
   return {
     create: vi.fn(),
+    delete: vi.fn(),
     findById: vi.fn(),
     list: vi.fn().mockResolvedValue(records),
   };

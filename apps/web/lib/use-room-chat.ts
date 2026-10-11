@@ -14,6 +14,7 @@ import { ClientApiError, clientApiRequest } from './client-api';
 import {
   addPendingMessage,
   type ChatMessage,
+  markMessageDeleted,
   markMessageFailed,
   mergeCreatedMessage,
   mergeHistoryMessages,
@@ -175,6 +176,18 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
           const createdEvent = parsed.data;
           setMessages((current) => mergeCreatedMessage(current, createdEvent));
           requestMessagesRef.current.delete(createdEvent.requestId);
+          return;
+        }
+
+        if (parsed.data.type === 'message.deleted') {
+          const deletedEvent = parsed.data;
+          setMessages((current) =>
+            markMessageDeleted(
+              current,
+              deletedEvent.payload.messageId,
+              deletedEvent.payload.deletedAt,
+            ),
+          );
           return;
         }
 

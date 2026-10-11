@@ -12,6 +12,7 @@ interface MessageDocument {
   acceptedAt: Date;
   authorId: string;
   clientMessageId: string;
+  deletedAt?: Date;
   roomId: string;
   text: string;
 }
@@ -24,6 +25,11 @@ export interface MessagesRepository {
     | { kind: 'created'; message: RoomMessage }
     | { kind: 'duplicate'; message: RoomMessage }
   >;
+  delete(
+    roomId: string,
+    messageId: string,
+    deletedAt: Date,
+  ): Promise<RoomMessage | undefined>;
   findById(roomId: string, messageId: string): Promise<RoomMessage | undefined>;
   list(input: {
     cursor?: MessageCursor;
@@ -33,6 +39,7 @@ export interface MessagesRepository {
 }
 
 const developmentMongoUrl = 'mongodb://localhost:27017/livepulse';
+export const deletedMessageText = 'Message removed by moderation';
 
 @Injectable()
 export class MongoMessagesRepository
@@ -87,6 +94,25 @@ export class MongoMessagesRepository
         _id: messageId,
         roomId,
       });
+
+      return document ? toRoomMessage(document) : undefined;
+    } catch (error) {
+      throw new MessageDatabaseUnavailableError({ cause: error });
+    }
+  }
+
+  public async delete(
+    roomId: string,
+    messageId: string,
+    deletedAt: Date,
+  ): Promise<RoomMessage | undefined> {
+    try {
+      await this.ensureIndexes();
+      const document = await this.collection.findOneAndUpdate(
+        { _id: messageId, roomId },
+        { $set: { deletedAt, text: deletedMessageText } },
+        { returnDocument: 'after' },
+      );
 
       return document ? toRoomMessage(document) : undefined;
     } catch (error) {
@@ -203,6 +229,9 @@ function toRoomMessage(document: MessageDocument): RoomMessage {
     acceptedAt: document.acceptedAt.toISOString(),
     authorId: document.authorId,
     clientMessageId: document.clientMessageId,
+    ...(document.deletedAt
+      ? { deletedAt: document.deletedAt.toISOString() }
+      : {}),
     messageId: document._id,
     roomId: document.roomId,
     text: document.text,

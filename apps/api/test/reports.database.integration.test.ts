@@ -5,6 +5,7 @@ import {
   ApiErrorCode,
   ApiErrorResponseSchema,
   CreateReportResponseSchema,
+  ListReportsResponseSchema,
   type RoomMessage,
 } from '@livepulse/contracts';
 import { createDatabaseClient } from '@livepulse/db';
@@ -43,6 +44,7 @@ const authorId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const reporterId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const roomId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const messageId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+const adminId = 'ffffffff-ffff-4fff-bfff-ffffffffffff';
 
 describe('POST /api/v1/reports', () => {
   let app: NestFastifyApplication;
@@ -70,6 +72,12 @@ describe('POST /api/v1/reports', () => {
           id: reporterId,
           passwordHash,
           role: 'VIEWER',
+        },
+        {
+          email: 'report-admin@example.com',
+          id: adminId,
+          passwordHash,
+          role: 'ADMIN',
         },
       ],
     });
@@ -177,6 +185,72 @@ describe('POST /api/v1/reports', () => {
     );
   });
 
+  it('lets only administrators review and action the pending queue', async () => {
+    const viewerHeaders = await authenticatedHeaders(
+      'report-viewer@example.com',
+    );
+    const forbidden = await app.getHttpAdapter().getInstance().inject({
+      headers: viewerHeaders,
+      method: 'GET',
+      url: '/api/v1/reports',
+    });
+    expect(forbidden.statusCode).toBe(403);
+    expect(ApiErrorResponseSchema.parse(forbidden.json()).code).toBe(
+      ApiErrorCode.Forbidden,
+    );
+
+    const adminHeaders = await authenticatedHeaders('report-admin@example.com');
+    const queue = await app.getHttpAdapter().getInstance().inject({
+      headers: adminHeaders,
+      method: 'GET',
+      url: '/api/v1/reports',
+    });
+    expect(queue.statusCode).toBe(200);
+    expect(ListReportsResponseSchema.parse(queue.json()).items).toMatchObject([
+      {
+        message: { messageId, text: 'Visit every link in this message' },
+        messageId,
+        status: 'PENDING',
+      },
+    ]);
+
+    const deletion = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: adminHeaders,
+        method: 'DELETE',
+        url: `/api/v1/rooms/${roomId}/messages/${messageId}`,
+      });
+    expect(deletion.statusCode).toBe(204);
+    await expect(messages.findById(roomId, messageId)).resolves.toMatchObject({
+      deletedAt: expect.any(String),
+      text: 'Message removed by moderation',
+    });
+    await expect(
+      database.report.findFirstOrThrow({ where: { messageId, reporterId } }),
+    ).resolves.toMatchObject({ status: 'ACTIONED' });
+    await expect(
+      database.auditLog.count({
+        where: {
+          action: 'MESSAGE_DELETED',
+          actorId: adminId,
+          roomId,
+          targetId: messageId,
+        },
+      }),
+    ).resolves.toBe(1);
+
+    const emptyQueue = await app.getHttpAdapter().getInstance().inject({
+      headers: adminHeaders,
+      method: 'GET',
+      url: '/api/v1/reports',
+    });
+    expect(ListReportsResponseSchema.parse(emptyQueue.json()).items).toEqual(
+      [],
+    );
+  });
+
   it('requires both authentication and CSRF validation', async () => {
     const payload = { messageId, reason: 'HATE_SPEECH', roomId };
     const anonymous = await app.getHttpAdapter().getInstance().inject({
@@ -256,10 +330,10 @@ async function removeFixtures(): Promise<void> {
   await database.report.deleteMany({ where: { roomId } });
   await database.room.deleteMany({ where: { id: roomId } });
   await database.refreshSession.deleteMany({
-    where: { userId: { in: [hostId, authorId, reporterId] } },
+    where: { userId: { in: [hostId, authorId, reporterId, adminId] } },
   });
   await database.user.deleteMany({
-    where: { id: { in: [hostId, authorId, reporterId] } },
+    where: { id: { in: [hostId, authorId, reporterId, adminId] } },
   });
 }
 

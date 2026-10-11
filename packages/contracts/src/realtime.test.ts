@@ -4,6 +4,7 @@ import {
   ClientRealtimeEventSchema,
   DistributedRealtimeEventSchema,
   MessageCreatedEventSchema,
+  MessageDeletedEventSchema,
   MessageSendEventSchema,
   RealtimeErrorEventSchema,
   RoomJoinedEventSchema,
@@ -14,6 +15,22 @@ const roomId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const clientMessageId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 
 describe('realtime contracts', () => {
+  it('accepts a message tombstone event', () => {
+    const event = {
+      payload: {
+        deletedAt: '2026-10-11T01:00:00.000Z',
+        messageId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+        roomId,
+      },
+      requestId,
+      type: 'message.deleted',
+      v: 1,
+    } as const;
+
+    expect(MessageDeletedEventSchema.parse(event)).toEqual(event);
+    expect(DistributedRealtimeEventSchema.parse(event)).toEqual(event);
+  });
+
   it('accepts strict room join and message send envelopes', () => {
     expect(
       ClientRealtimeEventSchema.parse({

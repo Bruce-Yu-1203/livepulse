@@ -7,6 +7,7 @@ export const RoomMessageSchema = z
     acceptedAt: z.iso.datetime(),
     authorId: z.uuid(),
     clientMessageId: z.uuid(),
+    deletedAt: z.iso.datetime().optional(),
     messageId: z.uuid(),
     roomId: z.uuid(),
     text: MessageTextSchema,

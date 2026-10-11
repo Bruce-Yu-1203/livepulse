@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   addPendingMessage,
+  markMessageDeleted,
   markMessageFailed,
   mergeCreatedMessage,
   mergeHistoryMessages,
@@ -28,6 +29,24 @@ const createdEvent: MessageCreatedEvent = {
 };
 
 describe('room chat state', () => {
+  it('replaces deleted text with a stable tombstone', () => {
+    const deletedAt = '2026-10-11T01:00:00.000Z';
+    const delivered = mergeCreatedMessage([], createdEvent);
+
+    expect(
+      markMessageDeleted(
+        delivered,
+        createdEvent.payload.messageId,
+        deletedAt,
+      )[0],
+    ).toMatchObject({
+      deletedAt,
+      id: createdEvent.payload.messageId,
+      status: 'sent',
+      text: 'Message removed by moderation',
+    });
+  });
+
   it('reconciles an optimistic message with its server broadcast', () => {
     const pending = addPendingMessage([], {
       authorId,
@@ -89,6 +108,25 @@ describe('room chat state', () => {
       'Older message',
       'Hello room',
     ]);
+  });
+
+  it('never restores original text over a history tombstone', () => {
+    const delivered = mergeCreatedMessage([], createdEvent);
+    const deletedAt = '2026-10-11T01:00:00.000Z';
+    const reconciled = mergeHistoryMessages(delivered, [
+      {
+        ...createdEvent.payload,
+        deletedAt,
+        text: 'Message removed by moderation',
+      },
+    ]);
+
+    expect(reconciled).toHaveLength(1);
+    expect(reconciled[0]).toMatchObject({
+      deletedAt,
+      text: 'Message removed by moderation',
+    });
+    expect(mergeCreatedMessage(reconciled, createdEvent)).toEqual(reconciled);
   });
 
   it('resolves local and deployed websocket URLs with bounded backoff', () => {

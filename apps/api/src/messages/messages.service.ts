@@ -34,6 +34,10 @@ export class MessagesService implements RealtimeMessagePublisher {
     return this.messages.findById(roomId, messageId);
   }
 
+  public delete(roomId: string, messageId: string, deletedAt: Date) {
+    return this.messages.delete(roomId, messageId, deletedAt);
+  }
+
   public async list(
     roomId: string,
     query: ListRoomMessagesQuery,

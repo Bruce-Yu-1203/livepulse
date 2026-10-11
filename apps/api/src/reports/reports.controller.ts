@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpException,
   HttpStatus,
   Inject,
@@ -12,11 +13,14 @@ import {
   ApiErrorCode,
   CreateReportRequestSchema,
   type CreateReportResponse,
+  type ListReportsResponse,
 } from '@livepulse/contracts';
 
 import { AccessTokenGuard } from '../auth/access-token.guard.js';
 import type { AuthenticatedRequest } from '../auth/authenticated-request.js';
 import { CsrfGuard } from '../auth/csrf.guard.js';
+import { AllowedRoles } from '../authorization/allowed-roles.decorator.js';
+import { RolesGuard } from '../authorization/roles.guard.js';
 import { MessageDatabaseUnavailableError } from '../messages/messages.errors.js';
 import {
   ReportDatabaseUnavailableError,
@@ -85,10 +89,52 @@ export class ReportsController {
     }
   }
 
+  @AllowedRoles('ADMIN')
+  @Get()
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  public async list(
+    @Req() request: AuthenticatedRequest,
+  ): Promise<ListReportsResponse> {
+    try {
+      const items = await this.reports.listPending();
+
+      return {
+        items: items.map(({ message, report }) => ({
+          createdAt: report.createdAt.toISOString(),
+          details: report.details,
+          id: report.id,
+          message,
+          messageId: report.messageId,
+          reason: report.reason,
+          reporterId: report.reporterId,
+          roomId: report.roomId,
+          status: report.status,
+        })),
+        requestId: request.id,
+      };
+    } catch (error) {
+      this.throwUnavailable(error);
+    }
+  }
+
   private throwValidationError(message: string): never {
     throw new HttpException(
       { code: ApiErrorCode.ValidationError, message },
       HttpStatus.BAD_REQUEST,
     );
+  }
+
+  private throwUnavailable(error: unknown): never {
+    if (
+      error instanceof ReportDatabaseUnavailableError ||
+      error instanceof MessageDatabaseUnavailableError
+    ) {
+      throw new HttpException(
+        { code: ApiErrorCode.ServiceUnavailable, message: error.message },
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+
+    throw error;
   }
 }

@@ -62,6 +62,7 @@ export {
   ClientRealtimeEventSchema,
   DistributedRealtimeEventSchema,
   MessageCreatedEventSchema,
+  MessageDeletedEventSchema,
   MessageSendEventSchema,
   RealtimeErrorEventSchema,
   RoomJoinedEventSchema,
@@ -73,6 +74,7 @@ export type {
   ClientRealtimeEvent,
   DistributedRealtimeEvent,
   MessageCreatedEvent,
+  MessageDeletedEvent,
   ServerRealtimeEvent,
 } from './realtime.js';
 
@@ -101,6 +103,9 @@ export type {
 export {
   CreateReportRequestSchema,
   CreateReportResponseSchema,
+  ListReportsResponseSchema,
+  ModerateMessageParamsSchema,
+  ModerationReportSchema,
   ReportReasonSchema,
   ReportSchema,
   ReportStatusSchema,
@@ -108,6 +113,8 @@ export {
 export type {
   CreateReportRequest,
   CreateReportResponse,
+  ListReportsResponse,
+  ModerationReport,
   Report,
   ReportReason,
 } from './reports.js';
