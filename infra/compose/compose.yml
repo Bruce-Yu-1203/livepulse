@@ -1,6 +1,62 @@
 name: livepulse
 
 services:
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/compose/Dockerfile
+      target: api
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ACCESS_TOKEN_SECRET: ${ACCESS_TOKEN_SECRET:-replace-with-at-least-32-random-bytes}
+      DATABASE_URL: postgresql://livepulse:livepulse_dev_password@postgres:5432/livepulse?schema=public
+      MONGODB_URL: mongodb://mongodb:27017/livepulse
+      NODE_ENV: development
+      PORT: 3001
+      PROHIBITED_WORDS: ${PROHIBITED_WORDS:-scam-offer,spam-link}
+      REDIS_KEY_PREFIX: livepulse
+      REDIS_URL: redis://redis:6379
+      WEB_ORIGIN: http://localhost:3000
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3001/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    ports:
+      - '3001:3001'
+
+  migrate:
+    build:
+      context: ../..
+      dockerfile: infra/compose/Dockerfile
+      target: api
+    command:
+      [
+        ./packages/db/node_modules/.bin/prisma,
+        migrate,
+        deploy,
+        --config,
+        packages/db/prisma7.config.ts,
+      ]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://livepulse:livepulse_dev_password@postgres:5432/livepulse?schema=public
+
   mongodb:
     image: mongo:8.0.32-noble
     healthcheck:
@@ -42,6 +98,48 @@ services:
       start_period: 5s
     ports:
       - '6379:6379'
+
+  seed:
+    build:
+      context: ../..
+      dockerfile: infra/compose/Dockerfile
+      target: api
+    command: [node, packages/db/prisma/seed.mjs]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql://livepulse:livepulse_dev_password@postgres:5432/livepulse?schema=public
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-}
+    profiles: [tools]
+
+  web:
+    build:
+      args:
+        API_ORIGIN: http://api:3001
+        NEXT_PUBLIC_WEBSOCKET_URL: ${NEXT_PUBLIC_WEBSOCKET_URL:-ws://localhost:3001/ws}
+      context: ../..
+      dockerfile: infra/compose/Dockerfile
+      target: web
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      API_ORIGIN: http://api:3001
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3000').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    ports:
+      - '3000:3000'
 
 volumes:
   mongodb-data:

@@ -11,8 +11,11 @@
   "scripts": {
     "build": "pnpm --recursive --if-present build",
     "db:migrate": "pnpm --filter @livepulse/db db:migrate",
+    "db:seed": "pnpm --filter @livepulse/db build && node packages/db/prisma/seed.mjs",
     "db:stop": "docker compose -f infra/compose/compose.yml stop postgres mongodb redis",
     "db:up": "docker compose -f infra/compose/compose.yml up -d --wait postgres mongodb redis",
+    "demo:down": "docker compose -f infra/compose/compose.yml down",
+    "demo:up": "docker compose -f infra/compose/compose.yml up --build -d --wait",
     "dev:api": "pnpm --filter @livepulse/api dev",
     "dev:web": "pnpm --filter @livepulse/contracts build && pnpm --filter @livepulse/web dev",
     "format": "prettier --write \"**/*.{json,mjs,ts,tsx,yaml,yml}\"",
