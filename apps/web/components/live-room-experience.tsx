@@ -134,9 +134,20 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
                 : ''}
             </p>
           </div>
-          <span
-            className={`h-2.5 w-2.5 rounded-full ${connectionColor(chat.connection)}`}
-          />
+          <div className="flex items-center gap-3">
+            <button
+              className="rounded-full border border-white/10 px-2.5 py-1 text-[0.65rem] font-semibold text-zinc-400 transition hover:border-cyan-300/40 hover:text-cyan-200 disabled:cursor-wait disabled:opacity-50"
+              disabled={chat.historyLoading}
+              onClick={chat.synchronize}
+              type="button"
+            >
+              {chat.historyLoading ? 'Syncing…' : 'Sync'}
+            </button>
+            <span
+              aria-label={connectionLabel(chat.connection)}
+              className={`h-2.5 w-2.5 rounded-full ${connectionColor(chat.connection)}`}
+            />
+          </div>
         </div>
 
         <div

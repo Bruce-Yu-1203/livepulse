@@ -18,6 +18,7 @@ import {
   markMessageFailed,
   mergeCreatedMessage,
   mergeHistoryMessages,
+  PendingMessageTracker,
   reconnectDelay,
   realtimeErrorMessage,
   resolveWebSocketUrl,
@@ -40,7 +41,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null | undefined>();
   const socketRef = useRef<WebSocket>(undefined);
-  const requestMessagesRef = useRef(new Map<string, string>());
+  const pendingMessagesRef = useRef(new PendingMessageTracker());
   const historyLoadingRef = useRef(false);
 
   const loadHistory = useCallback(
@@ -61,6 +62,9 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
           `/api/v1/rooms/${roomId}/messages?${query.toString()}`,
           ListRoomMessagesResponseSchema,
         );
+        for (const message of response.items) {
+          pendingMessagesRef.current.acknowledge(message.clientMessageId);
+        }
         setMessages((current) => mergeHistoryMessages(current, response.items));
         setNextCursor((current) =>
           cursor || current === undefined ? response.nextCursor : current,
@@ -76,6 +80,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
   );
 
   useEffect(() => {
+    pendingMessagesRef.current.clear();
     setMessages([]);
     setNextCursor(undefined);
     void loadHistory();
@@ -120,7 +125,33 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
 
     let cancelled = false;
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+    let joinedSocket: WebSocket | undefined;
     let attempt = 0;
+
+    function flushPending(socket: WebSocket) {
+      const sweep = pendingMessagesRef.current.sweep();
+      if (sweep.failedClientMessageIds.length > 0) {
+        setMessages((current) =>
+          sweep.failedClientMessageIds.reduce(
+            (messages, clientMessageId) =>
+              markMessageFailed(messages, clientMessageId),
+            current,
+          ),
+        );
+        setError(
+          'Some messages could not be confirmed. Sync history or send again.',
+        );
+      }
+
+      for (const delivery of sweep.retryable) {
+        sendTrackedMessage(
+          socket,
+          pendingMessagesRef.current,
+          roomId,
+          delivery.clientMessageId,
+        );
+      }
+    }
 
     function connect() {
       if (cancelled) {
@@ -162,12 +193,17 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
         }
 
         if (parsed.data.type === 'room.joined') {
+          joinedSocket = socket;
           attempt = 0;
           setConnection('connected');
           setOnlineCount(parsed.data.payload.connections);
           setUniqueUserCount(parsed.data.payload.uniqueUsers);
           setError(undefined);
-          void loadHistory();
+          void loadHistory().finally(() => {
+            if (!cancelled && joinedSocket === socket) {
+              flushPending(socket);
+            }
+          });
           return;
         }
 
@@ -180,7 +216,9 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
         if (parsed.data.type === 'message.created') {
           const createdEvent = parsed.data;
           setMessages((current) => mergeCreatedMessage(current, createdEvent));
-          requestMessagesRef.current.delete(createdEvent.requestId);
+          pendingMessagesRef.current.acknowledge(
+            createdEvent.payload.clientMessageId,
+          );
           return;
         }
 
@@ -196,12 +234,11 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
           return;
         }
 
-        const clientMessageId = requestMessagesRef.current.get(
+        const clientMessageId = pendingMessagesRef.current.rejectRequest(
           parsed.data.requestId,
         );
         if (clientMessageId) {
           setMessages((current) => markMessageFailed(current, clientMessageId));
-          requestMessagesRef.current.delete(parsed.data.requestId);
         }
         setError(realtimeErrorMessage(parsed.data.payload));
 
@@ -212,6 +249,9 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
         }
       });
       socket.addEventListener('close', (event) => {
+        if (joinedSocket === socket) {
+          joinedSocket = undefined;
+        }
         if (cancelled) {
           return;
         }
@@ -237,9 +277,15 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
     }
 
     connect();
+    const deliverySweepTimer = setInterval(() => {
+      if (joinedSocket?.readyState === WebSocket.OPEN) {
+        flushPending(joinedSocket);
+      }
+    }, 1_000);
 
     return () => {
       cancelled = true;
+      clearInterval(deliverySweepTimer);
       if (reconnectTimer) {
         clearTimeout(reconnectTimer);
       }
@@ -262,8 +308,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
       }
 
       const clientMessageId = crypto.randomUUID();
-      const requestId = crypto.randomUUID();
-      requestMessagesRef.current.set(requestId, clientMessageId);
+      pendingMessagesRef.current.add(clientMessageId, normalized);
       setMessages((current) =>
         addPendingMessage(current, {
           authorId: userId,
@@ -271,13 +316,11 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
           text: normalized,
         }),
       );
-      socket.send(
-        JSON.stringify({
-          payload: { clientMessageId, roomId, text: normalized },
-          requestId,
-          type: 'message.send',
-          v: 1,
-        }),
+      sendTrackedMessage(
+        socket,
+        pendingMessagesRef.current,
+        roomId,
+        clientMessageId,
       );
       setError(undefined);
       return true;
@@ -299,8 +342,38 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
     messages,
     onlineCount,
     sendMessage,
+    synchronize: () => {
+      void loadHistory();
+    },
     uniqueUserCount,
     userId,
     userRole,
   };
+}
+
+function sendTrackedMessage(
+  socket: WebSocket,
+  tracker: PendingMessageTracker,
+  roomId: string,
+  clientMessageId: string,
+): boolean {
+  const requestId = crypto.randomUUID();
+  const delivery = tracker.beginAttempt(clientMessageId, requestId);
+  if (!delivery) {
+    return false;
+  }
+
+  socket.send(
+    JSON.stringify({
+      payload: {
+        clientMessageId: delivery.clientMessageId,
+        roomId,
+        text: delivery.text,
+      },
+      requestId,
+      type: 'message.send',
+      v: 1,
+    }),
+  );
+  return true;
 }

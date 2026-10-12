@@ -11,6 +11,125 @@ export interface ChatMessage {
   text: string;
 }
 
+export interface PendingDelivery {
+  attempts: number;
+  clientMessageId: string;
+  lastAttemptAt?: number;
+  queuedAt: number;
+  text: string;
+}
+
+export interface DeliverySweep {
+  failedClientMessageIds: string[];
+  retryable: PendingDelivery[];
+}
+
+export const messageAcknowledgementTimeoutMs = 10_000;
+export const pendingMessageRetentionMs = 5 * 60_000;
+export const maxMessageDeliveryAttempts = 3;
+
+export class PendingMessageTracker {
+  private readonly deliveries = new Map<string, PendingDelivery>();
+  private readonly clientMessageByRequest = new Map<string, string>();
+
+  public add(
+    clientMessageId: string,
+    text: string,
+    now = Date.now(),
+  ): PendingDelivery {
+    const existing = this.deliveries.get(clientMessageId);
+    if (existing) {
+      return existing;
+    }
+
+    const delivery: PendingDelivery = {
+      attempts: 0,
+      clientMessageId,
+      queuedAt: now,
+      text,
+    };
+    this.deliveries.set(clientMessageId, delivery);
+    return delivery;
+  }
+
+  public beginAttempt(
+    clientMessageId: string,
+    requestId: string,
+    now = Date.now(),
+  ): PendingDelivery | undefined {
+    const delivery = this.deliveries.get(clientMessageId);
+    if (!delivery || delivery.attempts >= maxMessageDeliveryAttempts) {
+      return undefined;
+    }
+
+    delivery.attempts += 1;
+    delivery.lastAttemptAt = now;
+    this.clientMessageByRequest.set(requestId, clientMessageId);
+    return { ...delivery };
+  }
+
+  public acknowledge(clientMessageId: string): boolean {
+    if (!this.deliveries.delete(clientMessageId)) {
+      return false;
+    }
+
+    this.removeRequestsFor(clientMessageId);
+    return true;
+  }
+
+  public rejectRequest(requestId: string): string | undefined {
+    const clientMessageId = this.clientMessageByRequest.get(requestId);
+    if (!clientMessageId) {
+      return undefined;
+    }
+
+    this.deliveries.delete(clientMessageId);
+    this.removeRequestsFor(clientMessageId);
+    return clientMessageId;
+  }
+
+  public sweep(now = Date.now()): DeliverySweep {
+    const failedClientMessageIds: string[] = [];
+    const retryable: PendingDelivery[] = [];
+
+    for (const delivery of this.deliveries.values()) {
+      const acknowledgementExpired =
+        delivery.lastAttemptAt === undefined ||
+        now - delivery.lastAttemptAt >= messageAcknowledgementTimeoutMs;
+      const retentionExpired =
+        now - delivery.queuedAt >= pendingMessageRetentionMs;
+
+      if (
+        retentionExpired ||
+        (delivery.attempts >= maxMessageDeliveryAttempts &&
+          acknowledgementExpired)
+      ) {
+        failedClientMessageIds.push(delivery.clientMessageId);
+        this.deliveries.delete(delivery.clientMessageId);
+        this.removeRequestsFor(delivery.clientMessageId);
+      } else if (acknowledgementExpired) {
+        retryable.push({ ...delivery });
+      }
+    }
+
+    return { failedClientMessageIds, retryable };
+  }
+
+  public clear(): void {
+    this.deliveries.clear();
+    this.clientMessageByRequest.clear();
+  }
+
+  private removeRequestsFor(clientMessageId: string): void {
+    for (const [requestId, mappedClientMessageId] of this
+      .clientMessageByRequest) {
+      if (mappedClientMessageId === clientMessageId) {
+        this.clientMessageByRequest.delete(requestId);
+      }
+    }
+  }
+}
+
 export function addPendingMessage(
   messages: ChatMessage[],
   input: {

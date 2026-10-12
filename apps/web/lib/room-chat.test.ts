@@ -7,6 +7,10 @@ import {
   markMessageFailed,
   mergeCreatedMessage,
   mergeHistoryMessages,
+  messageAcknowledgementTimeoutMs,
+  maxMessageDeliveryAttempts,
+  PendingMessageTracker,
+  pendingMessageRetentionMs,
   reconnectDelay,
   realtimeErrorMessage,
   roomPresenceLabel,
@@ -167,5 +171,80 @@ describe('room chat state', () => {
         message: 'Try again later',
       }),
     ).toBe('Try again later');
+  });
+});
+
+describe('pending message delivery', () => {
+  it('retries with the same client message and stops after acknowledgement', () => {
+    const tracker = new PendingMessageTracker();
+    tracker.add(clientMessageId, 'Hello room', 1_000);
+    const firstAttempt = tracker.beginAttempt(
+      clientMessageId,
+      'request-1',
+      1_000,
+    );
+
+    expect(firstAttempt).toMatchObject({
+      attempts: 1,
+      clientMessageId,
+      text: 'Hello room',
+    });
+    expect(
+      tracker.sweep(1_000 + messageAcknowledgementTimeoutMs - 1).retryable,
+    ).toEqual([]);
+    expect(
+      tracker.sweep(1_000 + messageAcknowledgementTimeoutMs).retryable,
+    ).toMatchObject([{ attempts: 1, clientMessageId }]);
+
+    tracker.beginAttempt(
+      clientMessageId,
+      'request-2',
+      1_000 + messageAcknowledgementTimeoutMs,
+    );
+    expect(tracker.acknowledge(clientMessageId)).toBe(true);
+    expect(tracker.sweep(999_999)).toEqual({
+      failedClientMessageIds: [],
+      retryable: [],
+    });
+  });
+
+  it('marks a delivery failed only after bounded retries time out', () => {
+    const tracker = new PendingMessageTracker();
+    tracker.add(clientMessageId, 'Hello room', 0);
+
+    for (let attempt = 0; attempt < maxMessageDeliveryAttempts; attempt += 1) {
+      tracker.beginAttempt(
+        clientMessageId,
+        `request-${attempt}`,
+        attempt * messageAcknowledgementTimeoutMs,
+      );
+    }
+
+    expect(
+      tracker.sweep(
+        maxMessageDeliveryAttempts * messageAcknowledgementTimeoutMs - 1,
+      ).failedClientMessageIds,
+    ).toEqual([]);
+    expect(
+      tracker.sweep(
+        maxMessageDeliveryAttempts * messageAcknowledgementTimeoutMs,
+      ).failedClientMessageIds,
+    ).toEqual([clientMessageId]);
+  });
+
+  it('expires unresolved messages after five minutes and maps rejections', () => {
+    const tracker = new PendingMessageTracker();
+    tracker.add(clientMessageId, 'Hello room', 5_000);
+    tracker.beginAttempt(clientMessageId, 'request-1', 5_000);
+
+    expect(tracker.rejectRequest('unknown-request')).toBeUndefined();
+    expect(
+      tracker.sweep(5_000 + pendingMessageRetentionMs).failedClientMessageIds,
+    ).toEqual([clientMessageId]);
+
+    tracker.add(clientMessageId, 'Hello again', 10_000);
+    tracker.beginAttempt(clientMessageId, 'request-2', 10_000);
+    expect(tracker.rejectRequest('request-2')).toBe(clientMessageId);
+    expect(tracker.sweep(999_999).retryable).toEqual([]);
   });
 });
