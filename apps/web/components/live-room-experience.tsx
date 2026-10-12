@@ -127,7 +127,10 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
             <p className="mt-1 text-xs text-zinc-500">
               {connectionLabel(chat.connection)}
               {chat.connection === 'connected'
-                ? ` · ${roomPresenceLabel(chat.onlineCount)}`
+                ? ` · ${roomPresenceLabel(
+                    chat.uniqueUserCount,
+                    chat.onlineCount,
+                  )}`
                 : ''}
             </p>
           </div>

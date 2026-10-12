@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { resolveRedisConfiguration } from './redis-realtime-coordinator.js';
+import {
+  countPresence,
+  resolveRedisConfiguration,
+} from './redis-realtime-coordinator.js';
 
 describe('Redis realtime configuration', () => {
   it('uses explicit configuration and development defaults', () => {
@@ -41,5 +44,19 @@ describe('Redis realtime configuration', () => {
         redisUrl: undefined,
       }),
     ).toThrow('REDIS_KEY_PREFIX is invalid');
+  });
+});
+
+describe('presence counting', () => {
+  it('counts browser connections separately from authenticated users', () => {
+    expect(
+      countPresence(
+        new Map([
+          ['connection-1', 'user:viewer-1'],
+          ['connection-2', 'user:viewer-1'],
+          ['connection-3', 'connection:guest-1'],
+        ]),
+      ),
+    ).toEqual({ connections: 3, uniqueUsers: 2 });
   });
 });

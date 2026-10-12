@@ -13,6 +13,7 @@ import type { AuthenticatedPrincipal } from '../auth/authenticated-request.js';
 import type { RealtimeMessagePublisher } from '../messages/messages.service.js';
 import { REALTIME_MESSAGE_PUBLISHER } from '../messages/messages.tokens.js';
 import type {
+  PresenceCounts,
   RealtimeEventBus,
   RealtimePresence,
 } from './realtime-coordination.js';
@@ -43,7 +44,7 @@ interface AcceptedMessage {
 const bucketCapacity = 5;
 const refillPerMillisecond = 1 / 1_000;
 const maxAcceptedMessages = 10_000;
-const presenceRefreshMilliseconds = 15_000;
+const presenceRefreshMilliseconds = 5_000;
 
 @Injectable()
 export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
@@ -145,18 +146,23 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
     members.add(peer);
     this.roomMembers.set(roomId, members);
     this.joinedRoomByPeer.set(peer.id, roomId);
-    const connections = await this.joinPresence(roomId, peer.id, members.size);
+    const presence = await this.joinPresence(
+      roomId,
+      peer,
+      localPresenceCounts(members),
+    );
     peer.send({
       payload: {
         connectedAt: new Date().toISOString(),
-        connections,
+        connections: presence.connections,
         roomId,
+        uniqueUsers: presence.uniqueUsers,
       },
       requestId,
       type: 'room.joined',
       v: 1,
     });
-    await this.publishStats(roomId, connections);
+    await this.publishStats(roomId, presence);
   }
 
   private async sendMessage(
@@ -402,24 +408,24 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
     }
 
     this.joinedRoomByPeer.delete(peer.id);
-    let connections = members?.size ?? 0;
+    let presence = localPresenceCounts(members);
     try {
-      connections = await this.presence.leave(roomId, peer.id);
+      presence = await this.presence.leave(roomId, peer.id);
     } catch {
       // Local membership remains available when Redis is temporarily offline.
     }
-    await this.publishStats(roomId, connections);
+    await this.publishStats(roomId, presence);
   }
 
   private async joinPresence(
     roomId: string,
-    connectionId: string,
-    localConnections: number,
-  ): Promise<number> {
+    peer: RealtimePeer,
+    localPresence: PresenceCounts,
+  ): Promise<PresenceCounts> {
     try {
-      return await this.presence.join(roomId, connectionId);
+      return await this.presence.join(roomId, peer.id, presenceIdentity(peer));
     } catch {
-      return localConnections;
+      return localPresence;
     }
   }
 
@@ -432,12 +438,17 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
       const counts = await this.presence.refresh(
         [...this.joinedRoomByPeer].map(([connectionId, roomId]) => ({
           connectionId,
+          identityId: presenceIdentity(
+            [...(this.roomMembers.get(roomId) ?? [])].find(
+              (peer) => peer.id === connectionId,
+            ),
+          ),
           roomId,
         })),
       );
       await Promise.all(
-        [...counts].map(([roomId, connections]) =>
-          this.publishStats(roomId, connections),
+        [...counts].map(([roomId, presence]) =>
+          this.publishStats(roomId, presence),
         ),
       );
     } catch {
@@ -447,12 +458,13 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
 
   private async publishStats(
     roomId: string,
-    connections: number,
+    presence: PresenceCounts,
   ): Promise<void> {
     const event: DistributedRealtimeEvent = {
       payload: {
-        connections,
+        connections: presence.connections,
         roomId,
+        uniqueUsers: presence.uniqueUsers,
         updatedAt: new Date().toISOString(),
       },
       requestId: randomUUID(),
@@ -534,4 +546,20 @@ function readRequestId(input: unknown): string {
   }
 
   return randomUUID();
+}
+
+function presenceIdentity(peer: RealtimePeer | undefined): string {
+  return peer?.principal
+    ? `user:${peer.principal.userId}`
+    : `connection:${peer?.id ?? 'unknown'}`;
+}
+
+function localPresenceCounts(
+  members: ReadonlySet<RealtimePeer> | undefined,
+): PresenceCounts {
+  const peers = [...(members ?? [])];
+  return {
+    connections: peers.length,
+    uniqueUsers: new Set(peers.map((peer) => presenceIdentity(peer))).size,
+  };
 }

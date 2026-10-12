@@ -32,6 +32,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
   );
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [onlineCount, setOnlineCount] = useState(0);
+  const [uniqueUserCount, setUniqueUserCount] = useState(0);
   const [userId, setUserId] = useState<string>();
   const [userRole, setUserRole] = useState<UserRole>();
   const [authChecked, setAuthChecked] = useState(false);
@@ -113,6 +114,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
     if (roomStatus !== 'LIVE') {
       setConnection('ended');
       setOnlineCount(0);
+      setUniqueUserCount(0);
       return;
     }
 
@@ -163,6 +165,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
           attempt = 0;
           setConnection('connected');
           setOnlineCount(parsed.data.payload.connections);
+          setUniqueUserCount(parsed.data.payload.uniqueUsers);
           setError(undefined);
           void loadHistory();
           return;
@@ -170,6 +173,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
 
         if (parsed.data.type === 'room.stats') {
           setOnlineCount(parsed.data.payload.connections);
+          setUniqueUserCount(parsed.data.payload.uniqueUsers);
           return;
         }
 
@@ -223,6 +227,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
 
         setConnection('reconnecting');
         setOnlineCount(0);
+        setUniqueUserCount(0);
         reconnectTimer = setTimeout(connect, reconnectDelay(attempt));
         attempt += 1;
       });
@@ -294,6 +299,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
     messages,
     onlineCount,
     sendMessage,
+    uniqueUserCount,
     userId,
     userRole,
   };

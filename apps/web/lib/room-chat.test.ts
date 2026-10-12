@@ -149,8 +149,9 @@ describe('room chat state', () => {
     ).toBe('wss://live.example.com/ws');
     expect(reconnectDelay(0, () => 0.5)).toBe(1_000);
     expect(reconnectDelay(20, () => 0.5)).toBe(30_000);
-    expect(roomPresenceLabel(1)).toBe('1 person online');
-    expect(roomPresenceLabel(1_250)).toBe('1,250 people online');
+    expect(roomPresenceLabel(1, 1)).toBe('1 person online');
+    expect(roomPresenceLabel(1_250, 1_250)).toBe('1,250 people online');
+    expect(roomPresenceLabel(1, 2)).toBe('1 person online · 2 connections');
   });
 
   it('shows a clear message when the server blocks prohibited content', () => {

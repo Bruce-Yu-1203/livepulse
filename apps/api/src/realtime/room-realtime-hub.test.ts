@@ -65,12 +65,49 @@ describe('RoomRealtimeHub', () => {
     await hub.handle(second, joinEvent(2));
 
     expect(eventsOfType(first, 'room.stats').at(-1)).toMatchObject({
-      payload: { connections: 2, roomId },
+      payload: { connections: 2, roomId, uniqueUsers: 2 },
     });
     await hub.disconnect(second);
     expect(eventsOfType(first, 'room.stats').at(-1)).toMatchObject({
-      payload: { connections: 1, roomId },
+      payload: { connections: 1, roomId, uniqueUsers: 1 },
     });
+  });
+
+  it('deduplicates multiple connections from the same authenticated user', async () => {
+    const hub = createHub();
+    const firstTab = peer('first-tab', true);
+    const secondTab = peer('second-tab', true);
+
+    await hub.handle(firstTab, joinEvent(1));
+    await hub.handle(secondTab, joinEvent(2));
+
+    expect(eventsOfType(firstTab, 'room.stats').at(-1)).toMatchObject({
+      payload: { connections: 2, roomId, uniqueUsers: 1 },
+    });
+    expect(eventsOfType(secondTab, 'room.joined').at(-1)).toMatchObject({
+      payload: { connections: 2, roomId, uniqueUsers: 1 },
+    });
+  });
+
+  it('refreshes presence leases and statistics every five seconds', async () => {
+    const realtimePresence = presence();
+    const refresh = vi.spyOn(realtimePresence, 'refresh');
+    const hub = new RoomRealtimeHub(
+      roomSource(true),
+      publisher(),
+      eventBus(),
+      realtimePresence,
+    );
+    const viewer = peer('viewer', true);
+    await hub.handle(viewer, joinEvent(1));
+    hub.onModuleInit();
+
+    await vi.advanceTimersByTimeAsync(4_999);
+    expect(refresh).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(refresh).toHaveBeenCalledOnce();
+
+    hub.onModuleDestroy();
   });
 
   it('allows guests to read but rejects guest sends and ended-room joins', async () => {
@@ -355,27 +392,35 @@ function eventBus(): RealtimeEventBus {
 }
 
 function presence(): RealtimePresence {
-  const roomMembers = new Map<string, Set<string>>();
+  const roomMembers = new Map<string, Map<string, string>>();
   return {
-    async join(joinedRoomId, connectionId) {
-      const members = roomMembers.get(joinedRoomId) ?? new Set<string>();
-      members.add(connectionId);
+    async join(joinedRoomId, connectionId, identityId) {
+      const members =
+        roomMembers.get(joinedRoomId) ?? new Map<string, string>();
+      members.set(connectionId, identityId);
       roomMembers.set(joinedRoomId, members);
-      return members.size;
+      return presenceCounts(members);
     },
     async leave(leftRoomId, connectionId) {
-      const members = roomMembers.get(leftRoomId) ?? new Set<string>();
+      const members = roomMembers.get(leftRoomId) ?? new Map<string, string>();
       members.delete(connectionId);
-      return members.size;
+      return presenceCounts(members);
     },
     async refresh(connections) {
       return new Map(
         [...new Set(connections.map(({ roomId: id }) => id))].map((id) => [
           id,
-          roomMembers.get(id)?.size ?? 0,
+          presenceCounts(roomMembers.get(id) ?? new Map<string, string>()),
         ]),
       );
     },
+  };
+}
+
+function presenceCounts(members: ReadonlyMap<string, string>) {
+  return {
+    connections: members.size,
+    uniqueUsers: new Set(members.values()).size,
   };
 }
 

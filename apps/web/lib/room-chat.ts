@@ -144,10 +144,17 @@ export function reconnectDelay(attempt: number, random = Math.random): number {
   return Math.round(cappedBase * (0.8 + random() * 0.4));
 }
 
-export function roomPresenceLabel(connections: number): string {
-  return `${connections.toLocaleString('en')} ${
-    connections === 1 ? 'person' : 'people'
+export function roomPresenceLabel(
+  uniqueUsers: number,
+  connections: number,
+): string {
+  const people = `${uniqueUsers.toLocaleString('en')} ${
+    uniqueUsers === 1 ? 'person' : 'people'
   } online`;
+
+  return connections === uniqueUsers
+    ? people
+    : `${people} · ${connections.toLocaleString('en')} connections`;
 }
 
 export function realtimeErrorMessage(error: {

@@ -218,7 +218,7 @@ Permanent schema failures are written to chat.messages.dlq.v1 and trigger an ale
 | room:{id}:mute:{userId} | Short-lived mute cache | Reloaded from PostgreSQL |
 | room:{id}:events channel | Pub/Sub room events | No replay; recovered through history synchronization |
 
-Presence uses one lease per connection. The unique-user count deduplicates active connection mappings and is initially recomputed every five seconds. Large rooms require sharded aggregation or a more efficient reference-and-expiry index, with measured Redis cost. A clean gateway shutdown removes its connections, while a crash relies on lease expiry. Presence cannot be modeled only as increment-on-connect and decrement-on-disconnect counters.
+Presence uses one sorted-set lease per connection and a companion hash from connection ID to authenticated identity. Guests use their connection identity, while multiple connections from one authenticated account contribute one unique user. The gateway refreshes leases and broadcasts both connection and unique-user counts every five seconds. Large rooms require sharded aggregation or a more efficient reference-and-expiry index, with measured Redis cost. A clean gateway shutdown removes its connections, while a crash relies on lease expiry. Presence cannot be modeled only as increment-on-connect and decrement-on-disconnect counters.
 
 Redis is never the sole source of truth for users, rooms, likes, or chat history. A production multi-tenant Redis Cluster would require explicit key-slot and atomic-script compatibility design. The first version uses one Redis instance.
 

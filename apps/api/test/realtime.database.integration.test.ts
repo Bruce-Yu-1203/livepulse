@@ -115,23 +115,42 @@ describe('room WebSocket gateway', () => {
     sender.send(JSON.stringify(joinEvent(liveRoomId, 1)));
     expect(
       RoomJoinedEventSchema.parse(await senderJoined).payload,
-    ).toMatchObject({ connections: 1, roomId: liveRoomId });
+    ).toMatchObject({
+      connections: 1,
+      roomId: liveRoomId,
+      uniqueUsers: 1,
+    });
 
     const guestJoined = nextEventOfType(guest, 'room.joined');
     guest.send(JSON.stringify(joinEvent(liveRoomId, 2)));
     expect(
       RoomJoinedEventSchema.parse(await guestJoined).payload,
-    ).toMatchObject({ connections: 2, roomId: liveRoomId });
+    ).toMatchObject({
+      connections: 2,
+      roomId: liveRoomId,
+      uniqueUsers: 2,
+    });
+
+    const secondTab = await connect(accessCookie);
+    const secondTabJoined = nextEventOfType(secondTab, 'room.joined');
+    secondTab.send(JSON.stringify(joinEvent(liveRoomId, 3)));
+    expect(
+      RoomJoinedEventSchema.parse(await secondTabJoined).payload,
+    ).toMatchObject({
+      connections: 3,
+      roomId: liveRoomId,
+      uniqueUsers: 2,
+    });
 
     const guestRejected = nextEventOfType(guest, 'error');
-    guest.send(JSON.stringify(sendEvent(liveRoomId, 3, 1, 'Guest message')));
+    guest.send(JSON.stringify(sendEvent(liveRoomId, 4, 1, 'Guest message')));
     expect(
       RealtimeErrorEventSchema.parse(await guestRejected).payload.code,
     ).toBe('REALTIME_AUTHENTICATION_REQUIRED');
 
     const senderCreated = nextEventOfType(sender, 'message.created');
     const guestCreated = nextEventOfType(guest, 'message.created');
-    sender.send(JSON.stringify(sendEvent(liveRoomId, 4, 2, 'Hello live room')));
+    sender.send(JSON.stringify(sendEvent(liveRoomId, 5, 2, 'Hello live room')));
     const sent = ServerRealtimeEventSchema.parse(await senderCreated);
     const observed = ServerRealtimeEventSchema.parse(await guestCreated);
     expect(sent).toMatchObject({
@@ -154,6 +173,7 @@ describe('room WebSocket gateway', () => {
 
     sender.close();
     guest.close();
+    secondTab.close();
   });
 
   it('rejects ended-room joins and untrusted origins', async () => {
@@ -326,6 +346,8 @@ describe('room WebSocket gateway', () => {
     await redis.del([
       `${redisKeyPrefix}:room:${liveRoomId}:presence`,
       `${redisKeyPrefix}:room:${endedRoomId}:presence`,
+      `${redisKeyPrefix}:room:${liveRoomId}:presence-identities`,
+      `${redisKeyPrefix}:room:${endedRoomId}:presence-identities`,
     ]);
     await mongo
       .db()

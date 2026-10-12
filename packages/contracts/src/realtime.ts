@@ -47,6 +47,7 @@ export const RoomJoinedEventSchema = z
         connections: z.number().int().nonnegative(),
         connectedAt: z.iso.datetime(),
         roomId: RoomIdSchema,
+        uniqueUsers: z.number().int().nonnegative(),
       })
       .strict(),
     requestId: RequestIdSchema,
@@ -94,6 +95,7 @@ export const RoomStatsEventSchema = z
       .object({
         connections: z.number().int().nonnegative(),
         roomId: RoomIdSchema,
+        uniqueUsers: z.number().int().nonnegative(),
         updatedAt: z.iso.datetime(),
       })
       .strict(),

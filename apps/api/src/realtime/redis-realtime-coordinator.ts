@@ -8,6 +8,8 @@ import { createClient } from 'redis';
 import type { RedisClientType } from 'redis';
 
 import type {
+  PresenceConnection,
+  PresenceCounts,
   RealtimeEventBus,
   RealtimePresence,
 } from './realtime-coordination.js';
@@ -28,7 +30,7 @@ export class RedisRealtimeCoordinator
   private readonly channel: string;
   private readonly keyPrefix: string;
   private readonly useInMemory: boolean;
-  private readonly inMemoryPresence = new Map<string, Set<string>>();
+  private readonly inMemoryPresence = new Map<string, Map<string, string>>();
 
   public constructor() {
     const configuration = resolveRedisConfiguration({
@@ -103,80 +105,139 @@ export class RedisRealtimeCoordinator
     return () => this.listeners.delete(listener);
   }
 
-  public async join(roomId: string, connectionId: string): Promise<number> {
+  public async join(
+    roomId: string,
+    connectionId: string,
+    identityId: string,
+  ): Promise<PresenceCounts> {
     if (this.useInMemory) {
-      const members = this.inMemoryPresence.get(roomId) ?? new Set<string>();
-      members.add(connectionId);
+      const members =
+        this.inMemoryPresence.get(roomId) ?? new Map<string, string>();
+      members.set(connectionId, identityId);
       this.inMemoryPresence.set(roomId, members);
-      return members.size;
+      return countPresence(members);
     }
 
     const key = this.presenceKey(roomId);
+    const identitiesKey = this.presenceIdentitiesKey(roomId);
     const now = Date.now();
-    await this.commands.zAdd(key, {
-      score: now + presenceLeaseMilliseconds,
-      value: connectionId,
-    });
-    return this.cleanAndCount(key, now);
+    await Promise.all([
+      this.commands.zAdd(key, {
+        score: now + presenceLeaseMilliseconds,
+        value: connectionId,
+      }),
+      this.commands.hSet(identitiesKey, connectionId, identityId),
+    ]);
+    return this.cleanAndCount(key, identitiesKey, now);
   }
 
-  public async leave(roomId: string, connectionId: string): Promise<number> {
+  public async leave(
+    roomId: string,
+    connectionId: string,
+  ): Promise<PresenceCounts> {
     if (this.useInMemory) {
-      const members = this.inMemoryPresence.get(roomId) ?? new Set<string>();
+      const members =
+        this.inMemoryPresence.get(roomId) ?? new Map<string, string>();
       members.delete(connectionId);
-      return members.size;
+      return countPresence(members);
     }
 
     const key = this.presenceKey(roomId);
-    await this.commands.zRem(key, connectionId);
-    return this.cleanAndCount(key, Date.now());
+    const identitiesKey = this.presenceIdentitiesKey(roomId);
+    await Promise.all([
+      this.commands.zRem(key, connectionId),
+      this.commands.hDel(identitiesKey, connectionId),
+    ]);
+    return this.cleanAndCount(key, identitiesKey, Date.now());
   }
 
   public async refresh(
-    connections: ReadonlyArray<{ connectionId: string; roomId: string }>,
-  ): Promise<Map<string, number>> {
+    connections: readonly PresenceConnection[],
+  ): Promise<Map<string, PresenceCounts>> {
     if (this.useInMemory) {
       return new Map(
         [...new Set(connections.map(({ roomId }) => roomId))].map((roomId) => [
           roomId,
-          this.inMemoryPresence.get(roomId)?.size ?? 0,
+          countPresence(
+            this.inMemoryPresence.get(roomId) ?? new Map<string, string>(),
+          ),
         ]),
       );
     }
 
-    const byRoom = new Map<string, string[]>();
+    const byRoom = new Map<string, PresenceConnection[]>();
     for (const connection of connections) {
-      const ids = byRoom.get(connection.roomId) ?? [];
-      ids.push(connection.connectionId);
-      byRoom.set(connection.roomId, ids);
+      const roomConnections = byRoom.get(connection.roomId) ?? [];
+      roomConnections.push(connection);
+      byRoom.set(connection.roomId, roomConnections);
     }
 
     const now = Date.now();
-    const counts = new Map<string, number>();
+    const counts = new Map<string, PresenceCounts>();
     await Promise.all(
-      [...byRoom].map(async ([roomId, connectionIds]) => {
+      [...byRoom].map(async ([roomId, roomConnections]) => {
         const key = this.presenceKey(roomId);
-        await this.commands.zAdd(
-          key,
-          connectionIds.map((value) => ({
-            score: now + presenceLeaseMilliseconds,
-            value,
-          })),
-        );
-        counts.set(roomId, await this.cleanAndCount(key, now));
+        const identitiesKey = this.presenceIdentitiesKey(roomId);
+        await Promise.all([
+          this.commands.zAdd(
+            key,
+            roomConnections.map(({ connectionId }) => ({
+              score: now + presenceLeaseMilliseconds,
+              value: connectionId,
+            })),
+          ),
+          this.commands.hSet(
+            identitiesKey,
+            Object.fromEntries(
+              roomConnections.map(({ connectionId, identityId }) => [
+                connectionId,
+                identityId,
+              ]),
+            ),
+          ),
+        ]);
+        counts.set(roomId, await this.cleanAndCount(key, identitiesKey, now));
       }),
     );
     return counts;
   }
 
-  private async cleanAndCount(key: string, now: number): Promise<number> {
+  private async cleanAndCount(
+    key: string,
+    identitiesKey: string,
+    now: number,
+  ): Promise<PresenceCounts> {
+    const expiredConnectionIds = await this.commands.zRangeByScore(key, 0, now);
     await this.commands.zRemRangeByScore(key, 0, now);
-    await this.commands.expire(key, presenceKeyTtlSeconds);
-    return this.commands.zCard(key);
+    if (expiredConnectionIds.length > 0) {
+      await this.commands.hDel(identitiesKey, expiredConnectionIds);
+    }
+    await Promise.all([
+      this.commands.expire(key, presenceKeyTtlSeconds),
+      this.commands.expire(identitiesKey, presenceKeyTtlSeconds),
+    ]);
+    const activeConnectionIds = await this.commands.zRange(key, 0, -1);
+    const identities =
+      activeConnectionIds.length === 0
+        ? []
+        : await this.commands.hmGet(identitiesKey, activeConnectionIds);
+    return {
+      connections: activeConnectionIds.length,
+      uniqueUsers: new Set(
+        activeConnectionIds.map(
+          (connectionId, index) =>
+            identities[index] ?? `connection:${connectionId}`,
+        ),
+      ).size,
+    };
   }
 
   private presenceKey(roomId: string): string {
     return `${this.keyPrefix}:room:${roomId}:presence`;
+  }
+
+  private presenceIdentitiesKey(roomId: string): string {
+    return `${this.keyPrefix}:room:${roomId}:presence-identities`;
   }
 
   private receive(value: string): void {
@@ -191,6 +252,15 @@ export class RedisRealtimeCoordinator
       this.logger.warn('Ignored an invalid distributed realtime event');
     }
   }
+}
+
+export function countPresence(
+  connections: ReadonlyMap<string, string>,
+): PresenceCounts {
+  return {
+    connections: connections.size,
+    uniqueUsers: new Set(connections.values()).size,
+  };
 }
 
 interface RedisEnvironment {

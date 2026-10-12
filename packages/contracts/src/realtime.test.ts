@@ -54,6 +54,7 @@ describe('realtime contracts', () => {
           connectedAt: '2026-10-10T12:00:00.000Z',
           connections: 2,
           roomId,
+          uniqueUsers: 1,
         },
         requestId,
         type: 'room.joined',
@@ -117,6 +118,7 @@ describe('realtime contracts', () => {
       payload: {
         connections: 12,
         roomId,
+        uniqueUsers: 9,
         updatedAt: '2026-10-10T12:00:00.000Z',
       },
       requestId,
@@ -124,11 +126,13 @@ describe('realtime contracts', () => {
       v: 1,
     });
     expect(event.type === 'room.stats' && event.payload.connections).toBe(12);
+    expect(event.type === 'room.stats' && event.payload.uniqueUsers).toBe(9);
     expect(
       DistributedRealtimeEventSchema.safeParse({
         payload: {
           connections: -1,
           roomId,
+          uniqueUsers: 0,
           updatedAt: '2026-10-10T12:00:00.000Z',
         },
         requestId,
