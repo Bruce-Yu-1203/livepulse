@@ -263,6 +263,10 @@ export function reconnectDelay(attempt: number, random = Math.random): number {
   return Math.round(cappedBase * (0.8 + random() * 0.4));
 }
 
+export function canStartRealtimeConnection(readyState?: number): boolean {
+  return readyState === undefined || readyState >= 2;
+}
+
 export function roomPresenceLabel(
   uniqueUsers: number,
   connections: number,

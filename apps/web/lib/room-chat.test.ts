@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   addPendingMessage,
+  canStartRealtimeConnection,
   markMessageDeleted,
   markMessageFailed,
   mergeCreatedMessage,
@@ -156,6 +157,14 @@ describe('room chat state', () => {
     expect(roomPresenceLabel(1, 1)).toBe('1 person online');
     expect(roomPresenceLabel(1_250, 1_250)).toBe('1,250 people online');
     expect(roomPresenceLabel(1, 2)).toBe('1 person online · 2 connections');
+  });
+
+  it('starts one connection at a time and permits recovery after closure', () => {
+    expect(canStartRealtimeConnection()).toBe(true);
+    expect(canStartRealtimeConnection(0)).toBe(false);
+    expect(canStartRealtimeConnection(1)).toBe(false);
+    expect(canStartRealtimeConnection(2)).toBe(true);
+    expect(canStartRealtimeConnection(3)).toBe(true);
   });
 
   it('shows a clear message when the server blocks prohibited content', () => {

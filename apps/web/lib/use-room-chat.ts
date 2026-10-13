@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ClientApiError, clientApiRequest } from './client-api';
 import {
   addPendingMessage,
+  canStartRealtimeConnection,
   type ChatMessage,
   markMessageDeleted,
   markMessageFailed,
@@ -154,8 +155,16 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
     }
 
     function connect() {
-      if (cancelled) {
+      if (
+        cancelled ||
+        !canStartRealtimeConnection(socketRef.current?.readyState)
+      ) {
         return;
+      }
+
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = undefined;
       }
 
       setConnection(attempt === 0 ? 'connecting' : 'reconnecting');
@@ -249,6 +258,9 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
         }
       });
       socket.addEventListener('close', (event) => {
+        if (socketRef.current !== socket) {
+          return;
+        }
         if (joinedSocket === socket) {
           joinedSocket = undefined;
         }
@@ -268,6 +280,12 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
         setConnection('reconnecting');
         setOnlineCount(0);
         setUniqueUserCount(0);
+        if (!navigator.onLine) {
+          setError(
+            'You are offline. Chat will reconnect when the network returns.',
+          );
+          return;
+        }
         reconnectTimer = setTimeout(connect, reconnectDelay(attempt));
         attempt += 1;
       });
@@ -276,7 +294,31 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
       });
     }
 
+    function reconnectWhenOnline() {
+      if (cancelled) {
+        return;
+      }
+
+      setError('Network restored. Reconnecting…');
+      connect();
+    }
+
+    function markOffline() {
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = undefined;
+      }
+      setConnection('reconnecting');
+      setOnlineCount(0);
+      setUniqueUserCount(0);
+      setError(
+        'You are offline. Chat will reconnect when the network returns.',
+      );
+    }
+
     connect();
+    window.addEventListener('online', reconnectWhenOnline);
+    window.addEventListener('offline', markOffline);
     const deliverySweepTimer = setInterval(() => {
       if (joinedSocket?.readyState === WebSocket.OPEN) {
         flushPending(joinedSocket);
@@ -289,6 +331,8 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
       if (reconnectTimer) {
         clearTimeout(reconnectTimer);
       }
+      window.removeEventListener('online', reconnectWhenOnline);
+      window.removeEventListener('offline', markOffline);
       socketRef.current?.close(1000, 'Leaving room');
     };
   }, [loadHistory, roomId, roomStatus]);

@@ -18,6 +18,12 @@ import type { RealtimePeer } from './room-realtime-hub.js';
 
 const maxFrameBytes = 4 * 1_024;
 const maxBufferedBytes = 256 * 1_024;
+export const heartbeatIntervalMs = 15_000;
+export const heartbeatTimeoutMs = 45_000;
+
+export function heartbeatHasExpired(lastPongAt: number, now: number): boolean {
+  return now - lastPongAt >= heartbeatTimeoutMs;
+}
 
 @Injectable()
 export class RoomWebSocketServer implements OnModuleDestroy {
@@ -26,6 +32,8 @@ export class RoomWebSocketServer implements OnModuleDestroy {
     noServer: true,
     perMessageDeflate: false,
   });
+  private readonly lastPongAt = new Map<WebSocket, number>();
+  private heartbeatTimer: ReturnType<typeof setInterval> | undefined;
   private httpServer: Server | undefined;
 
   public constructor(
@@ -40,15 +48,25 @@ export class RoomWebSocketServer implements OnModuleDestroy {
 
     this.httpServer = httpServer;
     httpServer.on('upgrade', this.handleUpgrade);
+    this.heartbeatTimer = setInterval(
+      () => this.checkHeartbeats(),
+      heartbeatIntervalMs,
+    );
+    this.heartbeatTimer.unref();
   }
 
   public onModuleDestroy(): void {
     this.httpServer?.off('upgrade', this.handleUpgrade);
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = undefined;
+    }
 
     for (const client of this.webSocketServer.clients) {
       client.terminate();
     }
 
+    this.lastPongAt.clear();
     this.webSocketServer.close();
   }
 
@@ -122,12 +140,36 @@ export class RoomWebSocketServer implements OnModuleDestroy {
       principal,
       send: (event) => this.send(socket, event),
     };
+    let disconnected = false;
+    const disconnect = () => {
+      this.lastPongAt.delete(socket);
+      if (!disconnected) {
+        disconnected = true;
+        void this.hub.disconnect(peer);
+      }
+    };
 
+    this.lastPongAt.set(socket, Date.now());
+    socket.on('pong', () => this.lastPongAt.set(socket, Date.now()));
     socket.on('message', (data, isBinary) => {
       void this.receive(peer, data, isBinary);
     });
-    socket.on('close', () => void this.hub.disconnect(peer));
-    socket.on('error', () => void this.hub.disconnect(peer));
+    socket.once('close', disconnect);
+    socket.once('error', disconnect);
+  }
+
+  private checkHeartbeats(): void {
+    const now = Date.now();
+
+    for (const socket of this.webSocketServer.clients) {
+      const lastPongAt = this.lastPongAt.get(socket) ?? now;
+      if (heartbeatHasExpired(lastPongAt, now)) {
+        this.lastPongAt.delete(socket);
+        socket.terminate();
+      } else if (socket.readyState === WebSocket.OPEN) {
+        socket.ping();
+      }
+    }
   }
 
   private async receive(
