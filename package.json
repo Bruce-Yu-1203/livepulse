@@ -23,11 +23,14 @@
     "lint": "eslint .",
     "test": "vitest run --exclude packages/db/test/database.integration.test.ts --exclude apps/api/test/registration.database.integration.test.ts --exclude apps/api/test/session.database.integration.test.ts --exclude apps/api/test/rooms.database.integration.test.ts --exclude apps/api/test/realtime.database.integration.test.ts --exclude apps/api/test/messages.database.integration.test.ts --exclude apps/api/test/reports.database.integration.test.ts",
     "test:db": "vitest run --no-file-parallelism packages/db/test/database.integration.test.ts apps/api/test/registration.database.integration.test.ts apps/api/test/session.database.integration.test.ts apps/api/test/rooms.database.integration.test.ts apps/api/test/realtime.database.integration.test.ts apps/api/test/messages.database.integration.test.ts apps/api/test/reports.database.integration.test.ts",
+    "test:e2e": "node scripts/run-e2e.mjs",
+    "test:e2e:running": "playwright test",
     "typecheck": "pnpm --filter @livepulse/contracts build && pnpm --filter @livepulse/db prisma:generate && pnpm --filter @livepulse/web typecheck && tsc --noEmit",
     "validate": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm build"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@playwright/test": "^1.64.1",
     "@types/node": "26.6.4",
     "@vitejs/plugin-react": "6.1.2",
     "eslint": "10.12.0",

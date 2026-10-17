@@ -11,6 +11,8 @@ dist/
 build/
 coverage/
 packages/db/.generated/
+playwright-report/
+test-results/
 
 # Environment variables
 .env

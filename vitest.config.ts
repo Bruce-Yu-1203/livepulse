@@ -16,6 +16,6 @@ export default defineConfig({
     },
   },
   test: {
-    exclude: [...configDefaults.exclude, '**/dist/**'],
+    exclude: [...configDefaults.exclude, '**/dist/**', 'tests/e2e/**'],
   },
 });

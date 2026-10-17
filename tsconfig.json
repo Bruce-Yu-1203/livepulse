@@ -6,6 +6,11 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["apps/**/*.ts", "packages/**/*.ts", "tests/**/*.ts"],
+  "include": [
+    "apps/**/*.ts",
+    "packages/**/*.ts",
+    "playwright.config.ts",
+    "tests/**/*.ts"
+  ],
   "exclude": ["packages/db/.generated/**"]
 }

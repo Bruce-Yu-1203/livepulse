@@ -109,4 +109,13 @@ WEB_ORIGIN='http://localhost:3000' \
 pnpm test:db
 ```
 
+Install the Playwright Chromium browser once, then run the isolated browser acceptance flow:
+
+```bash
+pnpm exec playwright install chromium
+pnpm test:e2e
+```
+
+The end-to-end command builds a dedicated Docker Compose stack, creates random runtime-only secrets, seeds its disposable data volumes, exercises separate viewer, host, and administrator browser sessions, and removes the complete stack afterward. Ports 3000, 3001, 5432, 6379, and 27017 must be available while it runs.
+
 The architecture and scaling path are documented in [LivePulse_Technical_Stack_EN.md](LivePulse_Technical_Stack_EN.md). Product behavior and acceptance criteria are in [LivePulse_Requirements_EN.md](LivePulse_Requirements_EN.md).
