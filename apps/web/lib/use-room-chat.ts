@@ -325,6 +325,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
         clearTimeout(reconnectTimer);
         reconnectTimer = undefined;
       }
+      socketRef.current?.close(1000, 'Browser offline');
       setConnection('reconnecting');
       setOnlineCount(0);
       setUniqueUserCount(0);

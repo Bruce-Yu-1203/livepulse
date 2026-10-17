@@ -32,11 +32,54 @@ test('viewer, host, and administrator complete the core live-room flow', async (
       expect(viewerPage.getByLabel('Connected')).toBeVisible(),
       expect(hostPage.getByLabel('Connected')).toBeVisible(),
     ]);
+    await expect(viewerPage.getByText('2 people online')).toBeVisible();
+
+    const likeButton = viewerPage.getByRole('button', {
+      name: /^Like this room\./,
+    });
+    await likeButton.click();
+    await expect(
+      viewerPage.getByRole('button', { name: /^Unlike this room\. 1 like$/ }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    await viewerPage.reload();
+    await expect(viewerPage.getByLabel('Connected')).toBeVisible();
+    await expect(
+      viewerPage.getByRole('button', { name: /^Unlike this room\. 1 like$/ }),
+    ).toHaveAttribute('aria-pressed', 'true');
+
+    await viewerContext.setOffline(true);
+    await expect(
+      viewerPage.getByText(
+        'You are offline. Chat will reconnect when the network returns.',
+      ),
+    ).toBeVisible();
+    await viewerContext.setOffline(false);
+    await expect(viewerPage.getByLabel('Connected')).toBeVisible({
+      timeout: 15_000,
+    });
 
     const viewerMessage = `Viewer message ${suffix}`;
     await sendMessage(viewerPage, viewerMessage);
+    const viewerMessageRow = hostPage
+      .locator('aside')
+      .getByText(viewerMessage, { exact: true })
+      .locator('..');
+    await expect(viewerMessageRow).toBeVisible();
+    await viewerMessageRow.getByRole('button', { name: 'Mute 10m' }).click();
     await expect(
-      hostPage.locator('aside').getByText(viewerMessage, { exact: true }),
+      viewerMessageRow.getByRole('button', { name: 'Muted' }),
+    ).toBeDisabled();
+
+    const mutedMessage = `Muted message ${suffix}`;
+    await viewerPage.getByLabel('Chat message').fill(mutedMessage);
+    await viewerPage.getByRole('button', { name: 'Send' }).click();
+    const mutedMessageRow = viewerPage
+      .locator('aside')
+      .getByText(mutedMessage, { exact: true })
+      .locator('..');
+    await expect(mutedMessageRow).toContainText('failed');
+    await expect(
+      viewerPage.getByText('You are temporarily muted in this room'),
     ).toBeVisible();
 
     const hostMessage = `Host message ${suffix}`;
@@ -68,10 +111,51 @@ test('viewer, host, and administrator complete the core live-room flow', async (
       .locator('article')
       .filter({ hasText: hostMessage });
     await expect(reportCard).toBeVisible();
-    await reportCard.getByRole('button', { name: 'Keep message' }).click();
+    await reportCard.getByRole('button', { name: 'Remove message' }).click();
     await expect(reportCard).toBeHidden();
     await expect(
-      adminPage.getByText('Report dismissed', { exact: true }).first(),
+      adminPage.getByText('Message removed', { exact: true }).first(),
+    ).toBeVisible();
+    await Promise.all([
+      expect(
+        viewerPage
+          .locator('aside')
+          .getByText('Message removed by moderation', { exact: true }),
+      ).toBeVisible(),
+      expect(
+        hostPage
+          .locator('aside')
+          .getByText('Message removed by moderation', { exact: true }),
+      ).toBeVisible(),
+    ]);
+
+    const hostStudioPage = await hostContext.newPage();
+    await hostStudioPage.goto('/studio');
+    await hostStudioPage
+      .getByRole('button')
+      .filter({ hasText: roomTitle })
+      .click();
+    await hostStudioPage.getByRole('button', { name: 'End broadcast' }).click();
+    await expect(hostStudioPage.getByRole('status')).toHaveText(
+      'The broadcast ended and is now available as a replay.',
+    );
+    await Promise.all([
+      expect(viewerPage.getByText('Replay mode')).toBeVisible(),
+      expect(hostPage.getByText('Replay mode')).toBeVisible(),
+      expect(
+        viewerPage.getByText('Chat closed when this broadcast ended.'),
+      ).toBeVisible(),
+      expect(
+        hostPage.getByText('Chat closed when this broadcast ended.'),
+      ).toBeVisible(),
+    ]);
+
+    await viewerPage.reload();
+    await expect(viewerPage.getByText('Replay mode')).toBeVisible();
+    await expect(
+      viewerPage
+        .locator('aside')
+        .getByText('Message removed by moderation', { exact: true }),
     ).toBeVisible();
   } finally {
     await Promise.all([
