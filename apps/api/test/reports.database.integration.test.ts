@@ -7,6 +7,7 @@ import {
   CreateReportResponseSchema,
   ListAuditLogsResponseSchema,
   ListReportsResponseSchema,
+  OperationsSummaryResponseSchema,
   type RoomMessage,
 } from '@livepulse/contracts';
 import { createDatabaseClient } from '@livepulse/db';
@@ -186,6 +187,41 @@ describe('POST /api/v1/reports', () => {
     expect(ApiErrorResponseSchema.parse(mismatch.json()).code).toBe(
       ApiErrorCode.NotFound,
     );
+  });
+
+  it('exposes a non-sensitive operations summary only to administrators', async () => {
+    const viewerHeaders = await authenticatedHeaders(
+      'report-viewer@example.com',
+    );
+    const forbidden = await app.getHttpAdapter().getInstance().inject({
+      headers: viewerHeaders,
+      method: 'GET',
+      url: '/api/v1/operations/summary',
+    });
+    expect(forbidden.statusCode).toBe(403);
+
+    const adminHeaders = await authenticatedHeaders('report-admin@example.com');
+    const [expectedUsers, expectedLiveRooms] = await Promise.all([
+      database.user.count(),
+      database.room.count({ where: { status: 'LIVE' } }),
+    ]);
+    const response = await app.getHttpAdapter().getInstance().inject({
+      headers: adminHeaders,
+      method: 'GET',
+      url: '/api/v1/operations/summary',
+    });
+    expect(response.statusCode).toBe(200);
+    const summary = OperationsSummaryResponseSchema.parse(response.json());
+    expect(summary.business).toMatchObject({
+      liveRooms: expectedLiveRooms,
+      users: expectedUsers,
+    });
+    expect(summary.business.pendingReports).toBeGreaterThanOrEqual(1);
+    expect(summary.business.auditActions).toBeGreaterThanOrEqual(1);
+    expect(summary.runtime).toMatchObject({
+      activeConnections: 0,
+      redisFailures: 0,
+    });
   });
 
   it('lets only administrators review and action the pending queue', async () => {

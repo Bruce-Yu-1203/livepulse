@@ -21,6 +21,9 @@ export {
 export { HealthResponseSchema } from './health.js';
 export type { HealthResponse } from './health.js';
 
+export { OperationsSummaryResponseSchema } from './operations.js';
+export type { OperationsSummaryResponse } from './operations.js';
+
 export {
   ApiErrorCode,
   ApiErrorResponseSchema,

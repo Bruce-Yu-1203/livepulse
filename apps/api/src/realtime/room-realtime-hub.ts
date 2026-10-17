@@ -19,6 +19,7 @@ import type {
   RealtimePresence,
 } from './realtime-coordination.js';
 import type { RealtimeRoomSource } from './realtime-room-source.js';
+import { RealtimeMetricsService } from './realtime-metrics.service.js';
 import { ProhibitedContentFilter } from './prohibited-content.filter.js';
 import {
   REALTIME_EVENT_BUS,
@@ -67,6 +68,8 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
     @Inject(REALTIME_PRESENCE)
     private readonly presence: RealtimePresence,
     @Inject(RoomLifecycleEvents) roomLifecycle: RoomLifecycleEvents,
+    @Inject(RealtimeMetricsService)
+    private readonly metrics: RealtimeMetricsService,
     private readonly contentFilter: ProhibitedContentFilter = new ProhibitedContentFilter(),
   ) {
     this.unsubscribeFromBus = this.eventBus.subscribe((event) => {
@@ -134,6 +137,7 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
     try {
       await this.eventBus.publish(event);
     } catch {
+      this.metrics.redisFailed();
       this.handleDistributedEvent(event);
     }
   }
@@ -350,10 +354,12 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
     }
 
     this.acceptedMessages.set(idempotencyKey, { event: created, text });
+    this.metrics.messageAccepted();
 
     try {
       await this.eventBus.publish(created);
     } catch {
+      this.metrics.redisFailed();
       this.broadcastLocal(created);
     }
   }
@@ -434,6 +440,7 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
     try {
       presence = await this.presence.leave(roomId, peer.id);
     } catch {
+      this.metrics.redisFailed();
       // Local membership remains available when Redis is temporarily offline.
     }
     await this.publishStats(roomId, presence);
@@ -447,6 +454,7 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
     try {
       return await this.presence.join(roomId, peer.id, presenceIdentity(peer));
     } catch {
+      this.metrics.redisFailed();
       return localPresence;
     }
   }
@@ -474,6 +482,7 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
         ),
       );
     } catch {
+      this.metrics.redisFailed();
       // Existing sockets stay usable and retry on the next lease refresh.
     }
   }
@@ -497,12 +506,15 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
     try {
       await this.eventBus.publish(event);
     } catch {
+      this.metrics.redisFailed();
       this.broadcastLocal(event);
     }
   }
 
   private broadcastLocal(event: DistributedRealtimeEvent): void {
-    for (const member of this.roomMembers.get(event.payload.roomId) ?? []) {
+    const members = this.roomMembers.get(event.payload.roomId);
+    this.metrics.deliveriesAttempted(members?.size ?? 0);
+    for (const member of members ?? []) {
       member.send(event);
     }
   }

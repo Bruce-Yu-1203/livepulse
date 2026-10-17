@@ -8,6 +8,7 @@ import {
   AuditTrail,
   ModerationQueuePagination,
   ModerationReportActions,
+  OperationsOverview,
 } from './admin-dashboard';
 
 describe('AdminDashboard', () => {
@@ -100,5 +101,37 @@ describe('AdminDashboard', () => {
     );
 
     expect(html).toContain('Load more activity');
+  });
+
+  it('renders the operations summary without exposing sensitive data', () => {
+    const html = renderToStaticMarkup(
+      createElement(OperationsOverview, {
+        onRefresh: () => undefined,
+        refreshing: false,
+        summary: {
+          business: {
+            auditActions: 8,
+            liveRooms: 2,
+            pendingReports: 1,
+            users: 14,
+          },
+          generatedAt: '2026-10-16T20:01:00.000Z',
+          requestId: 'request-1',
+          runtime: {
+            acceptedMessages: 120,
+            acceptedMessagesLastMinute: 9,
+            activeConnections: 4,
+            deliveryAttempts: 480,
+            redisFailures: 0,
+            startedAt: '2026-10-16T20:00:00.000Z',
+          },
+        },
+      }),
+    );
+
+    expect(html).toContain('Runtime pulse');
+    expect(html).toContain('Messages / min');
+    expect(html).toContain('14 users');
+    expect(html).not.toContain('request-1');
   });
 });

@@ -10,6 +10,7 @@ import type {
   RealtimeEventBus,
   RealtimePresence,
 } from './realtime-coordination.js';
+import { RealtimeMetricsService } from './realtime-metrics.service.js';
 import { ProhibitedContentFilter } from './prohibited-content.filter.js';
 import {
   type RealtimePeer,
@@ -99,6 +100,7 @@ describe('RoomRealtimeHub', () => {
       eventBus(),
       realtimePresence,
       roomLifecycle(),
+      metrics(),
     );
     const viewer = peer('viewer', true);
     await hub.handle(viewer, joinEvent(1));
@@ -183,6 +185,7 @@ describe('RoomRealtimeHub', () => {
       eventBus(),
       presence(),
       roomLifecycle(),
+      metrics(),
     );
     const sender = peer('sender', true);
     const observer = peer('observer', false);
@@ -210,6 +213,7 @@ describe('RoomRealtimeHub', () => {
       eventBus(),
       presence(),
       roomLifecycle(),
+      metrics(),
     );
     const sender = peer('sender', true);
     await hub.handle(sender, joinEvent(1));
@@ -231,6 +235,7 @@ describe('RoomRealtimeHub', () => {
       eventBus(),
       presence(),
       roomLifecycle(),
+      metrics(),
       contentFilter('scam-offer'),
     );
     const sender = peer('sender', true);
@@ -262,6 +267,7 @@ describe('RoomRealtimeHub', () => {
       eventBus(),
       presence(),
       roomLifecycle(),
+      metrics(),
     );
     const sender = peer('sender', true);
     await hub.handle(sender, joinEvent(1));
@@ -286,6 +292,7 @@ describe('RoomRealtimeHub', () => {
       unavailableBus,
       presence(),
       roomLifecycle(),
+      metrics(),
     );
     const sender = peer('sender', true);
     const observer = peer('observer', false);
@@ -313,6 +320,7 @@ describe('RoomRealtimeHub', () => {
       unavailableBus,
       presence(),
       roomLifecycle(),
+      metrics(),
     );
     const viewer = peer('viewer', true);
     await hub.handle(viewer, joinEvent(1));
@@ -352,6 +360,7 @@ describe('RoomRealtimeHub', () => {
       bus,
       presence(),
       roomLifecycle(),
+      metrics(),
     );
     const sender = peer('sender', true);
     await hub.handle(sender, joinEvent(1));
@@ -384,11 +393,16 @@ function createHub(source = roomSource(true)): RoomRealtimeHub {
     eventBus(),
     presence(),
     roomLifecycle(),
+    metrics(),
   );
 }
 
 function roomLifecycle(): RoomLifecycleEvents {
   return new RoomLifecycleEvents();
+}
+
+function metrics(): RealtimeMetricsService {
+  return new RealtimeMetricsService();
 }
 
 function contentFilter(terms: string): ProhibitedContentFilter {

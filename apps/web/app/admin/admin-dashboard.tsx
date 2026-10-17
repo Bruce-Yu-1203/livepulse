@@ -4,6 +4,8 @@ import {
   type AuditLog,
   CurrentUserResponseSchema,
   ListAuditLogsResponseSchema,
+  OperationsSummaryResponseSchema,
+  type OperationsSummaryResponse,
   ListReportsResponseSchema,
   type ModerationReport,
 } from '@livepulse/contracts';
@@ -22,6 +24,7 @@ import {
   clientApiRequest,
   clientApiVoidRequest,
 } from '../../lib/client-api';
+import { formatCount, operationMetricCards } from '../../lib/operations';
 
 type AdminState = 'forbidden' | 'loading' | 'ready' | 'signed-out';
 type ModerationAction = 'delete' | 'dismiss';
@@ -39,6 +42,8 @@ export function AdminDashboard() {
     type: ModerationAction;
   }>();
   const [notice, setNotice] = useState<string>();
+  const [operations, setOperations] = useState<OperationsSummaryResponse>();
+  const [operationsRefreshing, setOperationsRefreshing] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -54,15 +59,23 @@ export function AdminDashboard() {
           return;
         }
 
-        const [response, auditResponse] = await Promise.all([
-          clientApiRequest('/api/v1/reports', ListReportsResponseSchema),
-          clientApiRequest('/api/v1/audit-logs', ListAuditLogsResponseSchema),
-        ]);
+        const operationsRequest = clientApiRequest(
+          '/api/v1/operations/summary',
+          OperationsSummaryResponseSchema,
+        ).catch(() => undefined);
+        const [response, auditResponse, operationsResponse] = await Promise.all(
+          [
+            clientApiRequest('/api/v1/reports', ListReportsResponseSchema),
+            clientApiRequest('/api/v1/audit-logs', ListAuditLogsResponseSchema),
+            operationsRequest,
+          ],
+        );
         if (active) {
           setReports(response.items);
           setNextCursor(response.nextCursor);
           setAuditLogs(auditResponse.items);
           setAuditNextCursor(auditResponse.nextCursor);
+          setOperations(operationsResponse);
           setState('ready');
         }
       })
@@ -155,6 +168,28 @@ export function AdminDashboard() {
     setAuditNextCursor(response.nextCursor);
   }
 
+  async function refreshOperations() {
+    setOperationsRefreshing(true);
+    setNotice(undefined);
+
+    try {
+      setOperations(
+        await clientApiRequest(
+          '/api/v1/operations/summary',
+          OperationsSummaryResponseSchema,
+        ),
+      );
+    } catch (error) {
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : 'The operations summary could not be refreshed.',
+      );
+    } finally {
+      setOperationsRefreshing(false);
+    }
+  }
+
   async function resolveReport(
     report: ModerationReport,
     type: ModerationAction,
@@ -242,6 +277,14 @@ export function AdminDashboard() {
         </p>
       ) : null}
 
+      {operations ? (
+        <OperationsOverview
+          onRefresh={() => void refreshOperations()}
+          refreshing={operationsRefreshing}
+          summary={operations}
+        />
+      ) : null}
+
       <section className="mt-10 space-y-5">
         {reports.length === 0 ? (
           <div className="rounded-[2rem] border border-dashed border-white/10 px-6 py-16 text-center">
@@ -324,6 +367,67 @@ export function AdminDashboard() {
         />
       </section>
     </div>
+  );
+}
+
+export function OperationsOverview({
+  onRefresh,
+  refreshing,
+  summary,
+}: {
+  onRefresh: () => void;
+  refreshing: boolean;
+  summary: OperationsSummaryResponse;
+}) {
+  return (
+    <section className="mt-10 rounded-[2rem] border border-white/8 bg-white/[0.035] p-6 sm:p-8">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-200">
+            Operations snapshot
+          </p>
+          <h2 className="mt-2 text-2xl font-semibold text-white">
+            Runtime pulse
+          </h2>
+          <p className="mt-2 text-sm text-zinc-500">
+            Local process counters · {formatCount(summary.business.liveRooms)}{' '}
+            live rooms · {formatCount(summary.business.pendingReports)} pending
+            reports
+          </p>
+        </div>
+        <button
+          className="rounded-full border border-white/12 px-4 py-2 text-sm font-bold text-zinc-200 transition hover:border-emerald-300/40 hover:text-emerald-200 disabled:cursor-wait disabled:opacity-50"
+          disabled={refreshing}
+          onClick={onRefresh}
+          type="button"
+        >
+          {refreshing ? 'Refreshing…' : 'Refresh metrics'}
+        </button>
+      </div>
+      <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {operationMetricCards(summary).map((metric) => (
+          <article
+            className="rounded-2xl border border-white/8 bg-black/20 p-4"
+            key={metric.label}
+          >
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-zinc-500">
+              {metric.label}
+            </p>
+            <p className="mt-2 text-3xl font-semibold text-white">
+              {metric.value}
+            </p>
+            <p className="mt-2 text-xs leading-5 text-zinc-600">
+              {metric.detail}
+            </p>
+          </article>
+        ))}
+      </div>
+      <p className="mt-5 text-xs text-zinc-600">
+        {formatCount(summary.business.users)} users ·{' '}
+        {formatCount(summary.business.auditActions)} audited moderation actions
+        · generated {formatReportTime(summary.generatedAt)}
+      </p>
+    </section>
   );
 }
 

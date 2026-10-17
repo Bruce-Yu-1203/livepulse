@@ -15,6 +15,7 @@ import {
 import type { AuthenticatedPrincipal } from '../auth/authenticated-request.js';
 import { RoomRealtimeHub } from './room-realtime-hub.js';
 import type { RealtimePeer } from './room-realtime-hub.js';
+import { RealtimeMetricsService } from './realtime-metrics.service.js';
 
 const maxFrameBytes = 4 * 1_024;
 const maxBufferedBytes = 256 * 1_024;
@@ -39,6 +40,8 @@ export class RoomWebSocketServer implements OnModuleDestroy {
   public constructor(
     @Inject(AuthTokenService) private readonly tokens: AuthTokenService,
     @Inject(RoomRealtimeHub) private readonly hub: RoomRealtimeHub,
+    @Inject(RealtimeMetricsService)
+    private readonly metrics: RealtimeMetricsService,
   ) {}
 
   public attach(httpServer: Server): void {
@@ -145,10 +148,12 @@ export class RoomWebSocketServer implements OnModuleDestroy {
       this.lastPongAt.delete(socket);
       if (!disconnected) {
         disconnected = true;
+        this.metrics.connectionClosed();
         void this.hub.disconnect(peer);
       }
     };
 
+    this.metrics.connectionOpened();
     this.lastPongAt.set(socket, Date.now());
     socket.on('pong', () => this.lastPongAt.set(socket, Date.now()));
     socket.on('message', (data, isBinary) => {

@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { HealthController } from './health/health.controller.js';
 import { HealthService } from './health/health.service.js';
 import { MessagesModule } from './messages/messages.module.js';
+import { OperationsModule } from './operations/operations.module.js';
 import { RealtimeModule } from './realtime/realtime.module.js';
 import { ReportsModule } from './reports/reports.module.js';
 import { RoomsModule } from './rooms/rooms.module.js';
@@ -15,6 +16,7 @@ import { RoomsModule } from './rooms/rooms.module.js';
     AuditLogsModule,
     AuthModule,
     MessagesModule,
+    OperationsModule,
     RealtimeModule,
     ReportsModule,
     RoomsModule,
