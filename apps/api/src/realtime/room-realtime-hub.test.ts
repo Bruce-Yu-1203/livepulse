@@ -4,6 +4,7 @@ import type {
 } from '@livepulse/contracts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { RoomLifecycleEvents } from '../room-lifecycle/room-lifecycle.events.js';
 import type { RealtimeRoomSource } from './realtime-room-source.js';
 import type {
   RealtimeEventBus,
@@ -97,6 +98,7 @@ describe('RoomRealtimeHub', () => {
       publisher(),
       eventBus(),
       realtimePresence,
+      roomLifecycle(),
     );
     const viewer = peer('viewer', true);
     await hub.handle(viewer, joinEvent(1));
@@ -180,6 +182,7 @@ describe('RoomRealtimeHub', () => {
       failingPublisher,
       eventBus(),
       presence(),
+      roomLifecycle(),
     );
     const sender = peer('sender', true);
     const observer = peer('observer', false);
@@ -206,6 +209,7 @@ describe('RoomRealtimeHub', () => {
       messagePublisher,
       eventBus(),
       presence(),
+      roomLifecycle(),
     );
     const sender = peer('sender', true);
     await hub.handle(sender, joinEvent(1));
@@ -226,6 +230,7 @@ describe('RoomRealtimeHub', () => {
       messagePublisher,
       eventBus(),
       presence(),
+      roomLifecycle(),
       contentFilter('scam-offer'),
     );
     const sender = peer('sender', true);
@@ -256,6 +261,7 @@ describe('RoomRealtimeHub', () => {
       messagePublisher,
       eventBus(),
       presence(),
+      roomLifecycle(),
     );
     const sender = peer('sender', true);
     await hub.handle(sender, joinEvent(1));
@@ -279,6 +285,7 @@ describe('RoomRealtimeHub', () => {
       publisher(),
       unavailableBus,
       presence(),
+      roomLifecycle(),
     );
     const sender = peer('sender', true);
     const observer = peer('observer', false);
@@ -293,6 +300,34 @@ describe('RoomRealtimeHub', () => {
     expect(eventsOfType(observer, 'message.created').at(-1)).toMatchObject({
       payload: { text: 'Local fallback' },
     });
+  });
+
+  it('broadcasts a room-ended event and falls back locally without Redis', async () => {
+    const unavailableBus = eventBus();
+    vi.mocked(unavailableBus.publish).mockRejectedValue(
+      new Error('Redis offline'),
+    );
+    const hub = new RoomRealtimeHub(
+      roomSource(true),
+      publisher(),
+      unavailableBus,
+      presence(),
+      roomLifecycle(),
+    );
+    const viewer = peer('viewer', true);
+    await hub.handle(viewer, joinEvent(1));
+
+    await hub.endRoom(roomId, new Date('2026-10-09T20:05:00.000Z'));
+
+    expect(eventsOfType(viewer, 'room.ended')).toEqual([
+      expect.objectContaining({
+        payload: {
+          endedAt: '2026-10-09T20:05:00.000Z',
+          roomId,
+        },
+        type: 'room.ended',
+      }),
+    ]);
   });
 
   it('purges accepted-message cache entries after a tombstone', async () => {
@@ -316,6 +351,7 @@ describe('RoomRealtimeHub', () => {
       messagePublisher,
       bus,
       presence(),
+      roomLifecycle(),
     );
     const sender = peer('sender', true);
     await hub.handle(sender, joinEvent(1));
@@ -342,7 +378,17 @@ describe('RoomRealtimeHub', () => {
 });
 
 function createHub(source = roomSource(true)): RoomRealtimeHub {
-  return new RoomRealtimeHub(source, publisher(), eventBus(), presence());
+  return new RoomRealtimeHub(
+    source,
+    publisher(),
+    eventBus(),
+    presence(),
+    roomLifecycle(),
+  );
+}
+
+function roomLifecycle(): RoomLifecycleEvents {
+  return new RoomLifecycleEvents();
 }
 
 function contentFilter(terms: string): ProhibitedContentFilter {

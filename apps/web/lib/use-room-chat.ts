@@ -23,10 +23,8 @@ import {
   reconnectDelay,
   realtimeErrorMessage,
   resolveWebSocketUrl,
+  type RoomConnectionState,
 } from './room-chat';
-
-export type RoomConnectionState =
-  'connected' | 'connecting' | 'ended' | 'reconnecting';
 
 export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
   const [connection, setConnection] = useState<RoomConnectionState>(
@@ -219,6 +217,25 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
         if (parsed.data.type === 'room.stats') {
           setOnlineCount(parsed.data.payload.connections);
           setUniqueUserCount(parsed.data.payload.uniqueUsers);
+          return;
+        }
+
+        if (parsed.data.type === 'room.ended') {
+          const unresolved = pendingMessagesRef.current.failAll();
+          setMessages((current) =>
+            unresolved.reduce(
+              (result, clientMessageId) =>
+                markMessageFailed(result, clientMessageId),
+              current,
+            ),
+          );
+          setConnection('ended');
+          setOnlineCount(0);
+          setUniqueUserCount(0);
+          setError(undefined);
+          cancelled = true;
+          socket.close(1000, 'Room ended');
+          void loadHistory();
           return;
         }
 

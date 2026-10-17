@@ -14,6 +14,7 @@ import {
   pendingMessageRetentionMs,
   reconnectDelay,
   realtimeErrorMessage,
+  roomChatIsClosed,
   roomPresenceLabel,
   resolveWebSocketUrl,
 } from './room-chat';
@@ -167,6 +168,12 @@ describe('room chat state', () => {
     expect(canStartRealtimeConnection(3)).toBe(true);
   });
 
+  it('closes the composer when the room or realtime session has ended', () => {
+    expect(roomChatIsClosed('LIVE', 'connected')).toBe(false);
+    expect(roomChatIsClosed('LIVE', 'ended')).toBe(true);
+    expect(roomChatIsClosed('ENDED', 'connected')).toBe(true);
+  });
+
   it('shows a clear message when the server blocks prohibited content', () => {
     expect(
       realtimeErrorMessage({
@@ -255,5 +262,18 @@ describe('pending message delivery', () => {
     tracker.beginAttempt(clientMessageId, 'request-2', 10_000);
     expect(tracker.rejectRequest('request-2')).toBe(clientMessageId);
     expect(tracker.sweep(999_999).retryable).toEqual([]);
+  });
+
+  it('fails every unresolved delivery when a live room ends', () => {
+    const tracker = new PendingMessageTracker();
+    const secondClientMessageId = 'ffffffff-ffff-4fff-bfff-ffffffffffff';
+    tracker.add(clientMessageId, 'First message');
+    tracker.add(secondClientMessageId, 'Second message');
+
+    expect(tracker.failAll()).toEqual([clientMessageId, secondClientMessageId]);
+    expect(tracker.sweep()).toEqual({
+      failedClientMessageIds: [],
+      retryable: [],
+    });
   });
 });

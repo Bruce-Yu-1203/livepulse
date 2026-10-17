@@ -9,6 +9,7 @@ import {
 } from './rooms.errors.js';
 import type { RoomsRepository } from './rooms.repository.js';
 import { RoomsService } from './rooms.service.js';
+import type { RoomLifecyclePublisher } from '../room-lifecycle/room-lifecycle.events.js';
 
 describe('RoomsService', () => {
   it('uses the authenticated user as host and creates a draft', async () => {
@@ -32,7 +33,7 @@ describe('RoomsService', () => {
       listVisible: vi.fn(),
       update: vi.fn(),
     };
-    const service = new RoomsService(rooms);
+    const service = new RoomsService(rooms, roomLifecycle());
 
     const result = await service.create(
       '295d5bd9-d9da-44b2-8f5d-8839f13a4437',
@@ -73,7 +74,7 @@ describe('RoomsService', () => {
       listVisible: vi.fn().mockResolvedValue(records),
       update: vi.fn(),
     };
-    const service = new RoomsService(rooms);
+    const service = new RoomsService(rooms, roomLifecycle());
 
     const page = await service.list({ limit: 1 });
 
@@ -103,7 +104,7 @@ describe('RoomsService', () => {
       listVisible: vi.fn(),
       update: vi.fn(),
     };
-    const service = new RoomsService(rooms);
+    const service = new RoomsService(rooms, roomLifecycle());
 
     await expect(
       service.list({ cursor: 'invalid+cursor', limit: 20 }),
@@ -127,7 +128,7 @@ describe('RoomsService', () => {
       listVisible: vi.fn(),
       update: vi.fn(),
     };
-    const service = new RoomsService(rooms);
+    const service = new RoomsService(rooms, roomLifecycle());
 
     await expect(service.getVisible(room.id)).resolves.toEqual(room);
     await expect(service.getVisible(room.id)).rejects.toBeInstanceOf(
@@ -138,7 +139,7 @@ describe('RoomsService', () => {
   it('lists every room owned by the authenticated host', async () => {
     const room = draftRoom();
     const rooms = repository({ listOwned: vi.fn().mockResolvedValue([room]) });
-    const service = new RoomsService(rooms);
+    const service = new RoomsService(rooms, roomLifecycle());
 
     await expect(service.listOwned(room.hostId)).resolves.toEqual([room]);
     expect(rooms.listOwned).toHaveBeenCalledWith(room.hostId);
@@ -151,7 +152,8 @@ describe('RoomsService', () => {
       findById: vi.fn().mockResolvedValue(room),
       update: vi.fn().mockResolvedValue(updated),
     });
-    const service = new RoomsService(rooms);
+    const realtime = roomLifecycle();
+    const service = new RoomsService(rooms, realtime);
 
     await expect(
       service.update({ role: 'HOST', userId: room.hostId }, room.id, {
@@ -165,12 +167,46 @@ describe('RoomsService', () => {
       expectedVersion: 1,
       id: room.id,
     });
+    expect(realtime.publishRoomEnded).not.toHaveBeenCalled();
+  });
+
+  it('publishes the end of a live room after the database update succeeds', async () => {
+    const room = {
+      ...visibleRoom(
+        '99d30467-ed47-43b8-96b0-d36ab2ee60e0',
+        '2026-10-09T15:30:00.000Z',
+      ),
+      version: 2,
+    };
+    const updated = {
+      ...room,
+      status: 'ENDED' as const,
+      updatedAt: new Date('2026-10-09T16:00:00.000Z'),
+      version: 3,
+    };
+    const rooms = repository({
+      findById: vi.fn().mockResolvedValue(room),
+      update: vi.fn().mockResolvedValue(updated),
+    });
+    const realtime = roomLifecycle();
+    const service = new RoomsService(rooms, realtime);
+
+    await expect(
+      service.update({ role: 'HOST', userId: room.hostId }, room.id, {
+        expectedVersion: room.version,
+        status: 'ENDED',
+      }),
+    ).resolves.toEqual(updated);
+    expect(realtime.publishRoomEnded).toHaveBeenCalledWith({
+      endedAt: updated.updatedAt,
+      roomId: room.id,
+    });
   });
 
   it('rejects another host, a stale version, and an illegal transition', async () => {
     const room = draftRoom();
     const rooms = repository({ findById: vi.fn().mockResolvedValue(room) });
-    const service = new RoomsService(rooms);
+    const service = new RoomsService(rooms, roomLifecycle());
 
     await expect(
       service.update(
@@ -200,7 +236,7 @@ describe('RoomsService', () => {
       findById: vi.fn().mockResolvedValue(room),
       update: vi.fn().mockResolvedValue(undefined),
     });
-    const service = new RoomsService(rooms);
+    const service = new RoomsService(rooms, roomLifecycle());
 
     await expect(
       service.update({ role: 'HOST', userId: room.hostId }, room.id, {
@@ -247,4 +283,8 @@ function repository(overrides: Partial<RoomsRepository> = {}): RoomsRepository {
     update: vi.fn(),
     ...overrides,
   };
+}
+
+function roomLifecycle(): RoomLifecyclePublisher {
+  return { publishRoomEnded: vi.fn().mockResolvedValue(undefined) };
 }

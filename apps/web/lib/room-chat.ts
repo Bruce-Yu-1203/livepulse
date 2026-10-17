@@ -1,5 +1,12 @@
 import { ApiErrorCode } from '@livepulse/contracts';
-import type { MessageCreatedEvent, RoomMessage } from '@livepulse/contracts';
+import type {
+  MessageCreatedEvent,
+  RoomMessage,
+  RoomStatus,
+} from '@livepulse/contracts';
+
+export type RoomConnectionState =
+  'connected' | 'connecting' | 'ended' | 'reconnecting';
 
 export interface ChatMessage {
   acceptedAt?: string;
@@ -118,6 +125,12 @@ export class PendingMessageTracker {
   public clear(): void {
     this.deliveries.clear();
     this.clientMessageByRequest.clear();
+  }
+
+  public failAll(): string[] {
+    const clientMessageIds = [...this.deliveries.keys()];
+    this.clear();
+    return clientMessageIds;
   }
 
   private removeRequestsFor(clientMessageId: string): void {
@@ -265,6 +278,13 @@ export function reconnectDelay(attempt: number, random = Math.random): number {
 
 export function canStartRealtimeConnection(readyState?: number): boolean {
   return readyState === undefined || readyState >= 2;
+}
+
+export function roomChatIsClosed(
+  roomStatus: RoomStatus,
+  connection: RoomConnectionState,
+): boolean {
+  return roomStatus !== 'LIVE' || connection === 'ended';
 }
 
 export function roomPresenceLabel(

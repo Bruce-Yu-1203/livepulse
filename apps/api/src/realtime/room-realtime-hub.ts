@@ -12,6 +12,7 @@ import type {
 import type { AuthenticatedPrincipal } from '../auth/authenticated-request.js';
 import type { RealtimeMessagePublisher } from '../messages/messages.service.js';
 import { REALTIME_MESSAGE_PUBLISHER } from '../messages/messages.tokens.js';
+import { RoomLifecycleEvents } from '../room-lifecycle/room-lifecycle.events.js';
 import type {
   PresenceCounts,
   RealtimeEventBus,
@@ -53,6 +54,7 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
   private readonly rateBuckets = new Map<string, RateBucket>();
   private readonly acceptedMessages = new Map<string, AcceptedMessage>();
   private readonly unsubscribeFromBus: () => void;
+  private readonly unsubscribeFromRoomEnded: () => void;
   private presenceTimer: ReturnType<typeof setInterval> | undefined;
 
   public constructor(
@@ -64,11 +66,15 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
     private readonly eventBus: RealtimeEventBus,
     @Inject(REALTIME_PRESENCE)
     private readonly presence: RealtimePresence,
+    @Inject(RoomLifecycleEvents) roomLifecycle: RoomLifecycleEvents,
     private readonly contentFilter: ProhibitedContentFilter = new ProhibitedContentFilter(),
   ) {
     this.unsubscribeFromBus = this.eventBus.subscribe((event) => {
       this.handleDistributedEvent(event);
     });
+    this.unsubscribeFromRoomEnded = roomLifecycle.subscribeToRoomEnded(
+      ({ endedAt, roomId }) => this.endRoom(roomId, endedAt),
+    );
   }
 
   public onModuleInit(): void {
@@ -83,6 +89,7 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
       clearInterval(this.presenceTimer);
     }
     this.unsubscribeFromBus();
+    this.unsubscribeFromRoomEnded();
   }
 
   public async handle(peer: RealtimePeer, input: unknown): Promise<void> {
@@ -114,6 +121,21 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
     }
 
     this.rateBuckets.delete(peer.id);
+  }
+
+  public async endRoom(roomId: string, endedAt: Date): Promise<void> {
+    const event: DistributedRealtimeEvent = {
+      payload: { endedAt: endedAt.toISOString(), roomId },
+      requestId: randomUUID(),
+      type: 'room.ended',
+      v: 1,
+    };
+
+    try {
+      await this.eventBus.publish(event);
+    } catch {
+      this.handleDistributedEvent(event);
+    }
   }
 
   private async join(
@@ -489,6 +511,14 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
     if (event.type === 'message.deleted') {
       for (const [key, accepted] of this.acceptedMessages) {
         if (accepted.event.payload.messageId === event.payload.messageId) {
+          this.acceptedMessages.delete(key);
+        }
+      }
+    }
+
+    if (event.type === 'room.ended') {
+      for (const [key, accepted] of this.acceptedMessages) {
+        if (accepted.event.payload.roomId === event.payload.roomId) {
           this.acceptedMessages.delete(key);
         }
       }

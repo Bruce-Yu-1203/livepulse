@@ -4,6 +4,7 @@ import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import {
   RealtimeErrorEventSchema,
   ListRoomMessagesResponseSchema,
+  RoomEndedEventSchema,
   RoomJoinedEventSchema,
   ServerRealtimeEventSchema,
 } from '@livepulse/contracts';
@@ -48,6 +49,7 @@ const hostId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const viewerId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const liveRoomId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const endedRoomId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+const endingRoomId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 const originalProhibitedWords = process.env.PROHIBITED_WORDS;
 
 describe('room WebSocket gateway', () => {
@@ -80,7 +82,11 @@ describe('room WebSocket gateway', () => {
       ],
     });
     await database.room.createMany({
-      data: [roomRecord(liveRoomId, 'LIVE'), roomRecord(endedRoomId, 'ENDED')],
+      data: [
+        roomRecord(liveRoomId, 'LIVE'),
+        roomRecord(endedRoomId, 'ENDED'),
+        roomRecord(endingRoomId, 'LIVE'),
+      ],
     });
 
     app = await createApp({ logger: false });
@@ -271,6 +277,40 @@ describe('room WebSocket gateway', () => {
     observer.close();
   });
 
+  it('propagates a room ending to viewers connected through both instances', async () => {
+    const firstViewer = await connect(accessCookie);
+    const secondViewer = await connect(
+      accessCookie,
+      'http://localhost:3000',
+      true,
+    );
+    const firstJoined = nextEventOfType(firstViewer, 'room.joined');
+    firstViewer.send(JSON.stringify(joinEvent(endingRoomId, 30)));
+    await firstJoined;
+    const secondJoined = nextEventOfType(secondViewer, 'room.joined');
+    secondViewer.send(JSON.stringify(joinEvent(endingRoomId, 31)));
+    await secondJoined;
+
+    const firstEnded = nextEventOfType(firstViewer, 'room.ended');
+    const secondEnded = nextEventOfType(secondViewer, 'room.ended');
+    const response = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: hostHeaders,
+        method: 'PATCH',
+        payload: { expectedVersion: 1, status: 'ENDED' },
+        url: `/api/v1/rooms/${endingRoomId}`,
+      });
+
+    expect(response.statusCode).toBe(200);
+    const published = RoomEndedEventSchema.parse(await firstEnded);
+    expect(published.payload).toMatchObject({ roomId: endingRoomId });
+    expect(RoomEndedEventSchema.parse(await secondEnded)).toEqual(published);
+    firstViewer.close();
+    secondViewer.close();
+  });
+
   it('closes an expired authenticated handshake without retry ambiguity', async () => {
     const socket = await connect(`${accessCookieName}=expired-token`);
 
@@ -346,18 +386,22 @@ describe('room WebSocket gateway', () => {
     await redis.del([
       `${redisKeyPrefix}:room:${liveRoomId}:presence`,
       `${redisKeyPrefix}:room:${endedRoomId}:presence`,
+      `${redisKeyPrefix}:room:${endingRoomId}:presence`,
       `${redisKeyPrefix}:room:${liveRoomId}:presence-identities`,
       `${redisKeyPrefix}:room:${endedRoomId}:presence-identities`,
+      `${redisKeyPrefix}:room:${endingRoomId}:presence-identities`,
     ]);
     await mongo
       .db()
       .collection('messages')
-      .deleteMany({ roomId: { $in: [liveRoomId, endedRoomId] } });
+      .deleteMany({
+        roomId: { $in: [liveRoomId, endedRoomId, endingRoomId] },
+      });
     await database.auditLog.deleteMany({
-      where: { roomId: { in: [liveRoomId, endedRoomId] } },
+      where: { roomId: { in: [liveRoomId, endedRoomId, endingRoomId] } },
     });
     await database.room.deleteMany({
-      where: { id: { in: [liveRoomId, endedRoomId] } },
+      where: { id: { in: [liveRoomId, endedRoomId, endingRoomId] } },
     });
     await database.refreshSession.deleteMany({
       where: { userId: { in: [hostId, viewerId] } },
@@ -370,7 +414,7 @@ describe('room WebSocket gateway', () => {
 
 function nextEventOfType(
   socket: WebSocket,
-  type: 'error' | 'message.created' | 'room.joined',
+  type: 'error' | 'message.created' | 'room.ended' | 'room.joined',
 ): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const receive = (data: WebSocket.RawData) => {

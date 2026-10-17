@@ -14,7 +14,11 @@ import {
   danmakuLayout,
   type DanmakuDensity,
 } from '../lib/danmaku';
-import { type ChatMessage, roomPresenceLabel } from '../lib/room-chat';
+import {
+  type ChatMessage,
+  roomChatIsClosed,
+  roomPresenceLabel,
+} from '../lib/room-chat';
 import { canModerateRoom } from '../lib/room-moderation';
 import { useRoomChat } from '../lib/use-room-chat';
 import { MessageReportForm } from './message-report-form';
@@ -192,7 +196,7 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
         </div>
 
         <div className="border-t border-white/8 p-4">
-          {room.status !== 'LIVE' ? (
+          {roomChatIsClosed(room.status, chat.connection) ? (
             <p className="rounded-2xl bg-white/5 px-4 py-3 text-center text-sm text-zinc-400">
               Chat closed when this broadcast ended.
             </p>

@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module.js';
 import { DatabaseModule } from '../database/database.module.js';
 import { MessagesModule } from '../messages/messages.module.js';
+import { RoomLifecycleModule } from '../room-lifecycle/room-lifecycle.module.js';
 import { DatabaseRealtimeRoomSource } from './realtime-room-source.js';
 import { RedisRealtimeCoordinator } from './redis-realtime-coordinator.js';
 import { ProhibitedContentFilter } from './prohibited-content.filter.js';
@@ -15,7 +16,7 @@ import {
 } from './realtime.tokens.js';
 
 @Module({
-  imports: [AuthModule, DatabaseModule, MessagesModule],
+  imports: [AuthModule, DatabaseModule, MessagesModule, RoomLifecycleModule],
   providers: [
     RoomRealtimeHub,
     RoomWebSocketServer,

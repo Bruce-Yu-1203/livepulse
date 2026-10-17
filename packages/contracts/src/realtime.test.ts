@@ -7,6 +7,7 @@ import {
   MessageDeletedEventSchema,
   MessageSendEventSchema,
   RealtimeErrorEventSchema,
+  RoomEndedEventSchema,
   RoomJoinedEventSchema,
 } from './realtime.js';
 
@@ -140,5 +141,20 @@ describe('realtime contracts', () => {
         v: 1,
       }).success,
     ).toBe(false);
+  });
+
+  it('validates a distributed room-ended notification', () => {
+    const event = {
+      payload: {
+        endedAt: '2026-10-10T12:30:00.000Z',
+        roomId,
+      },
+      requestId,
+      type: 'room.ended',
+      v: 1,
+    } as const;
+
+    expect(RoomEndedEventSchema.parse(event)).toEqual(event);
+    expect(DistributedRealtimeEventSchema.parse(event)).toEqual(event);
   });
 });

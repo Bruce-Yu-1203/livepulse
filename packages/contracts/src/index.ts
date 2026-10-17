@@ -78,6 +78,7 @@ export {
   MessageDeletedEventSchema,
   MessageSendEventSchema,
   RealtimeErrorEventSchema,
+  RoomEndedEventSchema,
   RoomJoinedEventSchema,
   RoomJoinEventSchema,
   RoomStatsEventSchema,
@@ -88,6 +89,7 @@ export type {
   DistributedRealtimeEvent,
   MessageCreatedEvent,
   MessageDeletedEvent,
+  RoomEndedEvent,
   ServerRealtimeEvent,
 } from './realtime.js';
 

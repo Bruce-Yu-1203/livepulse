@@ -5,6 +5,8 @@ import type {
   UpdateRoomRequest,
 } from '@livepulse/contracts';
 
+import { RoomLifecycleEvents } from '../room-lifecycle/room-lifecycle.events.js';
+import type { RoomLifecyclePublisher } from '../room-lifecycle/room-lifecycle.events.js';
 import { RoomCursorCodec } from './room-cursor.js';
 import {
   InvalidRoomTransitionError,
@@ -25,6 +27,8 @@ export class RoomsService {
 
   public constructor(
     @Inject(ROOMS_REPOSITORY) private readonly rooms: RoomsRepository,
+    @Inject(RoomLifecycleEvents)
+    private readonly roomLifecycle: RoomLifecyclePublisher,
   ) {}
 
   public create(
@@ -114,6 +118,13 @@ export class RoomsService {
 
     if (!updated) {
       throw new RoomVersionConflictError();
+    }
+
+    if (room.status === 'LIVE' && updated.status === 'ENDED') {
+      await this.roomLifecycle.publishRoomEnded({
+        endedAt: updated.updatedAt,
+        roomId: updated.id,
+      });
     }
 
     return updated;
