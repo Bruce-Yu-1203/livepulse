@@ -1,29 +1,30 @@
+import type { RoomMessage } from '@livepulse/contracts';
 import { describe, expect, it } from 'vitest';
 
-import { resolveMongoUrl } from './messages.repository.js';
+import { messagePayloadHash } from './messages.repository.js';
 
-describe('MongoDB message configuration', () => {
-  it('uses the configured URL and a local development default', () => {
+const message: RoomMessage = {
+  acceptedAt: '2026-10-18T12:00:00.000Z',
+  authorId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  clientMessageId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  messageId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+  roomId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+  text: 'Stored in PostgreSQL',
+};
+
+describe('PostgreSQL message payload hashing', () => {
+  it('is stable across acknowledgement timestamps', () => {
     expect(
-      resolveMongoUrl({
-        mongoUrl: 'mongodb://database.example/livepulse',
-        nodeEnvironment: 'production',
+      messagePayloadHash({
+        ...message,
+        acceptedAt: '2026-10-18T12:00:05.000Z',
       }),
-    ).toBe('mongodb://database.example/livepulse');
-    expect(
-      resolveMongoUrl({
-        mongoUrl: undefined,
-        nodeEnvironment: 'development',
-      }),
-    ).toBe('mongodb://localhost:27017/livepulse');
+    ).toBe(messagePayloadHash(message));
   });
 
-  it('requires an explicit URL in production', () => {
-    expect(() =>
-      resolveMongoUrl({
-        mongoUrl: undefined,
-        nodeEnvironment: 'production',
-      }),
-    ).toThrow('MONGODB_URL is required in production');
+  it('detects a changed retry payload', () => {
+    expect(
+      messagePayloadHash({ ...message, text: 'Changed payload' }),
+    ).not.toBe(messagePayloadHash(message));
   });
 });

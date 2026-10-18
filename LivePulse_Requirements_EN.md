@@ -1,176 +1,216 @@
-# LivePulse Live Interaction and Danmaku Platform Requirements
+# LivePulse — Product Requirements Document (PRD)
 
-Version: 1.0  
-Date: October 8, 2026  
-Scope: Personal full-stack portfolio project and deployable demonstration system
+**Version:** 2.0 · **Date:** October 18, 2026
+**Status:** Proposed target architecture and acceptance criteria; not a claim of implemented features
+**Companion:** `LivePulse_Technical_Architecture_EN.md`
 
-## 1 Product Positioning and Goals
+## 1. Product vision and scope
 
-LivePulse is a full-stack platform for live rooms, real-time chat, scrolling danmaku messages, likes, and content moderation. The frontend uses Next.js, the backend runs on Node.js, and the entire project uses TypeScript. Its main engineering challenges are long-lived connections, cross-node fan-out, asynchronous persistence, and failure recovery. Video encoding and a self-hosted live-streaming CDN are outside the project scope.
+LivePulse is a portfolio-grade live-event interaction platform. Visitors browse public rooms and watch a licensed/demo video; authenticated viewers post real-time chat/danmaku, like a room, inspect recent history, and report abuse. Hosts create/manage rooms and moderate participants. Administrators investigate reports and maintain audit trails. The principal engineering demonstrations are reliable event ingestion, cross-replica WebSocket fan-out, transient Redis read models, asynchronous PostgreSQL persistence, security, repeatable cloud deployment, load testing, and failure recovery.
 
-After entering a room, users can watch a demonstration video, send messages, see danmaku from other viewers, and browse message history. Hosts can create rooms, control room status, and mute users. Administrators can handle reported or prohibited content. The project must provide repeatable deployment, load-testing, and failure-demonstration procedures so it can serve as evidence of engineering skills for Full-Stack, Backend, and SDE roles.
+**In scope:** room management, email authentication, session security, custom RBAC, live interaction, cursor-paginated history, one-like-per-user state, online user/connection estimates, moderation, secure room cover uploads, administration, CI/CD, instrumentation, and distributed test scenarios.
 
-All performance figures in this document are targets that must be validated. They are not achieved results. The connection and throughput figures shown in the original reference image are not commitments for this project.
+**Out of scope for v2 core:** payment settlement/gifts, proprietary video ingest/transcoding, multi-region active-active operation, Kubernetes production cluster, large-scale recommendations, and guarantees that each individual browser receives every live frame. `LIVE` refers to an open interaction session, not a video-streaming origin. A demonstration video must have appropriate usage rights. Danmaku follows the current interaction session and need not be synchronized to a video playback timeline.
 
-## 2 User Roles and Permissions
+Targets below are **design goals only** and require reproducible verification before appearing as achievements on a résumé.
 
-| Role | Core Permissions | Restrictions |
-| --- | --- | --- |
-| Guest | Browse public rooms, watch the demo video, and read public chat | Cannot send messages or like a room |
-| Viewer | Send messages, like rooms, read history, and report content | Subject to rate limits, mutes, and room status |
-| Host | Create and manage owned rooms, end an interaction session, and mute room users | Cannot manage another host's rooms |
-| Admin | Manage users, review reports, remove prohibited messages, and view the operations dashboard | Sensitive actions must create audit records |
+## 2. Target deployment and ownership
 
-The backend enforces every permission. Hiding a frontend control is not authorization. Identity and roles use role-based access control (RBAC).
+| Concern                            | Platform / system                             | Responsibility                                                                                      |
+| ---------------------------------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Web app and frontend CDN           | Vercel                                        | Next.js App Router, responsive interface, SSR, static assets, preview deployments                   |
+| API and WebSocket gateways         | Railway                                       | NestJS REST and Socket.IO or native WS gateway; multiple replicas in a later phase                  |
+| Workers                            | Railway                                       | Kafka broadcast and PostgreSQL persistence consumers; event-outbox publisher                        |
+| Transactional and message database | Railway PostgreSQL                            | Identity/auth tables, rooms, likes, reports, audit, danmaku history, outbox                         |
+| Ephemeral shared state             | Railway Redis                                 | Gateway Pub/Sub, rate limits, connection/user presence, like-count read model, optional event cache |
+| Streaming broker                   | Managed Kafka or separately hosted broker     | Bounded durable ingestion buffer and distinct consumer groups                                       |
+| Object storage                     | AWS S3                                        | Private cover-image uploads, object validation, approved image assets                               |
+| Background workflow                | Inngest (optional P1)                         | Image processing, notifications, retries; **not** per-danmaku orchestration                         |
+| Automation                         | GitHub Actions / platform integrations        | CI checks, staged release, deploy, smoke tests                                                      |
+| Telemetry                          | Pino + Sentry + OpenTelemetry / Grafana Cloud | Structured errors, traces, metrics, alerts                                                          |
 
-## 3 Delivery Phases and Scope
+**CDN boundary:** Vercel CDN serves the Next.js application and its applicable cached assets. It is **not automatically a general-purpose CDN for objects stored in S3**. Approved public assets can initially be served via controlled URLs or a Next.js image pipeline; a dedicated S3-facing CDN is an optional later decision. Cloudflare, CloudFront, EKS, and EC2 are not required in the target release.
 
-| Phase | Deliverables | Completion Criteria |
-| --- | --- | --- |
-| A Core MVP | Registration and login, room list and details, demo video, chat and danmaku, history, likes, basic permissions, one gateway, and Docker Compose | Two browsers can complete the full interaction flow; core automated tests pass |
-| B Distributed Reliability | Multiple gateways, Kafka processing, Redis fan-out, retry and deduplication, presence, muting, recovery, monitoring, and load tests | Users connected to different gateways can communicate; restarting a worker does not create duplicate history records |
-| C Cloud Delivery | AWS EC2, GitHub Actions, container images, TLS, backups, deployment, and rollback | The public demo is reachable; the pipeline can deploy and roll back to a specified image |
-| D Kubernetes Extension | Local cluster validation, k3s demo on EC2, rolling updates, graceful shutdown, and autoscaling experiments | Clients reconnect during releases; resource and latency measurements are documented |
+## 3. Roles and authorization
 
-The MVP may write directly to MongoDB to complete the first business flow. Phase B must switch to Kafka ingestion followed by worker persistence. Both paths evolve behind the same message service interface and must not perform simultaneous dual writes.
+| Role   | Rights                                                                | Denials                                                                |
+| ------ | --------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Guest  | Browse visible rooms and read public history / demo video             | Cannot send, like, report as an authenticated account, or create rooms |
+| Viewer | Send danmaku, like/unlike, read history, report content               | Subject to rate limits, bans/mutes and room status                     |
+| Host   | Create, edit and end **owned** rooms; mute users in owned rooms       | Cannot modify another host's room                                      |
+| Admin  | Review reports, remove content, manage users, view operations summary | All sensitive actions audited                                          |
 
-Out of scope: real payments and virtual gifts, video ingest and transcoding, multi-region disaster recovery, machine-learning recommendations, and a complete automated moderation model. The demo video must be legally usable. Danmaku belongs to the current room session and does not synchronize with a video playback timeline.
+Use Better Auth for authentication/session management and application-owned NestJS Guards/Services for RBAC and **resource ownership**. Never trust UI-hidden controls, unverified socket payload user IDs, or roles supplied by clients. Choose one consistent session model rather than mixing Better Auth sessions with legacy refresh-token routes.
 
-## 4 Functional Requirements and Acceptance Criteria
+## 4. Milestones, with explicit exit gates
 
-### FR01 Authentication
+| Phase                            | Product outcome                                                                                                               | Exit gate                                                                                                   |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **M0 — Local vertical slice**    | Single NestJS instance; Next.js; Better Auth; rooms; native Socket.IO room broadcast; PostgreSQL history/likes; local Compose | Two browsers join, send, see history, like, and pass permission checks                                      |
+| **M1 — Durable danmaku**         | Kafka accepted-message boundary, PostgreSQL persistence worker, dedupe, retry/recovery, moderation tombstones                 | Kafka ACK precedes `accepted`; replay doesn't duplicate history; consumer crash/restart tested              |
+| **M2 — Distributed interaction** | Railway 2–3 Gateway replicas, Redis Pub/Sub/Socket.IO Redis Adapter, global presence and limiters, derived like counters      | Users assigned to different replicas communicate; gateway failure recovers; metrics demonstrate correctness |
+| **M3 — Cloud & security**        | Vercel web, Railway API/PG/Redis/worker, managed Kafka, S3 safe upload, HTTPS, CI/CD, telemetry, backups                      | Public URL works, upload is authorized, protected releases and rollback drill succeed                       |
+| **M4 — Enhancements (optional)** | Inngest workflows, advanced alerting, larger load tests, cost optimizations                                                   | Results documented with actual measured numbers and architecture tradeoffs                                  |
 
-The platform supports email-and-password registration, login, and logout. A user remains signed in after refreshing the page. Duplicate email addresses, invalid credentials, and unauthorized requests return stable error codes. Passwords use a secure hash. Sessions use secure cookies, and logout invalidates the refresh session.
+Do not implement MongoDB and PostgreSQL message histories in parallel. For a greenfield v2 implementation, PostgreSQL owns messages from the first slice. If migrating existing MongoDB records, do a separate measured migration with a cutover and validation plan; never silently switch a running production data source.
 
-Acceptance: an unauthenticated user cannot send a message; a normal user receives 403 when requesting an admin API; long-lived credentials are not exposed to frontend JavaScript.
+## 5. Functional requirements
 
-### FR02 Room Management
+### FR01 — Authentication and sessions
 
-A host creates a room with a title, description, cover image, and demo video URL. Room states are DRAFT, LIVE, and ENDED. The first version permits only DRAFT to LIVE to ENDED. Reopening requires a new room so that message-history boundaries remain unambiguous. LIVE means the interactive session is open; it does not mean the platform provides video ingest.
+- Email/password signup, login, logout, persisted login across refresh; secure password hashing as supported by Better Auth.
+- Server validates sessions on HTTP operations **and on Socket.IO connection/join/message operations**; disconnected/revoked sessions cannot continue sending.
+- Host and admin permissions enforced server-side; room ownership checked in Services.
+- Use HTTPS, HttpOnly/Secure cookies, suitable SameSite and Origin/CORS/CSRF policy for `app.livepulse.com` and `api.livepulse.com`.
+- Acceptance: anonymous send blocked; viewer gets 403 on admin actions; logout invalidates protected operations; no credentials in logs.
 
-Acceptance: only visible rooms appear in public results; a non-owner cannot modify a room; an ended room rejects new joins and messages. Room-end propagation may have a cache-invalidation window of up to five seconds. Messages accepted during that window remain valid. A successful API update does not imply that every in-flight request disappears immediately.
+### FR02 — Rooms and lifecycle
 
-### FR03 Real-Time Chat and Danmaku
+- Room fields: ID, host, title, description, cover asset ID, demo video URL, visibility, creation timestamps, optimistic-lock version.
+- Lifecycle: `DRAFT -> LIVE -> ENDED`; ended rooms become read-only, and cannot accept new danmaku or likes if product policy disables likes after end (define and test explicitly).
+- Room lists use cursor pagination; non-visible drafts must not leak; stale host updates return conflict.
+- Acceptance: another host cannot modify a room; concurrent updates do not silently overwrite; new messages rejected when ENDED.
 
-Room messages appear in both the chat panel and the video overlay. Message text is limited to 1–200 Unicode characters. The initial WebSocket frame limit is 4 KiB. Unknown fields and invalid types are rejected. Users may disable danmaku or change its display density. Each message appears once by default, with a stable message ID used for deduplication.
+### FR03 — Danmaku, live chat and acknowledgment
 
-Message states are pending, accepted, and failed. Accepted means the backend received Kafka's write acknowledgement. It does not mean every viewer received the message or that MongoDB persistence has completed. When an acknowledgement is lost, the client retries with the same clientMessageId and retains unresolved local messages for up to five minutes.
+- Text length 1–200 Unicode characters; capped inbound payload (initial target: 4 KiB); server performs schema/size checks, normalization, profanity filter, mute and rate checks.
+- Every attempt includes stable `clientMessageId`; server creates stable `messageId` and captures `roomId`, authenticated `userId`, server acceptance time, payload hash.
+- States: `pending`, `accepted`, `failed`; **accepted means Kafka acknowledged append**, not that PostgreSQL or every viewer has completed delivery.
+- Target path: gateway -> Kafka `danmaku.messages.v1`; separate `broadcast-v1` consumer -> Redis Pub/Sub -> all gateways -> local room sockets; `history-v1` consumer -> batched PostgreSQL transaction.
+- Client deduplicates optimistic and incoming messages by stable ID and preserves the original retry ID. ACK timeout indicates _unknown_, not definite failure.
+- Acceptance: viewer B sees A's message; no duplicate on A after echo; Kafka failure returns explicit failure/timeout, not false acceptance.
 
-Acceptance: after user A sends a message, user B can see it; the sender does not see a duplicate caused by optimistic rendering and the later broadcast; when Kafka is unavailable, the client receives an explicit failure or timeout rather than a false success.
+### FR04 — Connection, join, leave and recovery
 
-### FR04 Joining and Reconnection
+- One browser tab normally maintains one Socket.IO connection and joins/leaves logical rooms; a new room does not necessarily open another connection.
+- Gateway authenticates handshake/session, validates room access, acknowledges subscription readiness; reconnect with exponential backoff and jitter.
+- On reconnect, obtain a history snapshot with a cursor, merge buffered live events, dedupe by message ID, and refresh presence/like counts.
+- Socket.IO uses **WebSocket-only transport** for replicated Railway gateways unless a compatible sticky-session strategy is explicitly deployed. Long-polling fallback is not promised.
+- Acceptance: simulated 10-second interruption reconnects without full reload; terminated gateway causes rejoin; history eventually reconciles missed real-time events.
 
-After authentication, a client joins a room and subscribes to its message and statistics events. After disconnection, it reconnects with jittered exponential backoff, beginning near one second and capped at 30 seconds. An authentication failure stops automatic retries and asks the user to sign in again.
+### FR05 — Message history, retention and moderation tombstones
 
-The first version uses best-effort real-time delivery. After reconnecting, the client queries persisted history and merges it using the latest cursor and stable message IDs. If persistence is still in progress, the UI shows a synchronizing state, retries a limited number of times, and then offers manual refresh. The platform does not promise zero loss or end-to-end exactly-once delivery.
+- PostgreSQL is authoritative for saved history, separate from ephemeral Redis Pub/Sub. Default 50 messages/page, max 100, keyset pagination under a deterministic order with tie breaker.
+- Initial retention target seven days; expiration/partition strategy must be documented, tested and compliant with desired moderation/report retention.
+- Duplicate consumed events are harmless (unique `messageId` and `(roomId,userId,clientMessageId)`); deletion retains a tombstone that older replays cannot restore.
+- Acceptance: no cross-room leakage, no duplicate pages, replay cannot overwrite a deleted message, bounded pagination under high data volume.
 
-Acceptance: a client recovers from a ten-second network interruption without reloading the page; persisted messages can be recovered; temporarily unpersisted messages are not immediately reported as permanently lost. The same recovery test applies after a gateway restart.
+### FR06 — Likes and unlike
 
-### FR05 Message History
+- A viewer can have at most one active like per room. The PostgreSQL `room_likes(room_id,user_id)` unique constraint and transaction are authoritative.
+- PUT/DELETE operations are idempotent. Redis stores a **derived room like-count read model** and may serve fast reads/broadcast counts; asynchronous invalidation/refresh follows committed SQL.
+- Avoid treating `Redis INCR` by itself as an authoritative unique-like count; support count rebuild after cache loss.
+- Acceptance: concurrent repeated likes count once; unlike works; derived count converges to SQL after recovery (target within five seconds in normal operation).
 
-History is queried by room. The default page size is 50 and the maximum is 100, using opaque cursor pagination. Each result includes the message ID, author, text, server timestamp, ordering position, and deletion state. Normal history retention is configurable and initially set to seven days. Permanent retention is not promised.
+### FR07 — Presence / online population
 
-Acceptance: adjacent pages contain no duplicates; data never leaks between rooms; repeated event consumption does not create duplicate history records. The frontend does not use large offset pagination. A message position contains its Kafka partition and offset, and the offset is serialized as a string to avoid JavaScript number-precision problems.
+- Store short-lived connection leases in Redis, distinguish **connections** from **unique authenticated users**. Multiple tabs count as multiple connections but one signed-in user.
+- Initial heartbeat 15 s, expiry 45 s, stats publish every 5 s; after gateway crash clean up leases automatically (target convergence within ~60 s).
+- Display online users as an **estimate** rather than a strong-consistency counter. Handle reconnects and stale connections.
+- Acceptance: two tabs count as two connections but one user; a killed gateway does not leave infinite ghost users.
 
-### FR06 Likes
+### FR08 — Rate limiting, abuse and slow consumers
 
-In the first version, each authenticated user can have at most one active like for a room. Users can like and unlike. Repeating the same request does not increase the count more than once. A SQL unique constraint is the source of correctness; the UI count is an asynchronously updated read model.
+- Redis-backed atomic token bucket or equivalent, scoped per user and room: initial target 1 message/s average with burst up to 5; add IP and connection limits.
+- Fail-safe behavior when Redis unavailable: reject sends or apply clearly documented stricter local policy; don't silently disable protections.
+- Bound each WebSocket client's send buffer and coalesce replaceable statistics; close sustained slow consumers with reconnect guidance.
+- Acceptance: spammer throttled without impairing others; overloaded clients do not cause unbounded memory; abuse and dropped delivery metrics visible.
 
-Acceptance: concurrent duplicate like requests from one user create only one database row; after an unlike, the displayed count eventually converges. Under normal conditions, the UI converges within five seconds of the SQL update. The count can be rebuilt from SQL after Redis restarts.
+### FR09 — Content moderation and reports
 
-### FR07 Presence
+- Host mute/unmute for their own room; admin deletes prohibited messages; user reports with audit trail and authorization.
+- PostgreSQL stores mute scope/expiry, report status, audit actor/timestamp and deleted-message tombstones. Redis mute cache optional; consistency/invalidation must be explicit.
+- Real-time `message.deleted` events invalidate connected UIs; reconnect/history always reapply deletion.
+- Text is rendered as plain text, never untrusted HTML. Acceptance: mute applies across gateway replicas; audit history is durable; old events do not resurrect content.
 
-The system tracks connection count and unique online-user count separately. The UI primarily displays unique users. Multiple tabs from one account do not increase the unique-user count. Presence is an expiring estimate and is not presented as a strongly consistent exact value.
+### FR10 — S3 media upload
 
-The initial heartbeat interval is 15 seconds. A connection expires after 45 seconds without a heartbeat. Statistics are broadcast every five seconds. A clean disconnect is removed promptly; an abnormal disconnect or gateway crash converges in approximately 60 seconds. Statistics events may be coalesced, and obsolete values may be discarded.
+- Host requests upload authorization; API verifies role/ownership and issues a short-lived presigned URL restricted to a randomized object key, expected type and allowable size by an enforceable upload method/policy.
+- Browser sends bytes directly to a **private S3 quarantine prefix/bucket**; API confirms object and verifies size/content signature, optionally malware scans and re-encodes images before marking ready.
+- Only approved assets may be attached to rooms or served to viewers. Unused uploads expire; bucket blocks public access by default; IAM follows least privilege.
+- Acceptance: unauthenticated and cross-room uploads denied; oversized/invalid files rejected and not served; keys/credentials never exposed beyond the limited presign capability.
 
-Acceptance: two tabs from one account produce two connections and one unique user; forcefully terminating a gateway does not leave users online forever.
+### FR11 — Background jobs, operations and deployment
 
-### FR08 Rate Limiting and Backpressure
+- Low-frequency image processing/notification can use Inngest with step retries and idempotency. Kafka remains responsible for high-volume danmaku; do not create one Inngest function run per message.
+- CI checks lint, types, unit/integration/E2E tests and builds before production deployment; apply Prisma migrations in a controlled step; smoke tests and rollback guide required.
+- Operators can see request errors, Kafka lag, persistence rate, Redis health, reconnects, active connections and S3 upload failures. Application secrets are never logged.
+- Acceptance: failed build never silently deploys; failure dashboard shows actionable signals; database backup and restore are rehearsed.
 
-The initial limit is an average of one message per second per user per room, with bursts of up to five. The platform also enforces configurable per-IP connection and send limits. A rate-limited client receives a retry delay. When Redis is unavailable, the service either stops accepting new messages or applies a stricter local limit and exposes the degraded state.
+## 6. UI pages and UX states
 
-The gateway maintains a bounded send buffer for every connection. After the threshold is exceeded, statistics events are coalesced first. A persistently blocked connection is closed and instructed to reconnect. A slow client cannot block the entire room, and messages cannot accumulate without a bound.
+| Page            | Essential content                                                         | States to design                                                     |
+| --------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Sign up / login | Forms, field errors, session                                              | loading / rejected / authenticated                                   |
+| Room directory  | Cover, host, status, online estimate, search                              | loading / empty / error                                              |
+| Room detail     | Licensed demo video, danmaku overlay, chat panel, like, presence, history | connecting / ready / reconnecting / message pending / failed / ended |
+| Host console    | Room CRUD, upload status, lifecycle, mutes                                | unauthorized / conflict / uploading / scanning / ready               |
+| Admin console   | Reports, deletions, audit logs, ops summary                               | pending / confirmed / conflict / forbidden                           |
 
-Acceptance: an abusive user is limited while normal users can continue interacting; a slow connection does not cause unbounded gateway memory growth; intentional drops and disconnects are recorded as metrics.
+The client keeps bounded recent messages, uses virtualized lists for long history, caps active danmaku animations, supports mobile layouts and accessible reduced-motion preferences.
 
-### FR09 Moderation
+## 7. API and realtime contracts (proposed)
 
-The platform supports a basic prohibited-word filter, host-initiated mutes, administrator deletion, and user reports. A mute has effective and expiry times. User text is rendered as plain text and never executed as HTML. Deleted messages retain a tombstone with the message ID so that history recovery cannot restore prohibited text.
+**HTTP (NestJS):** `GET /api/v1/rooms`; `GET /api/v1/rooms/:id`; `POST /api/v1/rooms`; `PATCH /api/v1/rooms/:id`; `GET /api/v1/rooms/:id/messages?cursor=...`; `PUT/DELETE /api/v1/rooms/:id/likes/me`; `POST /api/v1/uploads/presign`; `POST /api/v1/uploads/:id/complete`; `POST /api/v1/reports`; host mute endpoints; admin moderation endpoints; `/health/live`, `/health/ready`. Better Auth's mounted endpoints remain under the auth integration namespace and should not be duplicated by a legacy custom token API.
 
-The first version deletes only persisted messages. MongoDB is authoritative for the deletion result, and the service sends a room deletion event. If a client misses the real-time event, reconnection or periodic history synchronization reapplies the tombstone. Cross-node mute caches use active invalidation and a short TTL.
+**Socket.IO events:** client: `room.join`, `room.leave`, `message.send`; server: `room.joined`, `message.accepted`, `message.created`, `message.deleted`, `room.stats`, `room.ended`, `error`. Share payload schemas in `packages/contracts`; version incompatible envelope changes.
 
-Acceptance: a user muted through one gateway cannot continue sending through another; reloading history after a deletion never returns the original text; every moderation action records the actor, time, and target.
+Example `message.send` payload:
 
-### FR10 Operations and Delivery
+```json
+{
+  "roomId": "room_123",
+  "clientMessageId": "client_uuid",
+  "text": "What a show!"
+}
+```
 
-Dashboards show connection count, accepted-message rate, downstream delivery attempts, latency, Kafka lag, worker failures, Redis errors, and resource usage. The business admin page displays only a summary; Grafana provides detailed operational dashboards. The repository includes a README, seed data, an environment-variable example, architecture documentation, and a demonstration script.
+Example `message.accepted` payload:
 
-Acceptance: one message ID can correlate gateway, fan-out, and persistence logs; build, start, and load-test commands are repeatable; test credentials are not committed to Git.
+```json
+{
+  "roomId": "room_123",
+  "clientMessageId": "client_uuid",
+  "messageId": "msg_server_id",
+  "status": "accepted"
+}
+```
 
-## 5 Frontend Pages
+Each API error includes a stable `code` and `requestId`; HTTP mutating operations never rely on frontend-only validation.
 
-| Page | Content | Primary States |
-| --- | --- | --- |
-| Registration and Login | Email, password, and validation errors | Submitting, failed, successful |
-| Room List | Cover, host, status, and audience size | Loading, empty, failed |
-| Room Details | Demo video, danmaku, chat, likes, and history | Connecting, connected, reconnecting, ended |
-| Host Console | Create, open, end, and moderate rooms | Unauthorized, successful, conflict |
-| Admin Console | Reports, content removal, user management, and metric summary | Pagination, action confirmation, audit result |
+## 8. Nonfunctional goals and verification
 
-The room page must distinguish “message accepted” from “connection interrupted” and support both mobile and desktop layouts. Under high traffic, the chat list uses virtualization and the danmaku overlay caps the number of simultaneous items so that the browser does not become the bottleneck.
+| Test               | Setup and duration                                        | Target (not yet measured)                                                    |
+| ------------------ | --------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Idle connections   | 1,000 connected sockets over 10 minutes                   | Unexpected disconnect <1%; bounded memory                                    |
+| Steady mixed rooms | 1,000 connections / 10 rooms / 100 inbound msg/s / 10 min | Kafka accepted P95 <300 ms; observer P95 <500 ms                             |
+| Hot room           | 1,000 in one room / 20 inbound msg/s / 5 min              | Log ~20,000 theoretical downstream deliveries/s, actual receipt and drops    |
+| Burst              | 1,000 across 10 rooms / 500 inbound msg/s / 30 s          | Bounded lag and queues; accepted messages persist after catch-up             |
+| Worker restart     | Stop persistence consumer for 30 s                        | No duplicate rows on replay; recovery within documented retention/lag window |
+| Gateway restart    | Terminate one of 3 replicas                               | Clients reconnect and rejoin; presence stale entries expire                  |
+| Redis failure      | Interrupt Pub/Sub/presence/limit service                  | Degraded status explicit; no false claim of live delivery                    |
+| PostgreSQL outage  | Temporarily stop history writes                           | Consumer offsets do not skip uncommitted records; Kafka lag observable       |
+| S3 abuse tests     | Wrong type, oversized file, wrong owner                   | Bad asset remains unapproved and inaccessible                                |
 
-## 6 Nonfunctional Requirements
+Report load-generator hardware/location, server resource limits, Kafka partitions, room size, payload sizes and active-sender ratios. Avoid claiming an achieved concurrency or latency number without measurement. Kafka initial retention target is 24 h; 24 h is a recovery bound, not infinite protection.
 
-### 6.1 Initial Performance Targets
+## 9. Security and privacy baseline
 
-The following Phase B acceptance targets are tested only after the complete machine configuration is recorded. If a target is missed, the measured bottleneck and adjustment must be documented. An unmet target must never be presented as an achieved resume metric.
+HTTPS/WSS, secure cookie settings, CSRF/origin defenses, server-side RBAC, Zod validation, SQL constraints and transactions, audit logging, S3 private-by-default + limited presign, explicit CORS, request rate limiting, dependency scanning, secret management, database backup and restore. Do not use user IDs, room IDs or message IDs as high-cardinality Prometheus labels. Never include tokens, presigned URLs or raw uploaded contents in logs. Provide deletion and retention policies for user content.
 
-| Scenario | Load and Duration | Target |
-| --- | --- | --- |
-| Idle connections | 1,000 joined connections for 10 minutes, heartbeats only | Unintentional disconnect rate below 1%; no continuing memory growth |
-| Steady chat | 1,000 connections across 10 rooms; 100 total inbound messages/s for 10 minutes; each message is broadcast to every connection in its room | Accepted P95 below 300 ms; sender-to-observer P95 below 500 ms |
-| Hot room | 1,000 connections in one room; 20 inbound messages/s for five minutes | Record the approximately 20,000 theoretical downstream deliveries/s, actual deliveries, and buffer behavior |
-| Short burst | 10 rooms, 1,000 connections, 500 total inbound messages/s for 30 seconds | Bounded queues and explicit throttling; accepted messages eventually persist; lag returns to baseline within 120 seconds after steady load resumes |
-| Consumer recovery | Stop a worker for 30 seconds and restart it | Every accepted test message persists within 120 seconds after recovery, with zero duplicate history records |
+## 10. Handoff artifacts / definition of done
 
-Every test specifies whether fan-out is enabled, users per room, message size, active-sender ratio, connection reuse, resource limits, and load-generator location. The sending rate must respect per-user limits: 500 messages per second requires enough active accounts. If the load generator competes with the server for the same CPU, the report must say so.
+- Source repository with `.env.example`, pinned runtime/toolchain, documented scripts, seed data and migration steps.
+- Updated architecture and product documents; clean separation of delivered vs planned features.
+- Live Vercel frontend and Railway API demo with a safe, limited-permission test account.
+- Automated tests demonstrating authorization, duplicate likes, Kafka replay idempotency, and cross-replica WebSocket broadcast.
+- CI/CD proof, deployment/rollback instructions, backup/restore drill, dashboards and sample incident diagnosis.
+- Load test scenarios, raw results and written bottleneck analysis; résumé bullets only describe measured or genuinely implemented work.
 
-### 6.2 Data Semantics and Recovery
+## 11. Changes from original v1
 
-- Kafka consumption is at least once, and persistence is idempotent by message ID.
-- One room preserves Kafka append order within a fixed partition layout. There is no global order across rooms, and client timestamps do not determine order.
-- Real-time fan-out can be missed, while history is eventually consistent. A client may receive a duplicate message and must deduplicate it.
-- A single-machine demo environment makes no high-availability claim. The deployment guide documents the outage and data-loss risks of one Kafka broker and one Redis instance.
-- Initial Kafka retention is 24 hours. The maximum tolerable persistence outage must stay below that window, and disk capacity is calculated separately.
-
-### 6.3 Security and Maintainability
-
-TLS, request validation, secure cookie attributes, CSRF protection, WebSocket Origin checks, authorization, password hashing, and dependency scanning are baseline requirements. Logs never contain passwords, access tokens, or raw session cookies. User data has a cleanup policy.
-
-Configuration is separated for development, testing, and the cloud demo. Every REST endpoint has an OpenAPI contract, and WebSocket events use shared schemas. Automated tests cover critical state changes, pagination, idempotency, permissions, and consumer failures. Every performance claim must come from a measured test.
-
-## 7 Core Business Flows
-
-Message sending: join room → validate identity and room state → apply rate and content checks → append to Kafka → return accepted → Broadcast Worker forwards through Redis → each gateway pushes to its local room connections; an independent History Worker writes batches to MongoDB.
-
-Likes: submit REST request → SQL transaction applies the unique operation and writes an outbox event → return the user's current like state → outbox publisher and statistics worker update Redis → periodically broadcast the latest count.
-
-Recovery: connection breaks → reconnect with backoff → authenticate and rejoin → load history and a statistics snapshot → merge buffered real-time events → deduplicate and sort by position.
-
-## 8 Failure Acceptance Matrix
-
-| Failure | User Experience | Required Verification |
-| --- | --- | --- |
-| Gateway exits | Temporary disconnection followed by automatic reconnection | Expired presence is removed; persisted history can be recovered |
-| Kafka unavailable | New message fails or times out and may be retried with the same ID | No false accepted response; retry does not duplicate history |
-| MongoDB unavailable | Real-time interaction may continue while history is delayed | Consumer lag increases; the consumer does not commit past an unprocessed offset |
-| Redis unavailable | Fan-out, rate limits, and presence degrade | Degraded state is visible; history and counts can be rebuilt after recovery |
-| Consumer crashes after processing but before offset commit | The event is processed again | MongoDB does not duplicate the record; the frontend deduplicates by ID |
-| Slow client | Client is throttled or disconnected and can reconnect | Per-connection buffer remains bounded; normal connections are not delayed |
-
-## 9 Suggested Development Schedule
-
-Plan for six to eight weeks at approximately 15–20 hours per week. Week 1 establishes the repository and authentication. Week 2 implements rooms and single-node interaction. Week 3 adds Kafka and the MongoDB worker. Week 4 implements multiple gateways, presence, and recovery. Week 5 adds tests, monitoring, and load testing. Week 6 completes EC2 and CI/CD. Weeks 7–8 cover Kubernetes, failure experiments, and documentation. The actual schedule depends on familiarity with the stack; the first three phases can be completed before the optional extensions.
-
-Final acceptance deliverables include source code, a live demo, the requirements and architecture documents, test results, a load-test report, and deployment and recovery instructions. Only measured connection counts, message rates, latency, and recovery results may appear on the resume.
+- Replace **MongoDB message history** with **PostgreSQL message history**; no simultaneous dual writes.
+- Replace **AWS EC2-based primary deployment** with **Vercel frontend/CDN + Railway backend, PostgreSQL and Redis**; managed Kafka chosen explicitly.
+- Change **native `ws`** to **Socket.IO** for room joins and its Redis adapter; WebSocket-only transport for Railway multi-replica service unless sticky sessions are provided.
+- Add **AWS S3** private presigned-upload flow, Better Auth session model, ownership-aware RBAC, CI/CD, observability and optional Inngest workflows.
+- Clarify Redis responsibility: Pub/Sub for **cross-instance** fan-out, atomic danmaku limits, derived like counts and online presence; PostgreSQL remains authoritative for likes/history.

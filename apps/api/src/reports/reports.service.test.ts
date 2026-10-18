@@ -84,7 +84,7 @@ describe('ReportsService', () => {
     expect(repository.create).not.toHaveBeenCalled();
   });
 
-  it('hydrates the pending queue with MongoDB message snapshots', async () => {
+  it('hydrates the pending queue with PostgreSQL message snapshots', async () => {
     const repository = reportsRepository();
     const report = {
       createdAt: new Date('2026-10-10T21:00:00.000Z'),

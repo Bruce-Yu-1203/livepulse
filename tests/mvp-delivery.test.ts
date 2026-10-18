@@ -50,5 +50,28 @@ describe('MVP delivery assets', () => {
     expect(compose).toContain('target: api');
     expect(compose).toContain('target: web');
     expect(compose).toContain('profiles: [tools]');
+    expect(compose).not.toContain('mongodb');
+  });
+
+  it('documents PostgreSQL as the only durable message store', async () => {
+    const readme = await readFile(resolve(process.cwd(), 'README.md'), 'utf8');
+    const requirements = await readFile(
+      resolve(process.cwd(), 'LivePulse_Requirements_EN.md'),
+      'utf8',
+    );
+    const architecture = await readFile(
+      resolve(process.cwd(), 'LivePulse_Technical_Architecture_EN.md'),
+      'utf8',
+    );
+
+    expect(readme).toContain('transactional data and message history');
+    expect(readme).not.toContain('MongoDB for message history');
+    expect(readme).not.toContain('27017');
+    expect(requirements).toContain(
+      'PostgreSQL is authoritative for saved history',
+    );
+    expect(architecture).toContain(
+      'MongoDB is removed from the target architecture',
+    );
   });
 });

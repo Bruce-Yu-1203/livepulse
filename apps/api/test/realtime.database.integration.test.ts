@@ -9,7 +9,6 @@ import {
   ServerRealtimeEventSchema,
 } from '@livepulse/contracts';
 import { createDatabaseClient } from '@livepulse/db';
-import { MongoClient } from 'mongodb';
 import { createClient } from 'redis';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
@@ -23,16 +22,11 @@ import { ScryptPasswordHasher } from '../src/auth/password-hasher.js';
 import { createApp } from '../src/create-app.js';
 
 const databaseUrl = process.env.DATABASE_URL;
-const mongoUrl = process.env.MONGODB_URL;
 const redisUrl = process.env.REDIS_URL;
 const redisKeyPrefix = process.env.REDIS_KEY_PREFIX;
 
 if (!databaseUrl) {
   throw new Error('DATABASE_URL is required for realtime database tests');
-}
-
-if (!mongoUrl) {
-  throw new Error('MONGODB_URL is required for realtime database tests');
 }
 
 if (!redisUrl || !redisKeyPrefix) {
@@ -42,7 +36,6 @@ if (!redisUrl || !redisKeyPrefix) {
 }
 
 const database = createDatabaseClient(databaseUrl);
-const mongo = new MongoClient(mongoUrl);
 const redis = createClient({ url: redisUrl });
 const password = 'correct horse battery staple';
 const hostId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -104,7 +97,6 @@ describe('room WebSocket gateway', () => {
     await secondApp.close();
     await removeFixtures();
     await database.$disconnect();
-    await mongo.close();
     await redis.close();
     if (originalProhibitedWords === undefined) {
       delete process.env.PROHIBITED_WORDS;
@@ -226,9 +218,11 @@ describe('room WebSocket gateway', () => {
       retryAfterMs: expect.any(Number),
     });
     await expect(
-      mongo.db().collection('messages').countDocuments({
-        roomId: liveRoomId,
-        text: 'This message must not persist',
+      database.danmakuMessage.count({
+        where: {
+          roomId: liveRoomId,
+          text: 'This message must not persist',
+        },
       }),
     ).resolves.toBe(0);
     await expect(
@@ -267,9 +261,11 @@ describe('room WebSocket gateway', () => {
       'REALTIME_CONTENT_BLOCKED',
     );
     await expect(
-      mongo.db().collection('messages').countDocuments({
-        roomId: liveRoomId,
-        text: 'A limited SCAM-OFFER today',
+      database.danmakuMessage.count({
+        where: {
+          roomId: liveRoomId,
+          text: 'A limited SCAM-OFFER today',
+        },
       }),
     ).resolves.toBe(0);
 
@@ -391,12 +387,9 @@ describe('room WebSocket gateway', () => {
       `${redisKeyPrefix}:room:${endedRoomId}:presence-identities`,
       `${redisKeyPrefix}:room:${endingRoomId}:presence-identities`,
     ]);
-    await mongo
-      .db()
-      .collection('messages')
-      .deleteMany({
-        roomId: { $in: [liveRoomId, endedRoomId, endingRoomId] },
-      });
+    await database.danmakuMessage.deleteMany({
+      where: { roomId: { in: [liveRoomId, endedRoomId, endingRoomId] } },
+    });
     await database.auditLog.deleteMany({
       where: { roomId: { in: [liveRoomId, endedRoomId, endingRoomId] } },
     });

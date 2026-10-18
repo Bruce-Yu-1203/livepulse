@@ -177,7 +177,7 @@ describe('RoomRealtimeHub', () => {
   it('does not broadcast when persistence is unavailable', async () => {
     const failingPublisher = publisher();
     vi.mocked(failingPublisher.publish).mockRejectedValue(
-      new Error('MongoDB offline'),
+      new Error('PostgreSQL offline'),
     );
     const hub = new RoomRealtimeHub(
       roomSource(true),

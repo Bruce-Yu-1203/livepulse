@@ -11,7 +11,6 @@ import {
   type RoomMessage,
 } from '@livepulse/contracts';
 import { createDatabaseClient } from '@livepulse/db';
-import { MongoClient } from 'mongodb';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
@@ -21,22 +20,13 @@ import {
 import { csrfHeaderName } from '../src/auth/csrf.guard.js';
 import { ScryptPasswordHasher } from '../src/auth/password-hasher.js';
 import { createApp } from '../src/create-app.js';
-import { MongoMessagesRepository } from '../src/messages/messages.repository.js';
+import type { DatabaseService } from '../src/database/database.service.js';
+import { PostgresMessagesRepository } from '../src/messages/messages.repository.js';
 
 const databaseUrl = process.env.DATABASE_URL;
-const mongoUrl = process.env.MONGODB_URL;
 
 if (!databaseUrl) {
   throw new Error('DATABASE_URL is required for report database tests');
-}
-
-if (!mongoUrl) {
-  throw new Error('MONGODB_URL is required for report database tests');
-}
-
-const mongoDatabaseName = new URL(mongoUrl).pathname.slice(1);
-if (!mongoDatabaseName.startsWith('livepulse_test_')) {
-  throw new Error('Report database tests require an isolated MongoDB database');
 }
 
 const database = createDatabaseClient(databaseUrl);
@@ -51,7 +41,9 @@ const secondMessageId = '99999999-9999-4999-8999-999999999999';
 
 describe('POST /api/v1/reports', () => {
   let app: NestFastifyApplication;
-  let messages: MongoMessagesRepository;
+  const messages = new PostgresMessagesRepository({
+    client: database,
+  } as DatabaseService);
 
   beforeAll(async () => {
     await removeFixtures();
@@ -95,7 +87,6 @@ describe('POST /api/v1/reports', () => {
         title: 'Report room',
       },
     });
-    messages = new MongoMessagesRepository();
     await messages.create(message());
     await messages.create(secondMessage());
 
@@ -106,12 +97,8 @@ describe('POST /api/v1/reports', () => {
 
   afterAll(async () => {
     await app.close();
-    await messages.onModuleDestroy();
     await removeFixtures();
     await database.$disconnect();
-    const mongo = new MongoClient(mongoUrl);
-    await mongo.db().dropDatabase();
-    await mongo.close();
   });
 
   it('creates one audited report when a viewer retries the request', async () => {
@@ -557,6 +544,7 @@ function secondMessage(): RoomMessage {
 async function removeFixtures(): Promise<void> {
   await database.auditLog.deleteMany({ where: { roomId } });
   await database.report.deleteMany({ where: { roomId } });
+  await database.danmakuMessage.deleteMany({ where: { roomId } });
   await database.room.deleteMany({ where: { id: roomId } });
   await database.refreshSession.deleteMany({
     where: { userId: { in: [hostId, authorId, reporterId, adminId] } },

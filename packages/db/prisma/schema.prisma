@@ -53,6 +53,7 @@ model User {
   roomLikes       RoomLike[]
   roomMutes       RoomMute[]
   reports         Report[]
+  messages        DanmakuMessage[]
 
   @@map("users")
 }
@@ -72,6 +73,7 @@ model Room {
   likes         RoomLike[]
   mutes         RoomMute[]
   reports       Report[]
+  messages      DanmakuMessage[]
 
   @@index([hostId])
   @@index([status, createdAt, id])
@@ -103,6 +105,27 @@ model RoomMute {
   @@index([expiresAt])
   @@index([userId])
   @@map("room_mutes")
+}
+
+model DanmakuMessage {
+  id              String    @id @db.Uuid
+  roomId          String    @map("room_id") @db.Uuid
+  authorId        String    @map("author_id") @db.Uuid
+  clientMessageId String    @map("client_message_id") @db.Uuid
+  text            String    @db.VarChar(200)
+  acceptedAt      DateTime  @map("accepted_at") @db.Timestamptz(3)
+  payloadHash     String    @map("payload_hash") @db.VarChar(64)
+  kafkaPartition  Int?      @map("kafka_partition")
+  kafkaOffset     BigInt?   @map("kafka_offset")
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(3)
+  expiresAt       DateTime  @map("expires_at") @db.Timestamptz(3)
+  room            Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  author          User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, authorId, clientMessageId])
+  @@index([roomId, acceptedAt(sort: Desc), id(sort: Desc)])
+  @@index([expiresAt])
+  @@map("danmaku_messages")
 }
 
 model AuditLog {

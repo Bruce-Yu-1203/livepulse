@@ -1,8 +1,9 @@
 import { Module } from '@nestjs/common';
 
+import { DatabaseModule } from '../database/database.module.js';
 import { RoomsModule } from '../rooms/rooms.module.js';
 import { MessagesController } from './messages.controller.js';
-import { MongoMessagesRepository } from './messages.repository.js';
+import { PostgresMessagesRepository } from './messages.repository.js';
 import { MessagesService } from './messages.service.js';
 import {
   MESSAGES_REPOSITORY,
@@ -12,13 +13,13 @@ import {
 @Module({
   controllers: [MessagesController],
   exports: [MessagesService, REALTIME_MESSAGE_PUBLISHER],
-  imports: [RoomsModule],
+  imports: [DatabaseModule, RoomsModule],
   providers: [
     MessagesService,
-    MongoMessagesRepository,
+    PostgresMessagesRepository,
     {
       provide: MESSAGES_REPOSITORY,
-      useExisting: MongoMessagesRepository,
+      useExisting: PostgresMessagesRepository,
     },
     {
       provide: REALTIME_MESSAGE_PUBLISHER,

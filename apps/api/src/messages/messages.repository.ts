@@ -1,18 +1,19 @@
-import { Injectable } from '@nestjs/common';
-import type { OnModuleDestroy } from '@nestjs/common';
-import type { RoomMessage } from '@livepulse/contracts';
-import { MongoClient, MongoServerError, ServerApiVersion } from 'mongodb';
-import type { Collection, Filter } from 'mongodb';
+import { createHash } from 'node:crypto';
 
+import { Inject, Injectable } from '@nestjs/common';
+import type { RoomMessage } from '@livepulse/contracts';
+import { Prisma } from '@livepulse/db';
+
+import { DatabaseService } from '../database/database.service.js';
 import type { MessageCursor } from './message-cursor.js';
 import { MessageDatabaseUnavailableError } from './messages.errors.js';
 
-interface MessageDocument {
-  _id: string;
+interface StoredMessage {
   acceptedAt: Date;
   authorId: string;
   clientMessageId: string;
-  deletedAt?: Date;
+  deletedAt: Date | null;
+  id: string;
   roomId: string;
   text: string;
 }
@@ -38,31 +39,14 @@ export interface MessagesRepository {
   }): Promise<RoomMessage[]>;
 }
 
-const developmentMongoUrl = 'mongodb://localhost:27017/livepulse';
+const messageRetentionMilliseconds = 7 * 24 * 60 * 60 * 1_000;
 export const deletedMessageText = 'Message removed by moderation';
 
 @Injectable()
-export class MongoMessagesRepository
-  implements MessagesRepository, OnModuleDestroy
-{
-  private readonly client: MongoClient;
-  private readonly collection: Collection<MessageDocument>;
-  private indexesReady: Promise<unknown> | undefined;
-
-  public constructor() {
-    const url = resolveMongoUrl({
-      mongoUrl: process.env.MONGODB_URL,
-      nodeEnvironment: process.env.NODE_ENV,
-    });
-    this.client = new MongoClient(url, {
-      serverApi: {
-        deprecationErrors: true,
-        strict: true,
-        version: ServerApiVersion.v1,
-      },
-    });
-    this.collection = this.client.db().collection<MessageDocument>('messages');
-  }
+export class PostgresMessagesRepository implements MessagesRepository {
+  public constructor(
+    @Inject(DatabaseService) private readonly database: DatabaseService,
+  ) {}
 
   public async create(
     message: RoomMessage,
@@ -72,15 +56,32 @@ export class MongoMessagesRepository
     | { kind: 'duplicate'; message: RoomMessage }
   > {
     try {
-      await this.ensureIndexes();
-      await this.collection.insertOne(toDocument(message));
-      return { kind: 'created', message };
+      const acceptedAt = new Date(message.acceptedAt);
+      const stored = await this.database.client.danmakuMessage.create({
+        data: {
+          acceptedAt,
+          authorId: message.authorId,
+          clientMessageId: message.clientMessageId,
+          expiresAt: new Date(
+            acceptedAt.getTime() + messageRetentionMilliseconds,
+          ),
+          id: message.messageId,
+          payloadHash: messagePayloadHash(message),
+          roomId: message.roomId,
+          text: message.text,
+        },
+      });
+
+      return { kind: 'created', message: toRoomMessage(stored) };
     } catch (error) {
-      if (error instanceof MongoServerError && error.code === 11_000) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
         return this.resolveDuplicate(message);
       }
 
-      throw new MessageDatabaseUnavailableError({ cause: error });
+      throwMessageDatabaseError(error);
     }
   }
 
@@ -89,15 +90,13 @@ export class MongoMessagesRepository
     messageId: string,
   ): Promise<RoomMessage | undefined> {
     try {
-      await this.ensureIndexes();
-      const document = await this.collection.findOne({
-        _id: messageId,
-        roomId,
+      const stored = await this.database.client.danmakuMessage.findFirst({
+        where: { id: messageId, roomId },
       });
 
-      return document ? toRoomMessage(document) : undefined;
+      return stored ? toRoomMessage(stored) : undefined;
     } catch (error) {
-      throw new MessageDatabaseUnavailableError({ cause: error });
+      throwMessageDatabaseError(error);
     }
   }
 
@@ -107,16 +106,21 @@ export class MongoMessagesRepository
     deletedAt: Date,
   ): Promise<RoomMessage | undefined> {
     try {
-      await this.ensureIndexes();
-      const document = await this.collection.findOneAndUpdate(
-        { _id: messageId, roomId },
-        { $set: { deletedAt, text: deletedMessageText } },
-        { returnDocument: 'after' },
-      );
+      const updated = await this.database.client.danmakuMessage.updateMany({
+        data: { deletedAt, text: deletedMessageText },
+        where: { id: messageId, roomId },
+      });
 
-      return document ? toRoomMessage(document) : undefined;
+      if (updated.count === 0) {
+        return undefined;
+      }
+
+      const stored = await this.database.client.danmakuMessage.findUnique({
+        where: { id: messageId },
+      });
+      return stored ? toRoomMessage(stored) : undefined;
     } catch (error) {
-      throw new MessageDatabaseUnavailableError({ cause: error });
+      throwMessageDatabaseError(error);
     }
   }
 
@@ -126,47 +130,29 @@ export class MongoMessagesRepository
     take: number;
   }): Promise<RoomMessage[]> {
     try {
-      await this.ensureIndexes();
-      const filter: Filter<MessageDocument> = { roomId: input.roomId };
+      const stored = await this.database.client.danmakuMessage.findMany({
+        orderBy: [{ acceptedAt: 'desc' }, { id: 'desc' }],
+        take: input.take,
+        where: {
+          ...(input.cursor
+            ? {
+                OR: [
+                  { acceptedAt: { lt: input.cursor.acceptedAt } },
+                  {
+                    acceptedAt: input.cursor.acceptedAt,
+                    id: { lt: input.cursor.messageId },
+                  },
+                ],
+              }
+            : {}),
+          roomId: input.roomId,
+        },
+      });
 
-      if (input.cursor) {
-        filter.$or = [
-          { acceptedAt: { $lt: input.cursor.acceptedAt } },
-          {
-            _id: { $lt: input.cursor.messageId },
-            acceptedAt: input.cursor.acceptedAt,
-          },
-        ];
-      }
-
-      const documents = await this.collection
-        .find(filter)
-        .sort({ acceptedAt: -1, _id: -1 })
-        .limit(input.take)
-        .toArray();
-
-      return documents.map(toRoomMessage);
+      return stored.map(toRoomMessage);
     } catch (error) {
-      throw new MessageDatabaseUnavailableError({ cause: error });
+      throwMessageDatabaseError(error);
     }
-  }
-
-  public async onModuleDestroy(): Promise<void> {
-    await this.client.close();
-  }
-
-  private ensureIndexes(): Promise<unknown> {
-    this.indexesReady ??= Promise.all([
-      this.collection.createIndex({ roomId: 1, acceptedAt: -1, _id: -1 }),
-      this.collection.createIndex(
-        { roomId: 1, authorId: 1, clientMessageId: 1 },
-        { unique: true },
-      ),
-    ]).catch((error: unknown) => {
-      this.indexesReady = undefined;
-      throw error;
-    });
-    return this.indexesReady;
   }
 
   private async resolveDuplicate(
@@ -175,10 +161,17 @@ export class MongoMessagesRepository
     { kind: 'conflict' } | { kind: 'duplicate'; message: RoomMessage }
   > {
     try {
-      const existing = await this.collection.findOne({
-        authorId: message.authorId,
-        clientMessageId: message.clientMessageId,
-        roomId: message.roomId,
+      const existing = await this.database.client.danmakuMessage.findFirst({
+        where: {
+          OR: [
+            { id: message.messageId },
+            {
+              authorId: message.authorId,
+              clientMessageId: message.clientMessageId,
+              roomId: message.roomId,
+            },
+          ],
+        },
       });
 
       if (!existing) {
@@ -187,53 +180,51 @@ export class MongoMessagesRepository
 
       const stored = toRoomMessage(existing);
       return stored.messageId === message.messageId &&
-        stored.text === message.text
+        stored.authorId === message.authorId &&
+        stored.clientMessageId === message.clientMessageId &&
+        stored.roomId === message.roomId &&
+        stored.text === message.text &&
+        existing.payloadHash === messagePayloadHash(message) &&
+        existing.deletedAt === null
         ? { kind: 'duplicate', message: stored }
         : { kind: 'conflict' };
     } catch (error) {
-      throw new MessageDatabaseUnavailableError({ cause: error });
+      throwMessageDatabaseError(error);
     }
   }
 }
 
-interface MongoEnvironment {
-  mongoUrl: string | undefined;
-  nodeEnvironment: string | undefined;
+export function messagePayloadHash(message: RoomMessage): string {
+  return createHash('sha256')
+    .update(
+      JSON.stringify({
+        authorId: message.authorId,
+        clientMessageId: message.clientMessageId,
+        messageId: message.messageId,
+        roomId: message.roomId,
+        text: message.text,
+      }),
+      'utf8',
+    )
+    .digest('hex');
 }
 
-export function resolveMongoUrl(environment: MongoEnvironment): string {
-  if (environment.mongoUrl) {
-    return environment.mongoUrl;
-  }
-
-  if (environment.nodeEnvironment === 'production') {
-    throw new Error('MONGODB_URL is required in production');
-  }
-
-  return developmentMongoUrl;
-}
-
-function toDocument(message: RoomMessage): MessageDocument {
+function toRoomMessage(stored: StoredMessage): RoomMessage {
   return {
-    _id: message.messageId,
-    acceptedAt: new Date(message.acceptedAt),
-    authorId: message.authorId,
-    clientMessageId: message.clientMessageId,
-    roomId: message.roomId,
-    text: message.text,
+    acceptedAt: stored.acceptedAt.toISOString(),
+    authorId: stored.authorId,
+    clientMessageId: stored.clientMessageId,
+    ...(stored.deletedAt ? { deletedAt: stored.deletedAt.toISOString() } : {}),
+    messageId: stored.id,
+    roomId: stored.roomId,
+    text: stored.text,
   };
 }
 
-function toRoomMessage(document: MessageDocument): RoomMessage {
-  return {
-    acceptedAt: document.acceptedAt.toISOString(),
-    authorId: document.authorId,
-    clientMessageId: document.clientMessageId,
-    ...(document.deletedAt
-      ? { deletedAt: document.deletedAt.toISOString() }
-      : {}),
-    messageId: document._id,
-    roomId: document.roomId,
-    text: document.text,
-  };
+function throwMessageDatabaseError(error: unknown): never {
+  if (error instanceof MessageDatabaseUnavailableError) {
+    throw error;
+  }
+
+  throw new MessageDatabaseUnavailableError({ cause: error });
 }

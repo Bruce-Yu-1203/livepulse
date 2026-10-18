@@ -6,8 +6,7 @@ LivePulse is a TypeScript full-stack MVP for interactive live rooms. Viewers can
 
 - Next.js 16 and React 19 for the web application
 - NestJS 12 and Fastify for REST and WebSocket services
-- PostgreSQL and Prisma for transactional data
-- MongoDB for message history
+- PostgreSQL and Prisma for transactional data and message history
 - Redis Pub/Sub and leased presence for cross-instance realtime delivery
 - Zod contracts shared by browser and server
 - Vitest, ESLint, Prettier, and TypeScript for validation
@@ -54,11 +53,11 @@ pnpm dev:web
 
 Open [http://localhost:3000](http://localhost:3000). The seeded users are:
 
-| Role | Email |
-| --- | --- |
-| Viewer | `viewer@livepulse.local` |
-| Host | `host@livepulse.local` |
-| Administrator | `admin@livepulse.local` |
+| Role          | Email                    |
+| ------------- | ------------------------ |
+| Viewer        | `viewer@livepulse.local` |
+| Host          | `host@livepulse.local`   |
+| Administrator | `admin@livepulse.local`  |
 
 All three accounts use the `DEMO_PASSWORD` value supplied during seeding. These are local demonstration identities, not production credentials.
 
@@ -97,11 +96,10 @@ Run the normal quality gate:
 pnpm validate
 ```
 
-Run database integration tests after starting PostgreSQL, MongoDB, and Redis:
+Run database integration tests after starting PostgreSQL and Redis:
 
 ```bash
 DATABASE_URL='postgresql://livepulse:livepulse_dev_password@localhost:5432/livepulse?schema=public' \
-MONGODB_URL='mongodb://localhost:27017/livepulse_test_manual' \
 REDIS_URL='redis://localhost:6379' \
 REDIS_KEY_PREFIX='livepulse-test' \
 ACCESS_TOKEN_SECRET='integration-test-secret-at-least-32-bytes-long' \
@@ -116,6 +114,6 @@ pnpm exec playwright install chromium
 pnpm test:e2e
 ```
 
-The end-to-end command builds a dedicated Docker Compose stack, creates random runtime-only secrets, seeds its disposable data volumes, exercises separate viewer, host, and administrator browser sessions, and removes the complete stack afterward. Ports 3000, 3001, 5432, 6379, and 27017 must be available while it runs.
+The end-to-end command builds a dedicated Docker Compose stack, creates random runtime-only secrets, seeds its disposable data volumes, exercises separate viewer, host, and administrator browser sessions, and removes the complete stack afterward. Ports 3000, 3001, 5432, and 6379 must be available while it runs.
 
-The architecture and scaling path are documented in [LivePulse_Technical_Stack_EN.md](LivePulse_Technical_Stack_EN.md). Product behavior and acceptance criteria are in [LivePulse_Requirements_EN.md](LivePulse_Requirements_EN.md).
+The architecture and scaling path are documented in [LivePulse_Technical_Architecture_EN.md](LivePulse_Technical_Architecture_EN.md). Product behavior and acceptance criteria are in [LivePulse_Requirements_EN.md](LivePulse_Requirements_EN.md).
