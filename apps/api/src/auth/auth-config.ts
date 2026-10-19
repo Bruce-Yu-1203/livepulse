@@ -7,6 +7,9 @@ export const sessionUpdateAgeSeconds = 24 * 60 * 60;
 interface AuthEnvironment {
   apiOrigin?: string | undefined;
   authSecret: string | undefined;
+  cookieDomain?: string | undefined;
+  googleClientId?: string | undefined;
+  googleClientSecret?: string | undefined;
   nodeEnvironment: string | undefined;
   webOrigin?: string | undefined;
 }
@@ -14,6 +17,13 @@ interface AuthEnvironment {
 export interface AuthConfig {
   apiOrigin: string;
   authSecret: string;
+  cookieDomain: string | undefined;
+  google:
+    | {
+        clientId: string;
+        clientSecret: string;
+      }
+    | undefined;
   secureCookies: boolean;
   webOrigin: string;
 }
@@ -63,10 +73,43 @@ export function resolveAuthConfig(environment: AuthEnvironment): AuthConfig {
     throw new Error('BETTER_AUTH_URL must use HTTP or HTTPS');
   }
 
+  const googleClientId = environment.googleClientId?.trim() || undefined;
+  const googleClientSecret =
+    environment.googleClientSecret?.trim() || undefined;
+
+  if (Boolean(googleClientId) !== Boolean(googleClientSecret)) {
+    throw new Error(
+      'GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be configured together',
+    );
+  }
+
+  const cookieDomain = environment.cookieDomain?.trim() || undefined;
+  if (cookieDomain && !isCookieDomain(cookieDomain)) {
+    throw new Error('AUTH_COOKIE_DOMAIN must be a hostname without a scheme');
+  }
+
   return {
     apiOrigin: apiUrl.origin,
     authSecret: secret,
+    cookieDomain,
+    google:
+      googleClientId && googleClientSecret
+        ? { clientId: googleClientId, clientSecret: googleClientSecret }
+        : undefined,
     secureCookies: environment.nodeEnvironment === 'production',
     webOrigin: webUrl.origin,
   };
+}
+
+function isCookieDomain(value: string): boolean {
+  const hostname = value.startsWith('.') ? value.slice(1) : value;
+  return (
+    hostname.length > 0 &&
+    hostname.length <= 253 &&
+    !hostname.includes('/') &&
+    !hostname.includes(':') &&
+    hostname
+      .split('.')
+      .every((label) => /^[a-z\d](?:[a-z\d-]*[a-z\d])?$/iu.test(label))
+  );
 }

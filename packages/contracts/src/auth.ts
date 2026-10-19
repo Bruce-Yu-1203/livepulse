@@ -74,6 +74,23 @@ export const LoginResponseSchema = z
 
 export type LoginResponse = z.infer<typeof LoginResponseSchema>;
 
+export const AuthProvidersResponseSchema = z
+  .object({
+    providers: z.array(z.enum(['google'])),
+  })
+  .strict();
+
+export type AuthProvidersResponse = z.infer<typeof AuthProvidersResponseSchema>;
+
+export const SocialSignInResponseSchema = z
+  .object({
+    redirect: z.boolean(),
+    url: z.string().url(),
+  })
+  .strict();
+
+export type SocialSignInResponse = z.infer<typeof SocialSignInResponseSchema>;
+
 export const ApiErrorCode = {
   CsrfValidationFailed: 'AUTH_CSRF_VALIDATION_FAILED',
   EmailAlreadyExists: 'AUTH_EMAIL_ALREADY_REGISTERED',

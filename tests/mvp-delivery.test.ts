@@ -79,8 +79,12 @@ describe('MVP delivery assets', () => {
     expect(requirements).toContain(
       'PostgreSQL is authoritative for saved history',
     );
+    expect(requirements).toContain('Google OAuth sign-in');
     expect(architecture).toContain(
       'MongoDB is removed from the target architecture',
+    );
+    expect(architecture).toContain(
+      'Email/password and Google OAuth share Better Auth users',
     );
   });
 });

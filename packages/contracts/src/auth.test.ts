@@ -3,11 +3,13 @@ import { describe, expect, it } from 'vitest';
 import {
   ApiErrorCode,
   ApiErrorResponseSchema,
+  AuthProvidersResponseSchema,
   CurrentUserResponseSchema,
   LoginRequestSchema,
   LoginResponseSchema,
   RegisterRequestSchema,
   RegisterResponseSchema,
+  SocialSignInResponseSchema,
 } from './auth.js';
 
 describe('RegisterRequestSchema', () => {
@@ -76,6 +78,18 @@ describe('login and session contracts', () => {
         },
       }).user,
     ).toMatchObject(user);
+  });
+
+  it('accepts enabled providers and social authorization responses', () => {
+    expect(
+      AuthProvidersResponseSchema.parse({ providers: ['google'] }),
+    ).toEqual({ providers: ['google'] });
+    expect(
+      SocialSignInResponseSchema.parse({
+        redirect: false,
+        url: 'https://accounts.google.com/o/oauth2/v2/auth?client_id=test',
+      }).url,
+    ).toContain('accounts.google.com');
   });
 
   it('defines stable authentication errors', () => {

@@ -7,15 +7,29 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiErrorCode } from '@livepulse/contracts';
-import type { CurrentUserResponse } from '@livepulse/contracts';
+import type {
+  AuthProvidersResponse,
+  CurrentUserResponse,
+} from '@livepulse/contracts';
 
 import { DatabaseService } from '../database/database.service.js';
 import type { AuthenticatedRequest } from './authenticated-request.js';
+import { BetterAuthService } from './better-auth.service.js';
 import { SessionGuard } from './session.guard.js';
 
 @Controller('auth')
 export class AuthController {
-  public constructor(private readonly database: DatabaseService) {}
+  public constructor(
+    private readonly authentication: BetterAuthService,
+    private readonly database: DatabaseService,
+  ) {}
+
+  @Get('providers')
+  public providers(): AuthProvidersResponse {
+    return {
+      providers: [...this.authentication.enabledSocialProviders],
+    };
+  }
 
   @Get('me')
   @UseGuards(SessionGuard)

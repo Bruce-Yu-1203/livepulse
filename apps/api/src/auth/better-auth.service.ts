@@ -16,22 +16,28 @@ export const sessionCookieName = 'livepulse.session_token';
 export const secureSessionCookieName = `__Secure-${sessionCookieName}`;
 
 export type LivePulseAuth = ReturnType<typeof createLivePulseAuth>;
+export type EnabledSocialProvider = 'google';
 
 @Injectable()
 export class BetterAuthService {
   public readonly auth: LivePulseAuth;
   public readonly apiOrigin: string;
+  public readonly enabledSocialProviders: readonly EnabledSocialProvider[];
   public readonly trustedWebOrigin: string;
 
   public constructor(database: DatabaseService) {
     const config = resolveAuthConfig({
       apiOrigin: process.env.BETTER_AUTH_URL,
       authSecret: process.env.BETTER_AUTH_SECRET,
+      cookieDomain: process.env.AUTH_COOKIE_DOMAIN,
+      googleClientId: process.env.GOOGLE_CLIENT_ID,
+      googleClientSecret: process.env.GOOGLE_CLIENT_SECRET,
       nodeEnvironment: process.env.NODE_ENV,
       webOrigin: process.env.WEB_ORIGIN,
     });
 
     this.apiOrigin = config.apiOrigin;
+    this.enabledSocialProviders = config.google ? ['google'] : [];
     this.trustedWebOrigin = config.webOrigin;
     this.auth = createLivePulseAuth(database.client, config);
   }
@@ -58,10 +64,39 @@ function createLivePulseAuth(
   config: ReturnType<typeof resolveAuthConfig>,
 ) {
   const passwordHasher = new ScryptPasswordHasher();
+  const socialProviders = config.google
+    ? {
+        google: {
+          clientId: config.google.clientId,
+          clientSecret: config.google.clientSecret,
+          prompt: 'select_account' as const,
+          requireEmailVerification: true,
+        },
+      }
+    : {};
 
   return betterAuth({
+    account: {
+      accountLinking: {
+        enabled: true,
+        requireLocalEmailVerified: false,
+      },
+      encryptOAuthTokens: true,
+    },
     advanced: {
       cookiePrefix: 'livepulse',
+      cookies: {
+        oauth_state: { attributes: { sameSite: 'lax' } },
+        state: { attributes: { sameSite: 'lax' } },
+      },
+      ...(config.cookieDomain
+        ? {
+            crossSubDomainCookies: {
+              domain: config.cookieDomain,
+              enabled: true,
+            },
+          }
+        : {}),
       database: { generateId: 'uuid' },
       defaultCookieAttributes: {
         httpOnly: true,
@@ -90,6 +125,7 @@ function createLivePulseAuth(
       expiresIn: sessionLifetimeSeconds,
       updateAge: sessionUpdateAgeSeconds,
     },
+    socialProviders,
     trustedOrigins: [config.webOrigin],
     user: {
       additionalFields: {

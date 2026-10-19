@@ -1,7 +1,11 @@
 import 'reflect-metadata';
 
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { RegisterResponseSchema } from '@livepulse/contracts';
+import {
+  AuthProvidersResponseSchema,
+  RegisterResponseSchema,
+  SocialSignInResponseSchema,
+} from '@livepulse/contracts';
 import { createDatabaseClient } from '@livepulse/db';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
@@ -10,6 +14,8 @@ import { createApp } from '../src/create-app.js';
 import { sessionCookie } from './auth-test-helpers.js';
 
 const databaseUrl = process.env.DATABASE_URL;
+const originalGoogleClientId = process.env.GOOGLE_CLIENT_ID;
+const originalGoogleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
 if (!databaseUrl) {
   throw new Error('DATABASE_URL is required for registration database tests');
@@ -21,6 +27,8 @@ describe('POST /api/v1/auth/sign-up/email', () => {
   let app: NestFastifyApplication;
 
   beforeAll(async () => {
+    process.env.GOOGLE_CLIENT_ID = 'test-google-client-id';
+    process.env.GOOGLE_CLIENT_SECRET = 'test-google-client-secret';
     app = await createApp({ logger: false });
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
@@ -34,6 +42,51 @@ describe('POST /api/v1/auth/sign-up/email', () => {
   afterAll(async () => {
     await app.close();
     await database.$disconnect();
+    restoreEnvironment('GOOGLE_CLIENT_ID', originalGoogleClientId);
+    restoreEnvironment('GOOGLE_CLIENT_SECRET', originalGoogleClientSecret);
+  });
+
+  it('advertises Google and starts an OAuth authorization flow', async () => {
+    const providersResponse = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({ method: 'GET', url: '/api/v1/auth/providers' });
+
+    expect(providersResponse.statusCode).toBe(200);
+    expect(AuthProvidersResponseSchema.parse(providersResponse.json())).toEqual(
+      { providers: ['google'] },
+    );
+
+    const signInResponse = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: { origin: 'http://localhost:3000' },
+        method: 'POST',
+        payload: {
+          callbackURL: 'http://localhost:3000',
+          disableRedirect: true,
+          errorCallbackURL: 'http://localhost:3000/auth',
+          provider: 'google',
+        },
+        url: '/api/v1/auth/sign-in/social',
+      });
+
+    expect(signInResponse.statusCode).toBe(200);
+    const signIn = SocialSignInResponseSchema.parse(signInResponse.json());
+    const authorizationUrl = new URL(signIn.url);
+    expect(signIn.redirect).toBe(false);
+    expect(authorizationUrl.hostname).toBe('accounts.google.com');
+    expect(authorizationUrl.searchParams.get('client_id')).toBe(
+      'test-google-client-id',
+    );
+    expect(authorizationUrl.searchParams.get('redirect_uri')).toBe(
+      'http://localhost:3001/api/v1/auth/callback/google',
+    );
+    const setCookie = signInResponse.headers['set-cookie'];
+    expect(
+      Array.isArray(setCookie) ? setCookie.join('; ') : setCookie,
+    ).toContain('SameSite=Lax');
   });
 
   it('creates a signed-in viewer and credential account', async () => {
@@ -107,3 +160,11 @@ describe('POST /api/v1/auth/sign-up/email', () => {
       });
   }
 });
+
+function restoreEnvironment(name: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[name];
+  } else {
+    process.env[name] = value;
+  }
+}

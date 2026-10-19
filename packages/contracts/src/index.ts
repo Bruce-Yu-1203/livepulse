@@ -27,19 +27,23 @@ export type { OperationsSummaryResponse } from './operations.js';
 export {
   ApiErrorCode,
   ApiErrorResponseSchema,
+  AuthProvidersResponseSchema,
   CurrentUserResponseSchema,
   LoginRequestSchema,
   LoginResponseSchema,
   RegisterRequestSchema,
   RegisterResponseSchema,
+  SocialSignInResponseSchema,
 } from './auth.js';
 export type {
   ApiErrorResponse,
+  AuthProvidersResponse,
   CurrentUserResponse,
   LoginRequest,
   LoginResponse,
   RegisterRequest,
   RegisterResponse,
+  SocialSignInResponse,
 } from './auth.js';
 
 export {

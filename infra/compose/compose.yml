@@ -14,7 +14,10 @@ services:
     environment:
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-replace-with-at-least-32-random-bytes}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3001}
+      AUTH_COOKIE_DOMAIN: ${AUTH_COOKIE_DOMAIN:-}
       DATABASE_URL: postgresql://livepulse:livepulse_dev_password@postgres:5432/livepulse?schema=public
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       NODE_ENV: development
       PORT: 3001
       PROHIBITED_WORDS: ${PROHIBITED_WORDS:-scam-offer,spam-link}

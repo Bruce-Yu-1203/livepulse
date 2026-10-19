@@ -8,7 +8,7 @@
 
 LivePulse is a portfolio-grade live-event interaction platform. Visitors browse public rooms and watch a licensed/demo video; authenticated viewers post real-time chat/danmaku, like a room, inspect recent history, and report abuse. Hosts create/manage rooms and moderate participants. Administrators investigate reports and maintain audit trails. The principal engineering demonstrations are reliable event ingestion, cross-replica WebSocket fan-out, transient Redis read models, asynchronous PostgreSQL persistence, security, repeatable cloud deployment, load testing, and failure recovery.
 
-**In scope:** room management, email authentication, session security, custom RBAC, live interaction, cursor-paginated history, one-like-per-user state, online user/connection estimates, moderation, secure room cover uploads, administration, CI/CD, instrumentation, and distributed test scenarios.
+**In scope:** room management, email authentication, Google OAuth sign-in, session security, custom RBAC, live interaction, cursor-paginated history, one-like-per-user state, online user/connection estimates, moderation, secure room cover uploads, administration, CI/CD, instrumentation, and distributed test scenarios.
 
 **Out of scope for v2 core:** payment settlement/gifts, proprietary video ingest/transcoding, multi-region active-active operation, Kubernetes production cluster, large-scale recommendations, and guarantees that each individual browser receives every live frame. `LIVE` refers to an open interaction session, not a video-streaming origin. A demonstration video must have appropriate usage rights. Danmaku follows the current interaction session and need not be synchronized to a video playback timeline.
 
@@ -59,6 +59,7 @@ Do not implement MongoDB and PostgreSQL message histories in parallel. For a gre
 ### FR01 — Authentication and sessions
 
 - Email/password signup, login, logout, persisted login across refresh; secure password hashing as supported by Better Auth.
+- Google OAuth sign-in through Better Auth. A verified Google identity may link to an existing account with the same normalized email; new social accounts start as viewers.
 - Server validates sessions on HTTP operations **and on Socket.IO connection/join/message operations**; disconnected/revoked sessions cannot continue sending.
 - Host and admin permissions enforced server-side; room ownership checked in Services.
 - Use HTTPS, HttpOnly/Secure cookies, suitable SameSite and Origin/CORS/CSRF policy for `app.livepulse.com` and `api.livepulse.com`.

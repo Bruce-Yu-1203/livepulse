@@ -19,6 +19,19 @@ describe('database configuration', () => {
 
     expect(example).toContain('DATABASE_URL=postgresql://');
     expect(example).toContain('@localhost:5432/livepulse');
+    expect(example).toContain('AUTH_COOKIE_DOMAIN=');
+    expect(example).toContain('GOOGLE_CLIENT_ID=');
+    expect(example).toContain('GOOGLE_CLIENT_SECRET=');
+
+    const compose = await readFile(
+      resolve(process.cwd(), 'infra/compose/compose.yml'),
+      'utf8',
+    );
+    expect(compose).toContain('GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}');
+    expect(compose).toContain('AUTH_COOKIE_DOMAIN: ${AUTH_COOKIE_DOMAIN:-}');
+    expect(compose).toContain(
+      'GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}',
+    );
   });
 
   it('models identities, sessions, and host-owned rooms', async () => {

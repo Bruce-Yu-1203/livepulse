@@ -11,8 +11,52 @@ describe('resolveAuthConfig', () => {
 
     expect(Buffer.byteLength(config.authSecret)).toBeGreaterThanOrEqual(32);
     expect(config.apiOrigin).toBe('http://localhost:3001');
+    expect(config.cookieDomain).toBeUndefined();
+    expect(config.google).toBeUndefined();
     expect(config.secureCookies).toBe(false);
     expect(config.webOrigin).toBe('http://localhost:3000');
+  });
+
+  it('accepts a shared cookie hostname and rejects URLs', () => {
+    expect(
+      resolveAuthConfig({
+        authSecret: undefined,
+        cookieDomain: '.livepulse.example',
+        nodeEnvironment: 'development',
+      }).cookieDomain,
+    ).toBe('.livepulse.example');
+
+    expect(() =>
+      resolveAuthConfig({
+        authSecret: undefined,
+        cookieDomain: 'https://livepulse.example',
+        nodeEnvironment: 'development',
+      }),
+    ).toThrow('AUTH_COOKIE_DOMAIN must be a hostname without a scheme');
+  });
+
+  it('enables Google only when both OAuth credentials are configured', () => {
+    expect(
+      resolveAuthConfig({
+        authSecret: undefined,
+        googleClientId: ' google-client-id ',
+        googleClientSecret: ' google-client-secret ',
+        nodeEnvironment: 'development',
+      }).google,
+    ).toEqual({
+      clientId: 'google-client-id',
+      clientSecret: 'google-client-secret',
+    });
+
+    expect(() =>
+      resolveAuthConfig({
+        authSecret: undefined,
+        googleClientId: 'google-client-id',
+        nodeEnvironment: 'development',
+      }),
+    ).toThrow(
+      'GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be configured together',
+    );
   });
 
   it('requires a strong explicit secret in production', () => {

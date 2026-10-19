@@ -61,6 +61,33 @@ Open [http://localhost:3000](http://localhost:3000). The seeded users are:
 
 All three accounts use the `DEMO_PASSWORD` value supplied during seeding. These are local demonstration identities, not production credentials.
 
+### Enable Google sign-in
+
+Create an OAuth 2.0 **Web application** client in Google Cloud, configure its
+authorized redirect URI, and export the generated credentials before starting
+the API:
+
+```text
+http://localhost:3001/api/v1/auth/callback/google
+```
+
+```bash
+export GOOGLE_CLIENT_ID='your-google-client-id'
+export GOOGLE_CLIENT_SECRET='your-google-client-secret'
+```
+
+For production, register
+`$BETTER_AUTH_URL/api/v1/auth/callback/google` instead. The redirect URI must
+match Google Cloud exactly. When both variables are absent, Google sign-in is
+disabled and email/password authentication remains available. A Google account
+with a verified email can be linked to an existing LivePulse account with the
+same email; new Google users start with the Viewer role.
+
+When the web and API use sibling subdomains, set `AUTH_COOKIE_DOMAIN` to their
+trusted shared parent domain, such as `livepulse.com`. Leave it unset for
+localhost and single-host deployments. Do not scope authentication cookies to a
+parent domain that contains untrusted subdomains.
+
 ## Run the complete MVP with Docker Compose
 
 Set local-only secrets, build the application images, start the stack, and seed it:
@@ -68,6 +95,10 @@ Set local-only secrets, build the application images, start the stack, and seed 
 ```bash
 export BETTER_AUTH_SECRET='replace-with-a-random-secret-of-at-least-32-bytes'
 export BETTER_AUTH_URL='http://localhost:3001'
+# Set only for trusted sibling production subdomains.
+export AUTH_COOKIE_DOMAIN=''
+export GOOGLE_CLIENT_ID='your-google-client-id'
+export GOOGLE_CLIENT_SECRET='your-google-client-secret'
 export DEMO_PASSWORD='choose-a-local-demo-password'
 docker compose -f infra/compose/compose.yml up --build -d --wait
 docker compose -f infra/compose/compose.yml run --rm seed

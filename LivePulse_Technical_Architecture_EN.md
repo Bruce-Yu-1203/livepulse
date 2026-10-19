@@ -230,7 +230,8 @@ model DanmakuMessage {
 ## 8. Authentication, RBAC and WebSocket security
 
 - Better Auth mounted behind the NestJS HTTP adapter, with tested runtime/database adapter compatibility and secure sessions. Define trusted origins. Avoid unreviewed dual-cookie/dual-JWT implementations.
-- Backend origin: `https://api.livepulse.com`; frontend: `https://app.livepulse.com`; configure CORS `credentials`, `SameSite`, `Secure`, explicit Origin enforcement, CSRF defenses on mutations and auth endpoints.
+- Email/password and Google OAuth share Better Auth users, accounts and sessions. Google OAuth tokens are encrypted at rest, verified-email account linking preserves the existing application role, and new social identities receive the viewer role.
+- Backend origin: `https://api.livepulse.com`; frontend: `https://app.livepulse.com`; configure CORS `credentials`, `SameSite`, `Secure`, a narrowly scoped shared parent cookie domain when required, explicit Origin enforcement, CSRF defenses on mutations and auth endpoints.
 - WebSocket upgrade validates session and Origin; per-event `roomId` access/membership, account status, mute and rate-limit policies rechecked. A valid socket connection **does not authorize all rooms or all future messages**.
 - Roles: `guest`, `viewer`, `host`, `admin`. Host must own a room; authorization must happen server-side. Apply audit trails to moderation/role changes.
 - Reconnection revalidates session and rejoins only authorized rooms. If a session is revoked, disconnect/reject further messages.
