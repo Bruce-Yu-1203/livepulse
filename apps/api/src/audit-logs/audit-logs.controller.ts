@@ -14,7 +14,7 @@ import {
   type ListAuditLogsResponse,
 } from '@livepulse/contracts';
 
-import { AccessTokenGuard } from '../auth/access-token.guard.js';
+import { SessionGuard } from '../auth/session.guard.js';
 import type { AuthenticatedRequest } from '../auth/authenticated-request.js';
 import { AllowedRoles } from '../authorization/allowed-roles.decorator.js';
 import { RolesGuard } from '../authorization/roles.guard.js';
@@ -32,7 +32,7 @@ export class AuditLogsController {
 
   @AllowedRoles('ADMIN')
   @Get()
-  @UseGuards(AccessTokenGuard, RolesGuard)
+  @UseGuards(SessionGuard, RolesGuard)
   public async list(
     @Query() query: unknown,
     @Req() request: AuthenticatedRequest,

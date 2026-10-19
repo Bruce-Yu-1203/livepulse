@@ -3,11 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   ApiErrorCode,
   ApiErrorResponseSchema,
-  CsrfResponseSchema,
   CurrentUserResponseSchema,
   LoginRequestSchema,
   LoginResponseSchema,
-  RefreshResponseSchema,
   RegisterRequestSchema,
   RegisterResponseSchema,
 } from './auth.js';
@@ -58,8 +56,7 @@ describe('login and session contracts', () => {
     ).toBe(false);
   });
 
-  it('accepts responses without exposing either token', () => {
-    const expiration = '2026-10-09T01:15:00.000Z';
+  it('accepts Better Auth sign-in responses', () => {
     const user = {
       createdAt: '2026-10-09T01:00:00.000Z',
       email: 'viewer@example.com',
@@ -69,19 +66,16 @@ describe('login and session contracts', () => {
 
     expect(
       LoginResponseSchema.parse({
-        accessTokenExpiresAt: expiration,
-        refreshTokenExpiresAt: expiration,
-        requestId: 'request-3',
-        user,
+        redirect: false,
+        token: 'opaque-session-token',
+        user: {
+          ...user,
+          emailVerified: false,
+          name: 'Viewer',
+          updatedAt: '2026-10-09T01:00:00.000Z',
+        },
       }).user,
-    ).toEqual(user);
-    expect(
-      RefreshResponseSchema.parse({
-        accessTokenExpiresAt: expiration,
-        refreshTokenExpiresAt: expiration,
-        requestId: 'request-4',
-      }).requestId,
-    ).toBe('request-4');
+    ).toMatchObject(user);
   });
 
   it('defines stable authentication errors', () => {
@@ -106,10 +100,7 @@ describe('login and session contracts', () => {
     expect(ApiErrorCode.Unauthorized).toBe('AUTH_UNAUTHORIZED');
   });
 
-  it('accepts CSRF bootstrap and current-user responses', () => {
-    expect(CsrfResponseSchema.parse({ requestId: 'request-5' })).toEqual({
-      requestId: 'request-5',
-    });
+  it('accepts current-user responses', () => {
     expect(
       CurrentUserResponseSchema.parse({
         requestId: 'request-6',
@@ -127,12 +118,15 @@ describe('login and session contracts', () => {
 describe('registration responses', () => {
   it('accepts a public user response without sensitive fields', () => {
     const response = {
-      requestId: 'request-1',
+      token: 'opaque-session-token',
       user: {
         createdAt: '2026-10-09T01:00:00.000Z',
         email: 'viewer@example.com',
+        emailVerified: false,
         id: '295d5bd9-d9da-44b2-8f5d-8839f13a4437',
+        name: 'Viewer',
         role: 'VIEWER',
+        updatedAt: '2026-10-09T01:00:00.000Z',
       },
     };
 

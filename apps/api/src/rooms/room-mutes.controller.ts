@@ -16,7 +16,7 @@ import {
   type MuteRoomUserResponse,
 } from '@livepulse/contracts';
 
-import { AccessTokenGuard } from '../auth/access-token.guard.js';
+import { SessionGuard } from '../auth/session.guard.js';
 import type { AuthenticatedRequest } from '../auth/authenticated-request.js';
 import { CsrfGuard } from '../auth/csrf.guard.js';
 import { AllowedRoles } from '../authorization/allowed-roles.decorator.js';
@@ -38,7 +38,7 @@ export class RoomMutesController {
 
   @AllowedRoles('HOST', 'ADMIN')
   @Post()
-  @UseGuards(AccessTokenGuard, CsrfGuard, RolesGuard)
+  @UseGuards(SessionGuard, CsrfGuard, RolesGuard)
   public async mute(
     @Param('roomId') roomId: string,
     @Body() body: unknown,

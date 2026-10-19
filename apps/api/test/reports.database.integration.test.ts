@@ -13,15 +13,14 @@ import {
 import { createDatabaseClient } from '@livepulse/db';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import {
-  accessCookieName,
-  csrfCookieName,
-} from '../src/auth/auth-token.service.js';
-import { csrfHeaderName } from '../src/auth/csrf.guard.js';
-import { ScryptPasswordHasher } from '../src/auth/password-hasher.js';
 import { createApp } from '../src/create-app.js';
 import type { DatabaseService } from '../src/database/database.service.js';
 import { PostgresMessagesRepository } from '../src/messages/messages.repository.js';
+import {
+  createCredentialUser,
+  sessionCookie,
+  signIn,
+} from './auth-test-helpers.js';
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -47,35 +46,32 @@ describe('POST /api/v1/reports', () => {
 
   beforeAll(async () => {
     await removeFixtures();
-    const passwordHash = await new ScryptPasswordHasher().hash(password);
-    await database.user.createMany({
-      data: [
-        {
-          email: 'report-host@example.com',
-          id: hostId,
-          passwordHash,
-          role: 'HOST',
-        },
-        {
-          email: 'report-author@example.com',
-          id: authorId,
-          passwordHash,
-          role: 'VIEWER',
-        },
-        {
-          email: 'report-viewer@example.com',
-          id: reporterId,
-          passwordHash,
-          role: 'VIEWER',
-        },
-        {
-          email: 'report-admin@example.com',
-          id: adminId,
-          passwordHash,
-          role: 'ADMIN',
-        },
-      ],
-    });
+    await Promise.all([
+      createCredentialUser(database, {
+        email: 'report-host@example.com',
+        id: hostId,
+        password,
+        role: 'HOST',
+      }),
+      createCredentialUser(database, {
+        email: 'report-author@example.com',
+        id: authorId,
+        password,
+        role: 'VIEWER',
+      }),
+      createCredentialUser(database, {
+        email: 'report-viewer@example.com',
+        id: reporterId,
+        password,
+        role: 'VIEWER',
+      }),
+      createCredentialUser(database, {
+        email: 'report-admin@example.com',
+        id: adminId,
+        password,
+        role: 'ADMIN',
+      }),
+    ]);
     await database.room.create({
       data: {
         coverImageUrl: 'https://cdn.example.com/cover.jpg',
@@ -485,35 +481,11 @@ describe('POST /api/v1/reports', () => {
   });
 
   async function authenticatedHeaders(email: string) {
-    const csrfResponse = await app.getHttpAdapter().getInstance().inject({
-      method: 'GET',
-      url: '/api/v1/auth/csrf',
-    });
-    const bootstrapCsrfCookie = getSetCookie(
-      csrfResponse.headers,
-      csrfCookieName,
-    );
-    const bootstrapCsrfToken = cookieValue(bootstrapCsrfCookie);
-    const login = await app
-      .getHttpAdapter()
-      .getInstance()
-      .inject({
-        headers: {
-          cookie: cookiePair(bootstrapCsrfCookie),
-          [csrfHeaderName]: bootstrapCsrfToken,
-          origin: 'http://localhost:3000',
-        },
-        method: 'POST',
-        payload: { email, password },
-        url: '/api/v1/auth/login',
-      });
+    const login = await signIn(app, email, password);
     expect(login.statusCode).toBe(200);
-    const accessCookie = getSetCookie(login.headers, accessCookieName);
-    const csrfCookie = getSetCookie(login.headers, csrfCookieName);
 
     return {
-      cookie: `${cookiePair(accessCookie)}; ${cookiePair(csrfCookie)}`,
-      [csrfHeaderName]: cookieValue(csrfCookie),
+      cookie: cookiePair(sessionCookie(login)),
       origin: 'http://localhost:3000',
     };
   }
@@ -546,7 +518,7 @@ async function removeFixtures(): Promise<void> {
   await database.report.deleteMany({ where: { roomId } });
   await database.danmakuMessage.deleteMany({ where: { roomId } });
   await database.room.deleteMany({ where: { id: roomId } });
-  await database.refreshSession.deleteMany({
+  await database.session.deleteMany({
     where: { userId: { in: [hostId, authorId, reporterId, adminId] } },
   });
   await database.user.deleteMany({
@@ -554,29 +526,6 @@ async function removeFixtures(): Promise<void> {
   });
 }
 
-function getSetCookie(
-  headers: Record<string, number | string | string[] | undefined>,
-  name: string,
-): string {
-  const header = headers['set-cookie'];
-  const cookies = Array.isArray(header)
-    ? header
-    : typeof header === 'string'
-      ? [header]
-      : [];
-  const cookie = cookies.find((candidate) => candidate.startsWith(`${name}=`));
-
-  if (!cookie) {
-    throw new Error(`Expected the ${name} cookie`);
-  }
-
-  return cookie;
-}
-
 function cookiePair(setCookie: string): string {
   return setCookie.split(';', 1)[0] ?? '';
-}
-
-function cookieValue(setCookie: string): string {
-  return cookiePair(setCookie).split('=', 2)[1] ?? '';
 }

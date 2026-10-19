@@ -1,3 +1,0 @@
-export const PASSWORD_HASHER = Symbol('PASSWORD_HASHER');
-export const SESSIONS_REPOSITORY = Symbol('SESSIONS_REPOSITORY');
-export const USERS_REPOSITORY = Symbol('USERS_REPOSITORY');

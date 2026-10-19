@@ -12,7 +12,8 @@ services:
       redis:
         condition: service_healthy
     environment:
-      ACCESS_TOKEN_SECRET: ${ACCESS_TOKEN_SECRET:-replace-with-at-least-32-random-bytes}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-replace-with-at-least-32-random-bytes}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3001}
       DATABASE_URL: postgresql://livepulse:livepulse_dev_password@postgres:5432/livepulse?schema=public
       NODE_ENV: development
       PORT: 3001

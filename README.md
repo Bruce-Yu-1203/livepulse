@@ -66,7 +66,8 @@ All three accounts use the `DEMO_PASSWORD` value supplied during seeding. These 
 Set local-only secrets, build the application images, start the stack, and seed it:
 
 ```bash
-export ACCESS_TOKEN_SECRET='replace-with-a-random-secret-of-at-least-32-bytes'
+export BETTER_AUTH_SECRET='replace-with-a-random-secret-of-at-least-32-bytes'
+export BETTER_AUTH_URL='http://localhost:3001'
 export DEMO_PASSWORD='choose-a-local-demo-password'
 docker compose -f infra/compose/compose.yml up --build -d --wait
 docker compose -f infra/compose/compose.yml run --rm seed
@@ -96,13 +97,19 @@ Run the normal quality gate:
 pnpm validate
 ```
 
-Run database integration tests after starting PostgreSQL and Redis:
+Run database integration tests against a dedicated disposable database after
+starting PostgreSQL and Redis. Never point this suite at a database containing
+development or production data because it truncates fixtures between tests.
 
 ```bash
-DATABASE_URL='postgresql://livepulse:livepulse_dev_password@localhost:5432/livepulse?schema=public' \
+docker compose -f infra/compose/compose.yml exec postgres \
+  createdb -U livepulse livepulse_test
+DATABASE_URL='postgresql://livepulse:livepulse_dev_password@localhost:5432/livepulse_test?schema=public' \
+  pnpm --filter @livepulse/db exec prisma migrate deploy --config prisma7.config.ts
+DATABASE_URL='postgresql://livepulse:livepulse_dev_password@localhost:5432/livepulse_test?schema=public' \
 REDIS_URL='redis://localhost:6379' \
 REDIS_KEY_PREFIX='livepulse-test' \
-ACCESS_TOKEN_SECRET='integration-test-secret-at-least-32-bytes-long' \
+BETTER_AUTH_SECRET='integration-test-secret-at-least-32-bytes-long' \
 WEB_ORIGIN='http://localhost:3000' \
 pnpm test:db
 ```

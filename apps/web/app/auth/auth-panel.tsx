@@ -46,10 +46,15 @@ export function AuthPanel() {
 
     try {
       const response = await clientApiRequest(
-        `/api/v1/auth/${mode}`,
+        `/api/v1/auth/${mode === 'login' ? 'sign-in/email' : 'sign-up/email'}`,
         mode === 'login' ? LoginResponseSchema : RegisterResponseSchema,
         {
-          body: JSON.stringify(parsed.data),
+          body: JSON.stringify({
+            ...parsed.data,
+            ...(mode === 'register'
+              ? { name: parsed.data.email.split('@')[0] }
+              : {}),
+          }),
           headers: { 'content-type': 'application/json' },
           method: 'POST',
         },
@@ -65,11 +70,8 @@ export function AuthPanel() {
       }
 
       RegisterResponseSchema.parse(response);
-      setMode('login');
-      setStatus({
-        kind: 'success',
-        message: 'Account created. You can sign in now.',
-      });
+      setStatus({ kind: 'success', message: 'Account created.' });
+      window.location.assign('/');
     } catch (error) {
       setStatus({
         kind: 'error',

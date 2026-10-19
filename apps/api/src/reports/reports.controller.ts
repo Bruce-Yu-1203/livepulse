@@ -23,7 +23,7 @@ import {
   UpdateReportRequestSchema,
 } from '@livepulse/contracts';
 
-import { AccessTokenGuard } from '../auth/access-token.guard.js';
+import { SessionGuard } from '../auth/session.guard.js';
 import type { AuthenticatedRequest } from '../auth/authenticated-request.js';
 import { CsrfGuard } from '../auth/csrf.guard.js';
 import { AllowedRoles } from '../authorization/allowed-roles.decorator.js';
@@ -46,7 +46,7 @@ export class ReportsController {
   ) {}
 
   @Post()
-  @UseGuards(AccessTokenGuard, CsrfGuard)
+  @UseGuards(SessionGuard, CsrfGuard)
   public async create(
     @Body() body: unknown,
     @Req() request: AuthenticatedRequest,
@@ -101,7 +101,7 @@ export class ReportsController {
 
   @AllowedRoles('ADMIN')
   @Get()
-  @UseGuards(AccessTokenGuard, RolesGuard)
+  @UseGuards(SessionGuard, RolesGuard)
   public async list(
     @Query() query: unknown,
     @Req() request: AuthenticatedRequest,
@@ -141,7 +141,7 @@ export class ReportsController {
   @AllowedRoles('ADMIN')
   @Patch(':reportId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @UseGuards(AccessTokenGuard, CsrfGuard, RolesGuard)
+  @UseGuards(SessionGuard, CsrfGuard, RolesGuard)
   public async dismiss(
     @Param() params: unknown,
     @Body() body: unknown,

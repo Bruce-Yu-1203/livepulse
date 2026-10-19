@@ -40,29 +40,30 @@ describe('authentication database constraints', () => {
     const email = 'viewer@example.com';
 
     await pool.query(
-      'INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3)',
+      'INSERT INTO users (id, email, name) VALUES ($1, $2, $3)',
       [randomUUID(), email, 'first-password-hash'],
     );
 
     await expect(
-      pool.query(
-        'INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3)',
-        [randomUUID(), email, 'second-password-hash'],
-      ),
+      pool.query('INSERT INTO users (id, email, name) VALUES ($1, $2, $3)', [
+        randomUUID(),
+        email,
+        'second-password-hash',
+      ]),
     ).rejects.toMatchObject({ code: '23505' });
   });
 
-  it('cascades refresh-session deletion with its user', async () => {
+  it('cascades Better Auth session deletion with its user', async () => {
     const userId = randomUUID();
     const sessionId = randomUUID();
 
     await pool.query(
-      'INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3)',
+      'INSERT INTO users (id, email, name) VALUES ($1, $2, $3)',
       [userId, 'host@example.com', 'password-hash'],
     );
     await pool.query(
-      `INSERT INTO refresh_sessions
-        (id, user_id, token_hash, expires_at)
+      `INSERT INTO auth_sessions
+        (id, user_id, token, expires_at)
        VALUES ($1, $2, $3, NOW() + INTERVAL '1 day')`,
       [sessionId, userId, 'a'.repeat(64)],
     );
@@ -70,17 +71,17 @@ describe('authentication database constraints', () => {
     await pool.query('DELETE FROM users WHERE id = $1', [userId]);
 
     const result = await pool.query<{ count: string }>(
-      'SELECT COUNT(*) AS count FROM refresh_sessions WHERE id = $1',
+      'SELECT COUNT(*) AS count FROM auth_sessions WHERE id = $1',
       [sessionId],
     );
     expect(result.rows[0]?.count).toBe('0');
   });
 
-  it('rejects a refresh session without an existing user', async () => {
+  it('rejects a Better Auth session without an existing user', async () => {
     await expect(
       pool.query(
-        `INSERT INTO refresh_sessions
-          (id, user_id, token_hash, expires_at)
+        `INSERT INTO auth_sessions
+          (id, user_id, token, expires_at)
          VALUES ($1, $2, $3, NOW() + INTERVAL '1 day')`,
         [randomUUID(), randomUUID(), 'b'.repeat(64)],
       ),
@@ -92,7 +93,7 @@ describe('authentication database constraints', () => {
     const roomId = randomUUID();
 
     await pool.query(
-      "INSERT INTO users (id, email, password_hash, role) VALUES ($1, $2, $3, 'HOST')",
+      "INSERT INTO users (id, email, name, role) VALUES ($1, $2, $3, 'HOST')",
       [hostId, 'room-host@example.com', 'password-hash'],
     );
     await pool.query(
@@ -126,7 +127,7 @@ describe('authentication database constraints', () => {
     const roomId = randomUUID();
 
     await pool.query(
-      "INSERT INTO users (id, email, password_hash, role) VALUES ($1, $2, $3, 'HOST'), ($4, $5, $6, 'VIEWER')",
+      "INSERT INTO users (id, email, name, role) VALUES ($1, $2, $3, 'HOST'), ($4, $5, $6, 'VIEWER')",
       [
         hostId,
         'likes-host@example.com',
@@ -168,7 +169,7 @@ describe('authentication database constraints', () => {
     const roomId = randomUUID();
 
     await pool.query(
-      "INSERT INTO users (id, email, password_hash, role) VALUES ($1, $2, $3, 'HOST'), ($4, $5, $6, 'VIEWER')",
+      "INSERT INTO users (id, email, name, role) VALUES ($1, $2, $3, 'HOST'), ($4, $5, $6, 'VIEWER')",
       [
         hostId,
         'mutes-host@example.com',

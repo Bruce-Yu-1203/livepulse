@@ -1,7 +1,5 @@
 import { ApiErrorResponseSchema } from '@livepulse/contracts';
 
-import { readBrowserCookie } from './browser-cookies';
-
 interface ResponseSchema<T> {
   parse(value: unknown): T;
 }
@@ -37,31 +35,9 @@ export async function clientApiVoidRequest(
 }
 
 async function clientFetch(path: string, init: RequestInit): Promise<Response> {
-  const headers = new Headers(init.headers);
-  const method = (init.method ?? 'GET').toUpperCase();
-
-  if (!['GET', 'HEAD'].includes(method)) {
-    const csrfResponse = await fetch('/api/v1/auth/csrf', {
-      credentials: 'include',
-    });
-
-    if (!csrfResponse.ok) {
-      throw await toClientApiError(csrfResponse);
-    }
-
-    const csrfToken = readBrowserCookie(document.cookie, 'lp_csrf');
-
-    if (!csrfToken) {
-      throw new ClientApiError('The secure request cookie is missing.', 403);
-    }
-
-    headers.set('x-csrf-token', csrfToken);
-  }
-
   return fetch(path, {
     ...init,
     credentials: 'include',
-    headers,
   });
 }
 
@@ -94,9 +70,18 @@ function toClientApiErrorFromBody(
   body: unknown,
 ): ClientApiError {
   const parsed = ApiErrorResponseSchema.safeParse(body);
+  const providerMessage =
+    typeof body === 'object' &&
+    body !== null &&
+    'message' in body &&
+    typeof body.message === 'string'
+      ? body.message
+      : undefined;
 
   return new ClientApiError(
-    parsed.success ? parsed.data.message : 'The API request failed.',
+    parsed.success
+      ? parsed.data.message
+      : (providerMessage ?? 'The API request failed.'),
     status,
     parsed.success ? parsed.data.code : undefined,
   );

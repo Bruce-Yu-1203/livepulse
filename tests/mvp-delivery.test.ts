@@ -14,6 +14,7 @@ describe('MVP delivery assets', () => {
     expect(readme).toContain('admin@livepulse.local');
     expect(readme).toContain('## MVP demonstration');
     expect(readme).toContain('pnpm validate');
+    expect(readme).toContain('livepulse_test');
   });
 
   it('provides idempotent seed data without a committed demo password', async () => {
@@ -51,6 +52,14 @@ describe('MVP delivery assets', () => {
     expect(compose).toContain('target: web');
     expect(compose).toContain('profiles: [tools]');
     expect(compose).not.toContain('mongodb');
+
+    const e2eRunner = await readFile(
+      resolve(process.cwd(), 'scripts/run-e2e.mjs'),
+      'utf8',
+    );
+    expect(e2eRunner).toContain("'run', '--build', '--rm', 'seed'");
+    expect(e2eRunner).toContain("'stop',\n      ...runningDevelopmentServices");
+    expect(e2eRunner).toContain("'start', ...runningDevelopmentServices");
   });
 
   it('documents PostgreSQL as the only durable message store', async () => {

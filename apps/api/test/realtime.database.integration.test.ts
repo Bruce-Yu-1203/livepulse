@@ -13,13 +13,13 @@ import { createClient } from 'redis';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
 
-import {
-  accessCookieName,
-  csrfCookieName,
-} from '../src/auth/auth-token.service.js';
-import { csrfHeaderName } from '../src/auth/csrf.guard.js';
-import { ScryptPasswordHasher } from '../src/auth/password-hasher.js';
+import { sessionCookieName } from '../src/auth/better-auth.service.js';
 import { createApp } from '../src/create-app.js';
+import {
+  createCredentialUser,
+  sessionCookie,
+  signIn,
+} from './auth-test-helpers.js';
 
 const databaseUrl = process.env.DATABASE_URL;
 const redisUrl = process.env.REDIS_URL;
@@ -57,22 +57,17 @@ describe('room WebSocket gateway', () => {
     process.env.PROHIBITED_WORDS = 'scam-offer';
     await redis.connect();
     await removeFixtures();
-    const passwordHash = await new ScryptPasswordHasher().hash(password);
-    await database.user.createMany({
-      data: [
-        {
-          email: 'realtime-host@example.com',
-          id: hostId,
-          passwordHash,
-          role: 'HOST',
-        },
-        {
-          email: 'realtime-viewer@example.com',
-          id: viewerId,
-          passwordHash,
-          role: 'VIEWER',
-        },
-      ],
+    await createCredentialUser(database, {
+      email: 'realtime-host@example.com',
+      id: hostId,
+      password,
+      role: 'HOST',
+    });
+    await createCredentialUser(database, {
+      email: 'realtime-viewer@example.com',
+      id: viewerId,
+      password,
+      role: 'VIEWER',
     });
     await database.room.createMany({
       data: [
@@ -308,7 +303,7 @@ describe('room WebSocket gateway', () => {
   });
 
   it('closes an expired authenticated handshake without retry ambiguity', async () => {
-    const socket = await connect(`${accessCookieName}=expired-token`);
+    const socket = await connect(`${sessionCookieName}=expired-token`);
 
     await expect(
       new Promise<number>((resolve) => {
@@ -321,40 +316,14 @@ describe('room WebSocket gateway', () => {
     cookie: string;
     headers: Record<string, string>;
   }> {
-    const csrfResponse = await app.getHttpAdapter().getInstance().inject({
-      method: 'GET',
-      url: '/api/v1/auth/csrf',
-    });
-    const csrfCookie = getSetCookie(csrfResponse.headers, csrfCookieName);
-    const csrfToken = cookieValue(csrfCookie);
-    const response = await app
-      .getHttpAdapter()
-      .getInstance()
-      .inject({
-        headers: {
-          cookie: `${csrfCookieName}=${csrfToken}`,
-          [csrfHeaderName]: csrfToken,
-          origin: 'http://localhost:3000',
-        },
-        method: 'POST',
-        payload: { email, password },
-        url: '/api/v1/auth/login',
-      });
+    const response = await signIn(app, email, password);
     expect(response.statusCode).toBe(200);
-    const accessCookie = cookiePair(
-      getSetCookie(response.headers, accessCookieName),
-    );
-    const authenticatedCsrfCookie = getSetCookie(
-      response.headers,
-      csrfCookieName,
-    );
-    const authenticatedCsrfToken = cookieValue(authenticatedCsrfCookie);
+    const authenticatedCookie = cookiePair(sessionCookie(response));
 
     return {
-      cookie: accessCookie,
+      cookie: authenticatedCookie,
       headers: {
-        cookie: `${accessCookie}; ${cookiePair(authenticatedCsrfCookie)}`,
-        [csrfHeaderName]: authenticatedCsrfToken,
+        cookie: authenticatedCookie,
         origin: 'http://localhost:3000',
       },
     };
@@ -396,7 +365,7 @@ describe('room WebSocket gateway', () => {
     await database.room.deleteMany({
       where: { id: { in: [liveRoomId, endedRoomId, endingRoomId] } },
     });
-    await database.refreshSession.deleteMany({
+    await database.session.deleteMany({
       where: { userId: { in: [hostId, viewerId] } },
     });
     await database.user.deleteMany({
@@ -468,29 +437,6 @@ function uuid(value: number): string {
   return `00000000-0000-4000-8000-${String(value).padStart(12, '0')}`;
 }
 
-function getSetCookie(
-  headers: Record<string, number | string | string[] | undefined>,
-  name: string,
-): string {
-  const header = headers['set-cookie'];
-  const cookies = Array.isArray(header)
-    ? header
-    : typeof header === 'string'
-      ? [header]
-      : [];
-  const cookie = cookies.find((candidate) => candidate.startsWith(`${name}=`));
-
-  if (!cookie) {
-    throw new Error(`Expected the ${name} cookie`);
-  }
-
-  return cookie;
-}
-
 function cookiePair(setCookie: string): string {
   return setCookie.split(';', 1)[0] ?? '';
-}
-
-function cookieValue(setCookie: string): string {
-  return cookiePair(setCookie).split('=', 2)[1] ?? '';
 }

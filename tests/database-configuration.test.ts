@@ -29,7 +29,11 @@ describe('database configuration', () => {
     const schema = await readFile(schemaPath, 'utf8');
 
     expect(schema).toMatch(/email\s+String\s+@unique/);
-    expect(schema).toMatch(/tokenHash\s+String\s+@unique/);
+    expect(schema).toMatch(/token\s+String\s+@unique/);
+    expect(schema).toContain('@@map("auth_sessions")');
+    expect(schema).toContain('@@map("auth_accounts")');
+    expect(schema).not.toContain('RefreshSession');
+    expect(schema).not.toContain('passwordHash');
     expect(schema).toMatch(
       /updatedAt\s+DateTime\s+@default\(now\(\)\)\s+@updatedAt/,
     );

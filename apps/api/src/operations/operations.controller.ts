@@ -1,7 +1,7 @@
 import { Controller, Get, Inject, Req, UseGuards } from '@nestjs/common';
 import type { OperationsSummaryResponse } from '@livepulse/contracts';
 
-import { AccessTokenGuard } from '../auth/access-token.guard.js';
+import { SessionGuard } from '../auth/session.guard.js';
 import type { AuthenticatedRequest } from '../auth/authenticated-request.js';
 import { AllowedRoles } from '../authorization/allowed-roles.decorator.js';
 import { RolesGuard } from '../authorization/roles.guard.js';
@@ -16,7 +16,7 @@ export class OperationsController {
 
   @AllowedRoles('ADMIN')
   @Get('summary')
-  @UseGuards(AccessTokenGuard, RolesGuard)
+  @UseGuards(SessionGuard, RolesGuard)
   public async summary(
     @Req() request: AuthenticatedRequest,
   ): Promise<OperationsSummaryResponse> {

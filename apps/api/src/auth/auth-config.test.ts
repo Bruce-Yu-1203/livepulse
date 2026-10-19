@@ -3,13 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { resolveAuthConfig } from './auth-config.js';
 
 describe('resolveAuthConfig', () => {
-  it('uses a development-only default and non-secure local cookies', () => {
+  it('uses development-only defaults for local auth', () => {
     const config = resolveAuthConfig({
-      accessTokenSecret: undefined,
+      authSecret: undefined,
       nodeEnvironment: 'development',
     });
 
-    expect(config.accessTokenSecret.byteLength).toBeGreaterThanOrEqual(32);
+    expect(Buffer.byteLength(config.authSecret)).toBeGreaterThanOrEqual(32);
+    expect(config.apiOrigin).toBe('http://localhost:3001');
     expect(config.secureCookies).toBe(false);
     expect(config.webOrigin).toBe('http://localhost:3000');
   });
@@ -17,41 +18,45 @@ describe('resolveAuthConfig', () => {
   it('requires a strong explicit secret in production', () => {
     expect(() =>
       resolveAuthConfig({
-        accessTokenSecret: undefined,
+        authSecret: undefined,
         nodeEnvironment: 'production',
       }),
-    ).toThrow('ACCESS_TOKEN_SECRET is required in production');
+    ).toThrow('BETTER_AUTH_SECRET is required in production');
     expect(() =>
       resolveAuthConfig({
-        accessTokenSecret: 'short',
+        authSecret: 'short',
         nodeEnvironment: 'production',
       }),
-    ).toThrow('ACCESS_TOKEN_SECRET must contain at least 32 bytes');
+    ).toThrow('BETTER_AUTH_SECRET must contain at least 32 bytes');
   });
 
-  it('enables secure cookies in production', () => {
-    expect(
-      resolveAuthConfig({
-        accessTokenSecret: 'a-production-secret-with-at-least-32-bytes',
-        nodeEnvironment: 'production',
-        webOrigin: 'https://livepulse.example/',
-      }).secureCookies,
-    ).toBe(true);
+  it('enables secure cookies and normalizes production origins', () => {
+    const config = resolveAuthConfig({
+      apiOrigin: 'https://api.livepulse.example/path',
+      authSecret: 'a-production-secret-with-at-least-32-bytes',
+      nodeEnvironment: 'production',
+      webOrigin: 'https://livepulse.example/path',
+    });
+
+    expect(config.apiOrigin).toBe('https://api.livepulse.example');
+    expect(config.secureCookies).toBe(true);
+    expect(config.webOrigin).toBe('https://livepulse.example');
   });
 
-  it('requires and normalizes the production web origin', () => {
+  it('requires both production origins', () => {
+    const environment = {
+      authSecret: 'a-production-secret-with-at-least-32-bytes',
+      nodeEnvironment: 'production',
+    } as const;
+
+    expect(() => resolveAuthConfig(environment)).toThrow(
+      'WEB_ORIGIN is required in production',
+    );
     expect(() =>
       resolveAuthConfig({
-        accessTokenSecret: 'a-production-secret-with-at-least-32-bytes',
-        nodeEnvironment: 'production',
+        ...environment,
+        webOrigin: 'https://livepulse.example',
       }),
-    ).toThrow('WEB_ORIGIN is required in production');
-    expect(
-      resolveAuthConfig({
-        accessTokenSecret: 'a-production-secret-with-at-least-32-bytes',
-        nodeEnvironment: 'production',
-        webOrigin: 'https://livepulse.example/path',
-      }).webOrigin,
-    ).toBe('https://livepulse.example');
+    ).toThrow('BETTER_AUTH_URL is required in production');
   });
 });

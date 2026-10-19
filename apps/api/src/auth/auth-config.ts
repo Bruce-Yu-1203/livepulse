@@ -1,34 +1,36 @@
-const developmentAccessTokenSecret =
-  'livepulse-development-access-token-secret-change-me';
+const developmentAuthSecret =
+  'livepulse-development-better-auth-secret-change-me';
 
-export const accessTokenLifetimeSeconds = 15 * 60;
-export const refreshTokenLifetimeSeconds = 30 * 24 * 60 * 60;
+export const sessionLifetimeSeconds = 30 * 24 * 60 * 60;
+export const sessionUpdateAgeSeconds = 24 * 60 * 60;
 
 interface AuthEnvironment {
-  accessTokenSecret: string | undefined;
+  apiOrigin?: string | undefined;
+  authSecret: string | undefined;
   nodeEnvironment: string | undefined;
   webOrigin?: string | undefined;
 }
 
 export interface AuthConfig {
-  accessTokenSecret: Uint8Array;
+  apiOrigin: string;
+  authSecret: string;
   secureCookies: boolean;
   webOrigin: string;
 }
 
 export function resolveAuthConfig(environment: AuthEnvironment): AuthConfig {
   const secret =
-    environment.accessTokenSecret ??
+    environment.authSecret ??
     (environment.nodeEnvironment === 'production'
       ? undefined
-      : developmentAccessTokenSecret);
+      : developmentAuthSecret);
 
   if (!secret) {
-    throw new Error('ACCESS_TOKEN_SECRET is required in production');
+    throw new Error('BETTER_AUTH_SECRET is required in production');
   }
 
   if (Buffer.byteLength(secret, 'utf8') < 32) {
-    throw new Error('ACCESS_TOKEN_SECRET must contain at least 32 bytes');
+    throw new Error('BETTER_AUTH_SECRET must contain at least 32 bytes');
   }
 
   const configuredWebOrigin =
@@ -46,8 +48,24 @@ export function resolveAuthConfig(environment: AuthEnvironment): AuthConfig {
     throw new Error('WEB_ORIGIN must use HTTP or HTTPS');
   }
 
+  const configuredApiOrigin =
+    environment.apiOrigin ??
+    (environment.nodeEnvironment === 'production'
+      ? undefined
+      : 'http://localhost:3001');
+
+  if (!configuredApiOrigin) {
+    throw new Error('BETTER_AUTH_URL is required in production');
+  }
+
+  const apiUrl = new URL(configuredApiOrigin);
+  if (!['http:', 'https:'].includes(apiUrl.protocol)) {
+    throw new Error('BETTER_AUTH_URL must use HTTP or HTTPS');
+  }
+
   return {
-    accessTokenSecret: new TextEncoder().encode(secret),
+    apiOrigin: apiUrl.origin,
+    authSecret: secret,
     secureCookies: environment.nodeEnvironment === 'production',
     webOrigin: webUrl.origin,
   };

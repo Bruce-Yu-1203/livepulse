@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  hasBetterAuthSessionCookie,
   heartbeatHasExpired,
   heartbeatIntervalMs,
   heartbeatTimeoutMs,
@@ -19,5 +20,27 @@ describe('room websocket heartbeat', () => {
     expect(heartbeatHasExpired(10_000, 10_000 + heartbeatTimeoutMs + 1)).toBe(
       true,
     );
+  });
+});
+
+describe('room websocket authentication cookie detection', () => {
+  it('detects the regular Better Auth session cookie', () => {
+    expect(
+      hasBetterAuthSessionCookie('theme=dark; livepulse.session_token=token'),
+    ).toBe(true);
+  });
+
+  it('detects the secure production Better Auth session cookie', () => {
+    expect(
+      hasBetterAuthSessionCookie(
+        'theme=dark; __Secure-livepulse.session_token=token',
+      ),
+    ).toBe(true);
+  });
+
+  it('ignores unrelated and empty session cookies', () => {
+    expect(hasBetterAuthSessionCookie('theme=dark')).toBe(false);
+    expect(hasBetterAuthSessionCookie('livepulse.session_token=')).toBe(false);
+    expect(hasBetterAuthSessionCookie(undefined)).toBe(false);
   });
 });

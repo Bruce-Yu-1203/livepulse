@@ -79,11 +79,29 @@ try {
 }
 
 async function upsertUser(transaction, id, email, role, passwordHash) {
-  return transaction.user.upsert({
-    create: { email, id, passwordHash, role },
-    update: { passwordHash, role },
+  const user = await transaction.user.upsert({
+    create: { email, id, name: email.split('@')[0], role },
+    update: { name: email.split('@')[0], role },
     where: { email },
   });
+
+  await transaction.account.upsert({
+    create: {
+      accountId: user.id,
+      password: passwordHash,
+      providerId: 'credential',
+      userId: user.id,
+    },
+    update: { password: passwordHash },
+    where: {
+      providerId_accountId: {
+        accountId: user.id,
+        providerId: 'credential',
+      },
+    },
+  });
+
+  return user;
 }
 
 async function hashPassword(password) {

@@ -28,7 +28,7 @@ import type {
 } from '@livepulse/contracts';
 import type { FastifyRequest } from 'fastify';
 
-import { AccessTokenGuard } from '../auth/access-token.guard.js';
+import { SessionGuard } from '../auth/session.guard.js';
 import type { AuthenticatedRequest } from '../auth/authenticated-request.js';
 import { CsrfGuard } from '../auth/csrf.guard.js';
 import { AllowedRoles } from '../authorization/allowed-roles.decorator.js';
@@ -77,7 +77,7 @@ export class RoomsController {
 
   @AllowedRoles('HOST', 'ADMIN')
   @Get('mine')
-  @UseGuards(AccessTokenGuard, RolesGuard)
+  @UseGuards(SessionGuard, RolesGuard)
   public async listOwned(
     @Req() request: AuthenticatedRequest,
   ): Promise<ListOwnedRoomsResponse> {
@@ -118,7 +118,7 @@ export class RoomsController {
 
   @AllowedRoles('HOST', 'ADMIN')
   @Post()
-  @UseGuards(AccessTokenGuard, CsrfGuard, RolesGuard)
+  @UseGuards(SessionGuard, CsrfGuard, RolesGuard)
   public async create(
     @Body() body: unknown,
     @Req() request: AuthenticatedRequest,
@@ -143,7 +143,7 @@ export class RoomsController {
 
   @AllowedRoles('HOST', 'ADMIN')
   @Patch(':id')
-  @UseGuards(AccessTokenGuard, CsrfGuard, RolesGuard)
+  @UseGuards(SessionGuard, CsrfGuard, RolesGuard)
   public async update(
     @Param('id') id: string,
     @Body() body: unknown,

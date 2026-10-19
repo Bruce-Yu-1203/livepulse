@@ -15,13 +15,12 @@ import {
 import { createDatabaseClient } from '@livepulse/db';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import {
-  accessCookieName,
-  csrfCookieName,
-} from '../src/auth/auth-token.service.js';
-import { csrfHeaderName } from '../src/auth/csrf.guard.js';
-import { ScryptPasswordHasher } from '../src/auth/password-hasher.js';
 import { createApp } from '../src/create-app.js';
+import {
+  createCredentialUser,
+  sessionCookie,
+  signIn,
+} from './auth-test-helpers.js';
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -50,22 +49,17 @@ describe('POST /api/v1/rooms', () => {
   beforeEach(async () => {
     await database.auditLog.deleteMany();
     await database.room.deleteMany();
-    await database.refreshSession.deleteMany();
+    await database.session.deleteMany();
     await database.user.deleteMany();
-    const passwordHash = await new ScryptPasswordHasher().hash(password);
-    await database.user.createMany({
-      data: [
-        {
-          email: 'host@example.com',
-          passwordHash,
-          role: 'HOST',
-        },
-        {
-          email: 'viewer@example.com',
-          passwordHash,
-          role: 'VIEWER',
-        },
-      ],
+    await createCredentialUser(database, {
+      email: 'host@example.com',
+      password,
+      role: 'HOST',
+    });
+    await createCredentialUser(database, {
+      email: 'viewer@example.com',
+      password,
+      role: 'VIEWER',
     });
   });
 
@@ -518,35 +512,12 @@ describe('POST /api/v1/rooms', () => {
   });
 
   async function authenticatedHeaders(email: string) {
-    const csrfResponse = await app.getHttpAdapter().getInstance().inject({
-      method: 'GET',
-      url: '/api/v1/auth/csrf',
-    });
-    const bootstrapToken = getCookieValue(
-      getSetCookie(csrfResponse, csrfCookieName),
-    );
-    const loginResponse = await app
-      .getHttpAdapter()
-      .getInstance()
-      .inject({
-        headers: {
-          cookie: `${csrfCookieName}=${bootstrapToken}`,
-          [csrfHeaderName]: bootstrapToken,
-          origin: 'http://localhost:3000',
-        },
-        method: 'POST',
-        payload: { email, password },
-        url: '/api/v1/auth/login',
-      });
+    const loginResponse = await signIn(app, email, password);
 
     expect(loginResponse.statusCode).toBe(200);
-    const accessCookie = getSetCookie(loginResponse, accessCookieName);
-    const csrfCookie = getSetCookie(loginResponse, csrfCookieName);
-    const csrfToken = getCookieValue(csrfCookie);
 
     return {
-      cookie: `${cookiePair(accessCookie)}; ${cookiePair(csrfCookie)}`,
-      [csrfHeaderName]: csrfToken,
+      cookie: cookiePair(sessionCookie(loginResponse)),
       origin: 'http://localhost:3000',
     };
   }
@@ -579,37 +550,6 @@ describe('POST /api/v1/rooms', () => {
       });
   }
 });
-
-interface CookieResponse {
-  headers: Record<string, number | string | string[] | undefined>;
-}
-
-function getSetCookie(response: CookieResponse, name: string): string {
-  const header = response.headers['set-cookie'];
-  const cookies = Array.isArray(header)
-    ? header
-    : typeof header === 'string'
-      ? [header]
-      : [];
-  const cookie = cookies.find((candidate) => candidate.startsWith(`${name}=`));
-
-  if (!cookie) {
-    throw new Error(`Expected the ${name} cookie`);
-  }
-
-  return cookie;
-}
-
-function getCookieValue(setCookie: string): string {
-  const pair = cookiePair(setCookie);
-  const separator = pair.indexOf('=');
-
-  if (separator < 0) {
-    throw new Error('Expected a valid Set-Cookie header');
-  }
-
-  return pair.slice(separator + 1);
-}
 
 function cookiePair(setCookie: string): string {
   return setCookie.split(';', 1)[0] ?? '';

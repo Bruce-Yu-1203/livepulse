@@ -3,31 +3,26 @@ import {
   type ExecutionContext,
   HttpException,
   HttpStatus,
-  Inject,
   Injectable,
 } from '@nestjs/common';
 import { ApiErrorCode } from '@livepulse/contracts';
+import { fromNodeHeaders } from 'better-auth/node';
 import type { FastifyRequest } from 'fastify';
 
 import type { AuthenticatedRequest } from './authenticated-request.js';
-import { accessCookieName, AuthTokenService } from './auth-token.service.js';
+import { BetterAuthService } from './better-auth.service.js';
 
 @Injectable()
-export class AccessTokenGuard implements CanActivate {
-  public constructor(
-    @Inject(AuthTokenService) private readonly tokens: AuthTokenService,
-  ) {}
+export class SessionGuard implements CanActivate {
+  public constructor(private readonly authentication: BetterAuthService) {}
 
   public async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<FastifyRequest>();
-    const token = request.cookies[accessCookieName];
-
-    if (!token) {
-      this.throwUnauthorized();
-    }
 
     try {
-      const principal = await this.tokens.verifyAccessPrincipal(token);
+      const principal = await this.authentication.principalFromHeaders(
+        fromNodeHeaders(request.headers),
+      );
 
       if (!principal) {
         this.throwUnauthorized();

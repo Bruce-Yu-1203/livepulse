@@ -5,13 +5,15 @@ import type { Duplex } from 'node:stream';
 import { Inject, Injectable } from '@nestjs/common';
 import type { OnModuleDestroy } from '@nestjs/common';
 import type { ServerRealtimeEvent } from '@livepulse/contracts';
+import { fromNodeHeaders } from 'better-auth/node';
 import WebSocket, { WebSocketServer } from 'ws';
 import type { RawData } from 'ws';
 
 import {
-  accessCookieName,
-  AuthTokenService,
-} from '../auth/auth-token.service.js';
+  BetterAuthService,
+  secureSessionCookieName,
+  sessionCookieName,
+} from '../auth/better-auth.service.js';
 import type { AuthenticatedPrincipal } from '../auth/authenticated-request.js';
 import { RoomRealtimeHub } from './room-realtime-hub.js';
 import type { RealtimePeer } from './room-realtime-hub.js';
@@ -26,6 +28,14 @@ export function heartbeatHasExpired(lastPongAt: number, now: number): boolean {
   return now - lastPongAt >= heartbeatTimeoutMs;
 }
 
+export function hasBetterAuthSessionCookie(
+  header: string | undefined,
+): boolean {
+  return [sessionCookieName, secureSessionCookieName].some((name) =>
+    Boolean(readCookie(header, name)),
+  );
+}
+
 @Injectable()
 export class RoomWebSocketServer implements OnModuleDestroy {
   private readonly webSocketServer = new WebSocketServer({
@@ -38,7 +48,8 @@ export class RoomWebSocketServer implements OnModuleDestroy {
   private httpServer: Server | undefined;
 
   public constructor(
-    @Inject(AuthTokenService) private readonly tokens: AuthTokenService,
+    @Inject(BetterAuthService)
+    private readonly authentication: BetterAuthService,
     @Inject(RoomRealtimeHub) private readonly hub: RoomRealtimeHub,
     @Inject(RealtimeMetricsService)
     private readonly metrics: RealtimeMetricsService,
@@ -97,30 +108,22 @@ export class RoomWebSocketServer implements OnModuleDestroy {
       return;
     }
 
-    if (request.headers.origin !== this.tokens.trustedWebOrigin) {
+    if (request.headers.origin !== this.authentication.trustedWebOrigin) {
       rejectUpgrade(socket, 403, 'Forbidden');
       return;
     }
 
-    const accessToken = readCookie(request.headers.cookie, accessCookieName);
-    let principal: AuthenticatedPrincipal | undefined;
+    const headers = fromNodeHeaders(request.headers);
+    const principal = await this.authentication.principalFromHeaders(headers);
+    const hasSessionCookie = hasBetterAuthSessionCookie(request.headers.cookie);
 
-    if (accessToken) {
-      try {
-        principal = await this.tokens.verifyAccessPrincipal(accessToken);
-      } catch {
-        this.closeUnauthorized(request, socket, head);
-        return;
-      }
-
-      if (!principal) {
-        this.closeUnauthorized(request, socket, head);
-        return;
-      }
+    if (hasSessionCookie && !principal) {
+      this.closeUnauthorized(request, socket, head);
+      return;
     }
 
     this.webSocketServer.handleUpgrade(request, socket, head, (client) => {
-      this.accept(client, principal);
+      this.accept(client, principal, headers, hasSessionCookie);
     });
   }
 
@@ -137,6 +140,8 @@ export class RoomWebSocketServer implements OnModuleDestroy {
   private accept(
     socket: WebSocket,
     principal: AuthenticatedPrincipal | undefined,
+    headers: Headers,
+    hasSessionCookie: boolean,
   ): void {
     const peer: RealtimePeer = {
       id: randomUUID(),
@@ -157,7 +162,14 @@ export class RoomWebSocketServer implements OnModuleDestroy {
     this.lastPongAt.set(socket, Date.now());
     socket.on('pong', () => this.lastPongAt.set(socket, Date.now()));
     socket.on('message', (data, isBinary) => {
-      void this.receive(peer, data, isBinary);
+      void this.receive(
+        socket,
+        peer,
+        headers,
+        hasSessionCookie,
+        data,
+        isBinary,
+      );
     });
     socket.once('close', disconnect);
     socket.once('error', disconnect);
@@ -178,10 +190,19 @@ export class RoomWebSocketServer implements OnModuleDestroy {
   }
 
   private async receive(
+    socket: WebSocket,
     peer: RealtimePeer,
+    headers: Headers,
+    hasSessionCookie: boolean,
     data: RawData,
     isBinary: boolean,
   ): Promise<void> {
+    peer.principal = await this.authentication.principalFromHeaders(headers);
+    if (!peer.principal && hasSessionCookie) {
+      socket.close(4401, 'Authentication expired');
+      return;
+    }
+
     if (isBinary) {
       await this.hub.handle(peer, undefined);
       return;

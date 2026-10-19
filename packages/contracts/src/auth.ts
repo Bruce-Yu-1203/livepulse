@@ -24,14 +24,6 @@ const PublicUserSchema = z
   })
   .strict();
 
-export const CsrfResponseSchema = z
-  .object({
-    requestId: z.string().min(1),
-  })
-  .strict();
-
-export type CsrfResponse = z.infer<typeof CsrfResponseSchema>;
-
 export const CurrentUserResponseSchema = z
   .object({
     requestId: z.string().min(1),
@@ -43,13 +35,17 @@ export type CurrentUserResponse = z.infer<typeof CurrentUserResponseSchema>;
 
 export const RegisterResponseSchema = z
   .object({
-    requestId: z.string().min(1),
+    token: z.string().min(1),
     user: z
       .object({
         createdAt: z.iso.datetime(),
         email: z.string().email().max(320),
+        emailVerified: z.boolean(),
         id: z.uuid(),
+        image: z.string().url().nullable().optional(),
+        name: z.string().min(1).max(120),
         role: UserRoleSchema.extract(['VIEWER']),
+        updatedAt: z.iso.datetime(),
       })
       .strict(),
   })
@@ -59,24 +55,24 @@ export type RegisterResponse = z.infer<typeof RegisterResponseSchema>;
 
 export const LoginResponseSchema = z
   .object({
-    accessTokenExpiresAt: z.iso.datetime(),
-    refreshTokenExpiresAt: z.iso.datetime(),
-    requestId: z.string().min(1),
-    user: PublicUserSchema,
+    redirect: z.boolean(),
+    token: z.string().min(1),
+    user: z
+      .object({
+        createdAt: z.iso.datetime(),
+        email: z.string().email().max(320),
+        emailVerified: z.boolean(),
+        id: z.uuid(),
+        image: z.string().url().nullable().optional(),
+        name: z.string().min(1).max(120),
+        role: UserRoleSchema,
+        updatedAt: z.iso.datetime(),
+      })
+      .strict(),
   })
   .strict();
 
 export type LoginResponse = z.infer<typeof LoginResponseSchema>;
-
-export const RefreshResponseSchema = z
-  .object({
-    accessTokenExpiresAt: z.iso.datetime(),
-    refreshTokenExpiresAt: z.iso.datetime(),
-    requestId: z.string().min(1),
-  })
-  .strict();
-
-export type RefreshResponse = z.infer<typeof RefreshResponseSchema>;
 
 export const ApiErrorCode = {
   CsrfValidationFailed: 'AUTH_CSRF_VALIDATION_FAILED',

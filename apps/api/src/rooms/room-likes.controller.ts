@@ -17,7 +17,7 @@ import {
   type RoomLikeResponse,
 } from '@livepulse/contracts';
 
-import { AccessTokenGuard } from '../auth/access-token.guard.js';
+import { SessionGuard } from '../auth/session.guard.js';
 import type { AuthenticatedRequest } from '../auth/authenticated-request.js';
 import { CsrfGuard } from '../auth/csrf.guard.js';
 import { RoomLikesService } from './room-likes.service.js';
@@ -33,7 +33,7 @@ export class RoomLikesController {
   ) {}
 
   @Get('me')
-  @UseGuards(AccessTokenGuard)
+  @UseGuards(SessionGuard)
   public async getMine(
     @Param('roomId') roomId: string,
     @Req() request: AuthenticatedRequest,
@@ -42,7 +42,7 @@ export class RoomLikesController {
   }
 
   @Put('me')
-  @UseGuards(AccessTokenGuard, CsrfGuard)
+  @UseGuards(SessionGuard, CsrfGuard)
   public async like(
     @Param('roomId') roomId: string,
     @Req() request: AuthenticatedRequest,
@@ -52,7 +52,7 @@ export class RoomLikesController {
 
   @Delete('me')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @UseGuards(AccessTokenGuard, CsrfGuard)
+  @UseGuards(SessionGuard, CsrfGuard)
   public async unlike(
     @Param('roomId') roomId: string,
     @Req() request: AuthenticatedRequest,

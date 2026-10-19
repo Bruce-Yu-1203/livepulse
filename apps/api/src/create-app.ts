@@ -8,6 +8,8 @@ import type { FastifyInstance } from 'fastify';
 import type { Server } from 'node:http';
 
 import { AppModule } from './app.module.js';
+import { mountBetterAuth } from './auth/better-auth-handler.js';
+import { BetterAuthService } from './auth/better-auth.service.js';
 import { ApiExceptionFilter } from './http/api-exception.filter.js';
 import { RoomWebSocketServer } from './realtime/room-websocket.server.js';
 
@@ -32,6 +34,7 @@ export async function createApp(
   app.useGlobalFilters(new ApiExceptionFilter());
 
   const fastify = app.getHttpAdapter().getInstance() as FastifyInstance;
+  mountBetterAuth(fastify, app.get(BetterAuthService));
   fastify.addHook('onRequest', (request, reply, done) => {
     void reply.header('x-request-id', request.id);
     done();

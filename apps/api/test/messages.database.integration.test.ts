@@ -28,13 +28,13 @@ describe('PostgreSQL message history', () => {
         {
           email: 'message-author@example.com',
           id: authorId,
-          passwordHash: 'password-hash',
+          name: 'Message author',
           role: 'VIEWER',
         },
         {
           email: 'message-host@example.com',
           id: hostId,
-          passwordHash: 'password-hash',
+          name: 'Message host',
           role: 'HOST',
         },
       ],

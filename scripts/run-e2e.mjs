@@ -9,19 +9,44 @@ const composeArguments = [
   '--file',
   'infra/compose/compose.yml',
 ];
+const developmentComposeArguments = [
+  'compose',
+  '--file',
+  'infra/compose/compose.yml',
+];
 const environment = {
   ...process.env,
-  ACCESS_TOKEN_SECRET: randomBytes(32).toString('hex'),
+  BETTER_AUTH_SECRET: randomBytes(32).toString('hex'),
+  BETTER_AUTH_URL: 'http://127.0.0.1:3001',
   DEMO_PASSWORD: randomBytes(24).toString('base64url'),
   E2E_BASE_URL: 'http://localhost:3000',
 };
 
 let failed = false;
+let runningDevelopmentServices = [];
 
 try {
+  runningDevelopmentServices = capture('docker', [
+    ...developmentComposeArguments,
+    'ps',
+    '--services',
+    '--status',
+    'running',
+  ])
+    .split(/\s+/u)
+    .filter(Boolean);
+
+  if (runningDevelopmentServices.length > 0) {
+    run('docker', [
+      ...developmentComposeArguments,
+      'stop',
+      ...runningDevelopmentServices,
+    ]);
+  }
+
   run('docker', [...composeArguments, 'down', '--volumes', '--remove-orphans']);
   run('docker', [...composeArguments, 'up', '--build', '--detach', '--wait']);
-  run('docker', [...composeArguments, 'run', '--rm', 'seed']);
+  run('docker', [...composeArguments, 'run', '--build', '--rm', 'seed']);
   run('pnpm', ['exec', 'playwright', 'test']);
 } catch (error) {
   failed = true;
@@ -40,6 +65,21 @@ try {
     process.stderr.write(
       'The isolated end-to-end stack could not be cleaned up.\n',
     );
+  }
+
+  if (runningDevelopmentServices.length > 0) {
+    const restart = spawnSync(
+      'docker',
+      [...developmentComposeArguments, 'start', ...runningDevelopmentServices],
+      { env: environment, stdio: 'inherit' },
+    );
+
+    if (restart.status !== 0) {
+      failed = true;
+      process.stderr.write(
+        'The previously running development services could not be restarted.\n',
+      );
+    }
   }
 }
 
@@ -60,4 +100,23 @@ function run(command, args) {
       `${command} ${args.join(' ')} exited with ${result.status}`,
     );
   }
+}
+
+function capture(command, args) {
+  const result = spawnSync(command, args, {
+    encoding: 'utf8',
+    env: environment,
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  if (result.status !== 0) {
+    throw new Error(
+      `${command} ${args.join(' ')} exited with ${result.status}`,
+    );
+  }
+
+  return result.stdout;
 }

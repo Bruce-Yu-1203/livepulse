@@ -14,7 +14,7 @@ import {
   ModerateMessageParamsSchema,
 } from '@livepulse/contracts';
 
-import { AccessTokenGuard } from '../auth/access-token.guard.js';
+import { SessionGuard } from '../auth/session.guard.js';
 import type { AuthenticatedRequest } from '../auth/authenticated-request.js';
 import { CsrfGuard } from '../auth/csrf.guard.js';
 import { AllowedRoles } from '../authorization/allowed-roles.decorator.js';
@@ -35,7 +35,7 @@ export class MessageModerationController {
   @AllowedRoles('ADMIN')
   @Delete(':messageId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @UseGuards(AccessTokenGuard, CsrfGuard, RolesGuard)
+  @UseGuards(SessionGuard, CsrfGuard, RolesGuard)
   public async deleteMessage(
     @Param() params: unknown,
     @Req() request: AuthenticatedRequest,

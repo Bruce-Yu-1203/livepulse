@@ -201,12 +201,6 @@ async function registerAndSignInViewer(
   await form.getByLabel('Email').fill(email);
   await form.getByLabel('Password').fill(password);
   await form.getByRole('button', { name: 'Create account' }).click();
-  await expect(page.getByRole('status')).toHaveText(
-    'Account created. You can sign in now.',
-  );
-  await form.getByLabel('Email').fill(email);
-  await form.getByLabel('Password').fill(password);
-  await form.getByRole('button', { name: 'Sign in' }).click();
   await expect(page).toHaveURL(/\/$/);
 }
 

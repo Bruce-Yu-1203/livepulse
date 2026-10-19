@@ -1,7 +1,6 @@
 import 'reflect-metadata';
 
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { ApiErrorCode, ApiErrorResponseSchema } from '@livepulse/contracts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createApp } from '../src/create-app.js';
@@ -24,16 +23,17 @@ describe('HTTP error responses', () => {
       .getHttpAdapter()
       .getInstance()
       .inject({
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          origin: 'http://localhost:3000',
+        },
         method: 'POST',
         payload: '{',
-        url: '/api/v1/auth/register',
+        url: '/api/v1/auth/sign-up/email',
       });
 
     expect(response.statusCode).toBe(400);
-    const error = ApiErrorResponseSchema.parse(response.json());
-    expect(error.code).toBe(ApiErrorCode.ValidationError);
-    expect(error.message).toBe('The request is invalid');
-    expect(response.headers['x-request-id']).toBe(error.requestId);
+    expect(response.body).not.toContain('stack');
+    expect(response.headers['x-request-id']).toBeTypeOf('string');
   });
 });
