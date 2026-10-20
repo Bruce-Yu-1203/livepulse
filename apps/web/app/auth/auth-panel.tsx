@@ -23,10 +23,16 @@ type FormStatus =
 export function AuthPanel() {
   const [mode, setMode] = useState<AuthMode>('login');
   const [google, setGoogle] = useState({ enabled: false, loading: true });
+  const [showPassword, setShowPassword] = useState(false);
   const [status, setStatus] = useState<FormStatus>({ kind: 'idle' });
 
   useEffect(() => {
     let active = true;
+
+    const oauthError = new URLSearchParams(window.location.search).get('error');
+    if (oauthError) {
+      setStatus({ kind: 'error', message: oauthErrorMessage(oauthError) });
+    }
 
     void clientApiRequest('/api/v1/auth/providers', AuthProvidersResponseSchema)
       .then((response) => {
@@ -209,20 +215,31 @@ export function AuthPanel() {
             type="email"
           />
         </label>
-        <label className="block text-sm font-medium text-zinc-300">
-          Password
-          <input
-            autoComplete={
-              mode === 'login' ? 'current-password' : 'new-password'
-            }
-            className="mt-2 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3.5 text-white outline-none transition placeholder:text-zinc-600 focus:border-cyan-300/60 focus:ring-4 focus:ring-cyan-300/10"
-            minLength={12}
-            name="password"
-            placeholder="At least 12 characters"
-            required
-            type="password"
-          />
-        </label>
+        <div className="text-sm font-medium text-zinc-300">
+          <label htmlFor="auth-password">Password</label>
+          <span className="relative mt-2 block">
+            <input
+              autoComplete={
+                mode === 'login' ? 'current-password' : 'new-password'
+              }
+              className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3.5 pr-20 text-white outline-none transition placeholder:text-zinc-600 focus:border-cyan-300/60 focus:ring-4 focus:ring-cyan-300/10"
+              id="auth-password"
+              minLength={12}
+              name="password"
+              placeholder="At least 12 characters"
+              required
+              type={showPassword ? 'text' : 'password'}
+            />
+            <button
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              className="absolute inset-y-0 right-3 my-auto h-fit rounded-lg px-2 py-1 text-xs font-semibold text-zinc-500 transition hover:bg-white/5 hover:text-zinc-200"
+              onClick={() => setShowPassword((current) => !current)}
+              type="button"
+            >
+              {showPassword ? 'Hide' : 'Show'}
+            </button>
+          </span>
+        </div>
 
         {status.kind === 'error' || status.kind === 'success' ? (
           <p
@@ -251,6 +268,24 @@ export function AuthPanel() {
       </form>
     </section>
   );
+}
+
+export function oauthErrorMessage(error: string): string {
+  const normalized = error.trim().toLowerCase().replaceAll('-', '_');
+
+  if (normalized.includes('access_denied')) {
+    return 'Google sign-in was cancelled. You can try again when ready.';
+  }
+
+  if (normalized.includes('account_not_linked')) {
+    return 'This email is already linked to another sign-in method.';
+  }
+
+  if (normalized.includes('email') && normalized.includes('verified')) {
+    return 'Google could not provide a verified email for this account.';
+  }
+
+  return 'Google sign-in could not be completed. Please try again.';
 }
 
 function GoogleMark() {

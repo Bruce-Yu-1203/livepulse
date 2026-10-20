@@ -29,16 +29,21 @@ export default function AuthPage() {
             session across the entire experience.
           </p>
           <div className="mt-12 grid max-w-xl grid-cols-3 gap-4">
-            {['Secure sessions', 'Live rooms', 'Instant replays'].map(
-              (item) => (
-                <div
-                  className="rounded-2xl border border-white/8 bg-white/[0.03] p-4 text-sm text-zinc-300"
-                  key={item}
-                >
-                  {item}
-                </div>
-              ),
-            )}
+            {[
+              ['01', 'Secure sessions'],
+              ['02', 'Live rooms'],
+              ['03', 'Instant replays'],
+            ].map(([number, item]) => (
+              <div
+                className="rounded-2xl border border-white/8 bg-white/[0.03] p-4 text-sm text-zinc-300"
+                key={item}
+              >
+                <span className="mb-4 block text-xs font-bold tracking-[0.18em] text-cyan-300/60">
+                  {number}
+                </span>
+                {item}
+              </div>
+            ))}
           </div>
         </section>
         <AuthPanel />

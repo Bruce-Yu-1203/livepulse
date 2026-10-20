@@ -27,6 +27,8 @@ describe('RoomCard', () => {
     expect(html).toContain('Architecture Lab');
     expect(html).toContain('Live now');
     expect(html).toContain('Learn distributed systems');
-    expect(html).toContain('♡ 24');
+    expect(html).toContain('24');
+    expect(html).toContain('loading="lazy"');
+    expect(html).toContain('dateTime="2026-10-09T15:30:00.000Z"');
   });
 });

@@ -1,5 +1,7 @@
 import Link from 'next/link';
 
+import { AuthNavigation } from './auth-navigation';
+
 export function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 border-b border-white/8 bg-[#07080b]/80 backdrop-blur-xl">
@@ -13,31 +15,17 @@ export function SiteHeader() {
             LivePulse
           </span>
         </Link>
-        <nav className="flex items-center gap-2 text-sm">
+        <nav
+          aria-label="Primary navigation"
+          className="flex items-center gap-2 text-sm"
+        >
           <Link
-            className="rounded-full px-4 py-2 text-zinc-300 transition hover:bg-white/8 hover:text-white"
+            className="hidden rounded-full px-3 py-2 text-zinc-300 transition hover:bg-white/8 hover:text-white sm:inline-flex"
             href="/"
           >
-            Explore
+            Discover
           </Link>
-          <Link
-            className="rounded-full px-4 py-2 text-zinc-300 transition hover:bg-white/8 hover:text-white"
-            href="/studio"
-          >
-            Studio
-          </Link>
-          <Link
-            className="hidden rounded-full px-4 py-2 text-zinc-300 transition hover:bg-white/8 hover:text-white sm:inline-flex"
-            href="/admin"
-          >
-            Moderation
-          </Link>
-          <Link
-            className="rounded-full bg-white px-4 py-2 font-semibold text-zinc-950 transition hover:bg-cyan-200"
-            href="/auth"
-          >
-            Sign in
-          </Link>
+          <AuthNavigation />
         </nav>
       </div>
     </header>

@@ -61,7 +61,7 @@ test('viewer, host, and administrator complete the core live-room flow', async (
     const viewerMessage = `Viewer message ${suffix}`;
     await sendMessage(viewerPage, viewerMessage);
     const viewerMessageRow = hostPage
-      .locator('aside')
+      .locator('aside:visible')
       .getByText(viewerMessage, { exact: true })
       .locator('..');
     await expect(viewerMessageRow).toBeVisible();
@@ -71,10 +71,16 @@ test('viewer, host, and administrator complete the core live-room flow', async (
     ).toBeDisabled();
 
     const mutedMessage = `Muted message ${suffix}`;
-    await viewerPage.getByLabel('Chat message').fill(mutedMessage);
-    await viewerPage.getByRole('button', { name: 'Send' }).click();
+    await viewerPage
+      .getByLabel('Chat message', { exact: true })
+      .filter({ visible: true })
+      .fill(mutedMessage);
+    await viewerPage
+      .getByRole('button', { name: 'Send' })
+      .filter({ visible: true })
+      .click();
     const mutedMessageRow = viewerPage
-      .locator('aside')
+      .locator('aside:visible')
       .getByText(mutedMessage, { exact: true })
       .locator('..');
     await expect(mutedMessageRow).toContainText('failed');
@@ -85,7 +91,7 @@ test('viewer, host, and administrator complete the core live-room flow', async (
     const hostMessage = `Host message ${suffix}`;
     await sendMessage(hostPage, hostMessage);
     const hostMessageRow = viewerPage
-      .locator('aside')
+      .locator('aside:visible')
       .getByText(hostMessage, { exact: true })
       .locator('..');
     await expect(hostMessageRow).toBeVisible();
@@ -119,12 +125,12 @@ test('viewer, host, and administrator complete the core live-room flow', async (
     await Promise.all([
       expect(
         viewerPage
-          .locator('aside')
+          .locator('aside:visible')
           .getByText('Message removed by moderation', { exact: true }),
       ).toBeVisible(),
       expect(
         hostPage
-          .locator('aside')
+          .locator('aside:visible')
           .getByText('Message removed by moderation', { exact: true }),
       ).toBeVisible(),
     ]);
@@ -140,21 +146,31 @@ test('viewer, host, and administrator complete the core live-room flow', async (
       'The broadcast ended and is now available as a replay.',
     );
     await Promise.all([
-      expect(viewerPage.getByText('Replay mode')).toBeVisible(),
-      expect(hostPage.getByText('Replay mode')).toBeVisible(),
       expect(
-        viewerPage.getByText('Chat closed when this broadcast ended.'),
+        viewerPage.getByText('Replay mode').filter({ visible: true }),
       ).toBeVisible(),
       expect(
-        hostPage.getByText('Chat closed when this broadcast ended.'),
+        hostPage.getByText('Replay mode').filter({ visible: true }),
+      ).toBeVisible(),
+      expect(
+        viewerPage
+          .getByText('Chat closed when this broadcast ended.')
+          .filter({ visible: true }),
+      ).toBeVisible(),
+      expect(
+        hostPage
+          .getByText('Chat closed when this broadcast ended.')
+          .filter({ visible: true }),
       ).toBeVisible(),
     ]);
 
     await viewerPage.reload();
-    await expect(viewerPage.getByText('Replay mode')).toBeVisible();
+    await expect(
+      viewerPage.getByText('Replay mode').filter({ visible: true }),
+    ).toBeVisible();
     await expect(
       viewerPage
-        .locator('aside')
+        .locator('aside:visible')
         .getByText('Message removed by moderation', { exact: true }),
     ).toBeVisible();
   } finally {
@@ -199,16 +215,26 @@ async function registerAndSignInViewer(
   await page.getByRole('button', { name: 'Create account' }).click();
   const form = page.locator('form');
   await form.getByLabel('Email').fill(email);
-  await form.getByLabel('Password').fill(password);
+  await form.getByLabel('Password', { exact: true }).fill(password);
   await form.getByRole('button', { name: 'Create account' }).click();
   await expect(page).toHaveURL(/\/$/);
+  await expect(
+    page.getByRole('link', { name: `Home for ${email}` }),
+  ).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Sign in' })).toBeHidden();
 }
 
 async function sendMessage(page: Page, message: string): Promise<void> {
-  await page.getByLabel('Chat message').fill(message);
-  await page.getByRole('button', { name: 'Send' }).click();
+  await page
+    .getByLabel('Chat message', { exact: true })
+    .filter({ visible: true })
+    .fill(message);
+  await page
+    .getByRole('button', { name: 'Send' })
+    .filter({ visible: true })
+    .click();
   await expect(
-    page.locator('aside').getByText(message, { exact: true }),
+    page.locator('aside:visible').getByText(message, { exact: true }),
   ).toBeVisible();
 }
 
@@ -220,9 +246,16 @@ async function signIn(
   await page.goto('/auth');
   const form = page.locator('form');
   await form.getByLabel('Email').fill(email);
-  await form.getByLabel('Password').fill(password);
+  await form.getByLabel('Password', { exact: true }).fill(password);
   await form.getByRole('button', { name: 'Sign in' }).click();
   await expect(page).toHaveURL(/\/studio$/);
+  const accountDestination = email.startsWith('admin@')
+    ? 'Moderation'
+    : 'Studio';
+  await expect(
+    page.getByRole('link', { name: `${accountDestination} for ${email}` }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
 }
 
 function requiredEnvironment(name: string): string {

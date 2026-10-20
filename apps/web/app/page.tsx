@@ -1,8 +1,11 @@
 import Link from 'next/link';
 
+import { HomeAccountAction } from '../components/home-account-action';
 import { RoomCard } from '../components/room-card';
 import { SiteHeader } from '../components/site-header';
 import { listRooms } from '../lib/api';
+import { summarizeRooms } from '../lib/presentation';
+import { formatLikeCount } from '../lib/room-likes';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +18,9 @@ export default async function HomePage({
 
   try {
     const page = await listRooms(cursor);
+    const summary = summarizeRooms(page.items);
+    const featuredRoom =
+      page.items.find((room) => room.status === 'LIVE') ?? page.items[0];
 
     return (
       <>
@@ -22,13 +28,13 @@ export default async function HomePage({
         <main>
           <section className="relative isolate overflow-hidden border-b border-white/8">
             <div className="absolute left-1/2 top-[-26rem] -z-10 h-[48rem] w-[48rem] -translate-x-1/2 rounded-full border border-cyan-300/10 bg-cyan-300/[0.045] blur-3xl" />
-            <div className="mx-auto max-w-7xl px-5 pb-20 pt-24 sm:px-8 sm:pb-28 sm:pt-32">
+            <div className="mx-auto grid max-w-7xl gap-14 px-5 pb-20 pt-20 sm:px-8 sm:pb-28 sm:pt-28 lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-end">
               <div className="max-w-4xl">
                 <p className="flex items-center gap-3 text-xs font-bold uppercase tracking-[0.24em] text-cyan-300">
                   <span className="h-px w-8 bg-cyan-300/70" />
                   Shared moments, happening now
                 </p>
-                <h1 className="mt-7 text-5xl font-semibold leading-[0.96] tracking-[-0.06em] text-white sm:text-7xl lg:text-[6.5rem]">
+                <h1 className="mt-7 text-5xl font-semibold leading-[0.96] tracking-[-0.06em] text-white sm:text-7xl lg:text-[6rem] xl:text-[6.5rem]">
                   Live rooms with a pulse.
                 </h1>
                 <p className="mt-7 max-w-2xl text-base leading-8 text-zinc-400 sm:text-lg">
@@ -42,14 +48,72 @@ export default async function HomePage({
                   >
                     Explore rooms
                   </a>
-                  <Link
-                    className="rounded-full border border-white/12 px-6 py-3 font-semibold text-white transition hover:border-white/25 hover:bg-white/5"
-                    href="/auth"
-                  >
-                    Join LivePulse
-                  </Link>
+                  <HomeAccountAction />
                 </div>
               </div>
+
+              <aside className="rounded-[2rem] border border-white/10 bg-white/[0.045] p-5 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-6">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">
+                    Live signal
+                  </p>
+                  <span className="flex items-center gap-2 text-xs font-semibold text-rose-200">
+                    <span className="relative flex size-2">
+                      <span className="absolute inline-flex size-full animate-ping rounded-full bg-rose-400 opacity-60 motion-reduce:animate-none" />
+                      <span className="relative inline-flex size-2 rounded-full bg-rose-400" />
+                    </span>
+                    {summary.live} on air
+                  </span>
+                </div>
+
+                {featuredRoom ? (
+                  <Link
+                    className="group mt-5 block overflow-hidden rounded-2xl border border-white/8 bg-black/25"
+                    href={`/rooms/${featuredRoom.id}`}
+                  >
+                    <div className="relative aspect-[16/9] overflow-hidden bg-zinc-900">
+                      <img
+                        alt=""
+                        className="h-full w-full object-cover opacity-70 transition duration-500 group-hover:scale-105 group-hover:opacity-90"
+                        src={featuredRoom.coverImageUrl}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                      <span className="absolute bottom-3 left-3 rounded-full bg-black/55 px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-white backdrop-blur">
+                        {featuredRoom.status === 'LIVE'
+                          ? 'Watch now'
+                          : 'Replay'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 p-4">
+                      <p className="truncate font-semibold text-white">
+                        {featuredRoom.title}
+                      </p>
+                      <span className="text-cyan-300 transition group-hover:translate-x-1">
+                        →
+                      </span>
+                    </div>
+                  </Link>
+                ) : (
+                  <div className="mt-5 rounded-2xl border border-dashed border-white/10 px-4 py-10 text-center text-sm text-zinc-500">
+                    The next room is warming up.
+                  </div>
+                )}
+
+                <dl className="mt-5 grid grid-cols-2 divide-x divide-white/8 border-t border-white/8 pt-5">
+                  <div>
+                    <dt className="text-xs text-zinc-600">Replays</dt>
+                    <dd className="mt-1 text-2xl font-semibold text-white">
+                      {summary.replays}
+                    </dd>
+                  </div>
+                  <div className="pl-5">
+                    <dt className="text-xs text-zinc-600">Room likes</dt>
+                    <dd className="mt-1 text-2xl font-semibold text-white">
+                      {formatLikeCount(summary.likes)}
+                    </dd>
+                  </div>
+                </dl>
+              </aside>
             </div>
           </section>
 

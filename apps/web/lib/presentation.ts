@@ -15,3 +15,14 @@ export function formatRoomDate(value: string): string {
 export function roomStatusLabel(status: VisibleRoom['status']): string {
   return status === 'LIVE' ? 'Live now' : 'Replay';
 }
+
+export function summarizeRooms(rooms: VisibleRoom[]) {
+  return rooms.reduce(
+    (summary, room) => ({
+      likes: summary.likes + room.likeCount,
+      live: summary.live + (room.status === 'LIVE' ? 1 : 0),
+      replays: summary.replays + (room.status === 'ENDED' ? 1 : 0),
+    }),
+    { likes: 0, live: 0, replays: 0 },
+  );
+}
