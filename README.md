@@ -26,6 +26,34 @@ corepack prepare pnpm@11.19.0 --activate
 pnpm install --frozen-lockfile
 ```
 
+## CI and deployment
+
+The [CI workflow](.github/workflows/ci.yml) runs for pull requests targeting
+`main`, commits pushed to `main`, and merge queue commits. Its three jobs run
+independently:
+
+- `Quality and build` runs `pnpm validate` (lint, formatting, type checks,
+  unit/component tests, and production builds).
+- `PostgreSQL and Redis integration` starts disposable database services,
+  applies Prisma migrations, and runs `pnpm test:db`.
+- `Browser end-to-end` starts the isolated Docker Compose stack through
+  `pnpm test:e2e` and saves Playwright reports when it fails.
+
+Require all three GitHub Actions checks before merging into `main`. Keep Vercel
+and Railway connected to the `main` branch for production deployments. Enable
+Railway's **Wait for CI** setting on the API service so a failing `main` check
+prevents its deployment. The Railway API service must continue to run Prisma
+`migrate deploy` as its pre-deploy command and check `/health/ready` before it
+receives traffic. CI uses temporary databases; it does not run its integration
+or browser tests against the production database.
+
+Vercel should keep `apps/web` as its root directory, include source files
+outside that directory for `packages/contracts`, and provide the production
+values of `API_ORIGIN` and `NEXT_PUBLIC_WEBSOCKET_URL`. Railway should use the
+repository root as its build directory and keep its existing PostgreSQL,
+Redis, authentication, and LiveKit variables in the API service. No production
+credentials are needed in GitHub Actions for these checks.
+
 ## Run locally for development
 
 The application has localhost-only development defaults. To override them, copy the environment template, edit it, and export its values into each terminal that starts an application process:
