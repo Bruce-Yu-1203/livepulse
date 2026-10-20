@@ -108,7 +108,7 @@ services:
     build:
       args:
         API_ORIGIN: http://api:3001
-        NEXT_PUBLIC_WEBSOCKET_URL: ${NEXT_PUBLIC_WEBSOCKET_URL:-ws://localhost:3001/ws}
+        NEXT_PUBLIC_SOCKET_IO_URL: ${NEXT_PUBLIC_SOCKET_IO_URL:-http://localhost:3001}
       context: ../..
       dockerfile: infra/compose/Dockerfile
       target: web

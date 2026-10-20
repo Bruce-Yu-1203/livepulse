@@ -23,9 +23,9 @@ RUN pnpm --filter @livepulse/contracts build \
 FROM workspace AS web-build
 
 ARG API_ORIGIN=http://api:3001
-ARG NEXT_PUBLIC_WEBSOCKET_URL=ws://localhost:3001/ws
+ARG NEXT_PUBLIC_SOCKET_IO_URL=http://localhost:3001
 ENV API_ORIGIN=$API_ORIGIN
-ENV NEXT_PUBLIC_WEBSOCKET_URL=$NEXT_PUBLIC_WEBSOCKET_URL
+ENV NEXT_PUBLIC_SOCKET_IO_URL=$NEXT_PUBLIC_SOCKET_IO_URL
 
 RUN pnpm --filter @livepulse/contracts build \
   && pnpm --filter @livepulse/web build

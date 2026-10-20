@@ -9,6 +9,7 @@ import {
   RealtimeErrorEventSchema,
   RoomEndedEventSchema,
   RoomJoinedEventSchema,
+  RoomLeaveEventSchema,
 } from './realtime.js';
 
 const requestId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -62,6 +63,23 @@ describe('realtime contracts', () => {
         v: 1,
       }).payload.connections,
     ).toBe(2);
+  });
+
+  it('accepts a strict room leave event', () => {
+    const event = {
+      payload: { roomId },
+      requestId,
+      type: 'room.leave',
+      v: 1,
+    } as const;
+    expect(RoomLeaveEventSchema.parse(event)).toEqual(event);
+    expect(ClientRealtimeEventSchema.parse(event)).toEqual(event);
+    expect(
+      RoomLeaveEventSchema.safeParse({
+        ...event,
+        payload: { roomId, unexpected: true },
+      }).success,
+    ).toBe(false);
   });
 
   it('rejects oversized messages and unknown fields', () => {

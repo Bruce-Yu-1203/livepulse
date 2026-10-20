@@ -11,7 +11,7 @@ import { AppModule } from './app.module.js';
 import { mountBetterAuth } from './auth/better-auth-handler.js';
 import { BetterAuthService } from './auth/better-auth.service.js';
 import { ApiExceptionFilter } from './http/api-exception.filter.js';
-import { RoomWebSocketServer } from './realtime/room-websocket.server.js';
+import { RoomSocketIoServer } from './realtime/room-socket-io.server.js';
 
 export async function createApp(
   options: NestApplicationOptions = {},
@@ -39,7 +39,7 @@ export async function createApp(
     void reply.header('x-request-id', request.id);
     done();
   });
-  app.get(RoomWebSocketServer).attach(app.getHttpServer() as Server);
+  app.get(RoomSocketIoServer).attach(app.getHttpServer() as Server);
 
   return app;
 }

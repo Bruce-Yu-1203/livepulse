@@ -257,7 +257,7 @@ export function markMessageDeleted(
   );
 }
 
-export function resolveWebSocketUrl(
+export function resolveSocketIoOrigin(
   location: Pick<Location, 'host' | 'hostname' | 'port' | 'protocol'>,
   configuredUrl?: string,
 ): string {
@@ -265,19 +265,10 @@ export function resolveWebSocketUrl(
     return configuredUrl;
   }
 
-  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const protocol = location.protocol === 'https:' ? 'https:' : 'http:';
   const authority =
     location.port === '3000' ? `${location.hostname}:3001` : location.host;
-  return `${protocol}//${authority}/ws`;
-}
-
-export function reconnectDelay(attempt: number, random = Math.random): number {
-  const cappedBase = Math.min(30_000, 1_000 * 2 ** attempt);
-  return Math.round(cappedBase * (0.8 + random() * 0.4));
-}
-
-export function canStartRealtimeConnection(readyState?: number): boolean {
-  return readyState === undefined || readyState >= 2;
+  return `${protocol}//${authority}`;
 }
 
 export function roomChatIsClosed(

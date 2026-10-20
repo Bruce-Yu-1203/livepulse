@@ -75,6 +75,27 @@ describe('RoomRealtimeHub', () => {
     });
   });
 
+  it('leaves a room without disconnecting the Socket.IO peer', async () => {
+    const hub = createHub();
+    const sender = peer('sender', true);
+    const observer = peer('observer', false);
+    await hub.handle(sender, joinEvent(1));
+    await hub.handle(observer, joinEvent(2));
+
+    await hub.handle(observer, {
+      payload: { roomId },
+      requestId: uuid(3),
+      type: 'room.leave',
+      v: 1,
+    });
+    await hub.handle(sender, sendEvent(4, 4, 'After leave'));
+
+    expect(eventsOfType(observer, 'message.created')).toHaveLength(0);
+    expect(eventsOfType(sender, 'room.stats').at(-1)).toMatchObject({
+      payload: { connections: 1, roomId },
+    });
+  });
+
   it('deduplicates multiple connections from the same authenticated user', async () => {
     const hub = createHub();
     const firstTab = peer('first-tab', true);

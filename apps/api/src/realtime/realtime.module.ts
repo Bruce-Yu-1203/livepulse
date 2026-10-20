@@ -9,7 +9,7 @@ import { RedisRealtimeCoordinator } from './redis-realtime-coordinator.js';
 import { ProhibitedContentFilter } from './prohibited-content.filter.js';
 import { RealtimeMetricsService } from './realtime-metrics.service.js';
 import { RoomRealtimeHub } from './room-realtime-hub.js';
-import { RoomWebSocketServer } from './room-websocket.server.js';
+import { RoomSocketIoServer } from './room-socket-io.server.js';
 import {
   REALTIME_EVENT_BUS,
   REALTIME_PRESENCE,
@@ -20,7 +20,7 @@ import {
   imports: [AuthModule, DatabaseModule, MessagesModule, RoomLifecycleModule],
   providers: [
     RoomRealtimeHub,
-    RoomWebSocketServer,
+    RoomSocketIoServer,
     RedisRealtimeCoordinator,
     RealtimeMetricsService,
     ProhibitedContentFilter,
@@ -37,6 +37,6 @@ import {
       useExisting: RedisRealtimeCoordinator,
     },
   ],
-  exports: [REALTIME_EVENT_BUS, RealtimeMetricsService, RoomWebSocketServer],
+  exports: [REALTIME_EVENT_BUS, RealtimeMetricsService, RoomSocketIoServer],
 })
 export class RealtimeModule {}

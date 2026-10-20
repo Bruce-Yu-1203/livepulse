@@ -18,6 +18,15 @@ export const RoomJoinEventSchema = z
   })
   .strict();
 
+export const RoomLeaveEventSchema = z
+  .object({
+    payload: z.object({ roomId: RoomIdSchema }).strict(),
+    requestId: RequestIdSchema,
+    type: z.literal('room.leave'),
+    v: EventVersionSchema,
+  })
+  .strict();
+
 export const MessageSendEventSchema = z
   .object({
     payload: z
@@ -35,6 +44,7 @@ export const MessageSendEventSchema = z
 
 export const ClientRealtimeEventSchema = z.discriminatedUnion('type', [
   RoomJoinEventSchema,
+  RoomLeaveEventSchema,
   MessageSendEventSchema,
 ]);
 

@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
   addPendingMessage,
-  canStartRealtimeConnection,
   markMessageDeleted,
   markMessageFailed,
   mergeCreatedMessage,
@@ -12,11 +11,10 @@ import {
   maxMessageDeliveryAttempts,
   PendingMessageTracker,
   pendingMessageRetentionMs,
-  reconnectDelay,
   realtimeErrorMessage,
   roomChatIsClosed,
   roomPresenceLabel,
-  resolveWebSocketUrl,
+  resolveSocketIoOrigin,
 } from './room-chat';
 
 const clientMessageId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -136,36 +134,37 @@ describe('room chat state', () => {
     expect(mergeCreatedMessage(reconciled, createdEvent)).toEqual(reconciled);
   });
 
-  it('resolves local and deployed websocket URLs with bounded backoff', () => {
+  it('resolves local and deployed Socket.IO origins', () => {
     expect(
-      resolveWebSocketUrl({
+      resolveSocketIoOrigin({
         host: 'localhost:3000',
         hostname: 'localhost',
         port: '3000',
         protocol: 'http:',
       }),
-    ).toBe('ws://localhost:3001/ws');
+    ).toBe('http://localhost:3001');
     expect(
-      resolveWebSocketUrl({
+      resolveSocketIoOrigin({
         host: 'live.example.com',
         hostname: 'live.example.com',
         port: '',
         protocol: 'https:',
       }),
-    ).toBe('wss://live.example.com/ws');
-    expect(reconnectDelay(0, () => 0.5)).toBe(1_000);
-    expect(reconnectDelay(20, () => 0.5)).toBe(30_000);
+    ).toBe('https://live.example.com');
+    expect(
+      resolveSocketIoOrigin(
+        {
+          host: 'localhost:3000',
+          hostname: 'localhost',
+          port: '3000',
+          protocol: 'http:',
+        },
+        'https://api.example.com',
+      ),
+    ).toBe('https://api.example.com');
     expect(roomPresenceLabel(1, 1)).toBe('1 person online');
     expect(roomPresenceLabel(1_250, 1_250)).toBe('1,250 people online');
     expect(roomPresenceLabel(1, 2)).toBe('1 person online · 2 connections');
-  });
-
-  it('starts one connection at a time and permits recovery after closure', () => {
-    expect(canStartRealtimeConnection()).toBe(true);
-    expect(canStartRealtimeConnection(0)).toBe(false);
-    expect(canStartRealtimeConnection(1)).toBe(false);
-    expect(canStartRealtimeConnection(2)).toBe(true);
-    expect(canStartRealtimeConnection(3)).toBe(true);
   });
 
   it('closes the composer when the room or realtime session has ended', () => {

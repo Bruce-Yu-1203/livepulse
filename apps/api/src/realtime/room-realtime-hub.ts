@@ -113,6 +113,13 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    if (parsed.data.type === 'room.leave') {
+      if (this.joinedRoomByPeer.get(peer.id) === parsed.data.payload.roomId) {
+        await this.removeFromRoom(peer, parsed.data.payload.roomId);
+      }
+      return;
+    }
+
     await this.sendMessage(peer, parsed.data);
   }
 

@@ -9,20 +9,19 @@ import {
 import type { RoomStatus } from '@livepulse/contracts';
 import type { UserRole } from '@livepulse/contracts';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { io, type Socket } from 'socket.io-client';
 
 import { ClientApiError, clientApiRequest } from './client-api';
 import {
   addPendingMessage,
-  canStartRealtimeConnection,
   type ChatMessage,
   markMessageDeleted,
   markMessageFailed,
   mergeCreatedMessage,
   mergeHistoryMessages,
   PendingMessageTracker,
-  reconnectDelay,
   realtimeErrorMessage,
-  resolveWebSocketUrl,
+  resolveSocketIoOrigin,
   type RoomConnectionState,
 } from './room-chat';
 
@@ -39,7 +38,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
   const [error, setError] = useState<string>();
   const [historyLoading, setHistoryLoading] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null | undefined>();
-  const socketRef = useRef<WebSocket>(undefined);
+  const socketRef = useRef<Socket>(undefined);
   const pendingMessagesRef = useRef(new PendingMessageTracker());
   const historyLoadingRef = useRef(false);
 
@@ -123,11 +122,9 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
     }
 
     let cancelled = false;
-    let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
-    let joinedSocket: WebSocket | undefined;
-    let attempt = 0;
+    let joinedSocket: Socket | undefined;
 
-    function flushPending(socket: WebSocket) {
+    function flushPending(socket: Socket) {
       const sweep = pendingMessagesRef.current.sweep();
       if (sweep.failedClientMessageIds.length > 0) {
         setMessages((current) =>
@@ -153,47 +150,33 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
     }
 
     function connect() {
-      if (
-        cancelled ||
-        !canStartRealtimeConnection(socketRef.current?.readyState)
-      ) {
+      if (cancelled || socketRef.current) {
         return;
       }
 
-      if (reconnectTimer) {
-        clearTimeout(reconnectTimer);
-        reconnectTimer = undefined;
-      }
-
-      setConnection(attempt === 0 ? 'connecting' : 'reconnecting');
-      const socket = new WebSocket(
-        resolveWebSocketUrl(
+      setConnection('connecting');
+      const socket = io(
+        resolveSocketIoOrigin(
           window.location,
-          process.env.NEXT_PUBLIC_WEBSOCKET_URL,
+          process.env.NEXT_PUBLIC_SOCKET_IO_URL,
         ),
+        {
+          path: '/socket.io',
+          transports: ['websocket'],
+          withCredentials: true,
+        },
       );
       socketRef.current = socket;
 
-      socket.addEventListener('open', () => {
-        const requestId = crypto.randomUUID();
-        socket.send(
-          JSON.stringify({
-            payload: { roomId },
-            requestId,
-            type: 'room.join',
-            v: 1,
-          }),
-        );
+      socket.on('connect', () => {
+        socket.emit('room.join', {
+          payload: { roomId },
+          requestId: crypto.randomUUID(),
+          type: 'room.join',
+          v: 1,
+        });
       });
-      socket.addEventListener('message', (incoming) => {
-        let body: unknown;
-
-        try {
-          body = JSON.parse(String(incoming.data)) as unknown;
-        } catch {
-          return;
-        }
-
+      const receive = (body: unknown) => {
         const parsed = ServerRealtimeEventSchema.safeParse(body);
         if (!parsed.success) {
           return;
@@ -201,7 +184,6 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
 
         if (parsed.data.type === 'room.joined') {
           joinedSocket = socket;
-          attempt = 0;
           setConnection('connected');
           setOnlineCount(parsed.data.payload.connections);
           setUniqueUserCount(parsed.data.payload.uniqueUsers);
@@ -234,7 +216,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
           setUniqueUserCount(0);
           setError(undefined);
           cancelled = true;
-          socket.close(1000, 'Room ended');
+          socket.disconnect();
           void loadHistory();
           return;
         }
@@ -271,10 +253,20 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
         if (parsed.data.payload.code === ApiErrorCode.RealtimeRoomNotLive) {
           setConnection('ended');
           cancelled = true;
-          socket.close(1000, 'Room ended');
+          socket.disconnect();
         }
-      });
-      socket.addEventListener('close', (event) => {
+      };
+      for (const event of [
+        'room.joined',
+        'room.stats',
+        'room.ended',
+        'message.created',
+        'message.deleted',
+        'error',
+      ]) {
+        socket.on(event, receive);
+      }
+      socket.on('disconnect', (reason) => {
         if (socketRef.current !== socket) {
           return;
         }
@@ -284,8 +276,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
         if (cancelled) {
           return;
         }
-
-        if (event.code === 4401) {
+        if (reason === 'io server disconnect') {
           cancelled = true;
           setUserId(undefined);
           setUserRole(undefined);
@@ -293,7 +284,6 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
           setError('Your session expired. Sign in again to rejoin chat.');
           return;
         }
-
         setConnection('reconnecting');
         setOnlineCount(0);
         setUniqueUserCount(0);
@@ -301,12 +291,19 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
           setError(
             'You are offline. Chat will reconnect when the network returns.',
           );
+        }
+      });
+      socket.on('connect_error', (caught: Error) => {
+        if (caught.message === 'Authentication expired') {
+          cancelled = true;
+          setUserId(undefined);
+          setUserRole(undefined);
+          setAuthChecked(true);
+          setError('Your session expired. Sign in again to rejoin chat.');
+          socket.disconnect();
           return;
         }
-        reconnectTimer = setTimeout(connect, reconnectDelay(attempt));
-        attempt += 1;
-      });
-      socket.addEventListener('error', () => {
+        setConnection('reconnecting');
         setError('The live connection was interrupted. Reconnecting…');
       });
     }
@@ -317,15 +314,11 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
       }
 
       setError('Network restored. Reconnecting…');
-      connect();
+      socketRef.current?.connect();
     }
 
     function markOffline() {
-      if (reconnectTimer) {
-        clearTimeout(reconnectTimer);
-        reconnectTimer = undefined;
-      }
-      socketRef.current?.close(1000, 'Browser offline');
+      socketRef.current?.disconnect();
       setConnection('reconnecting');
       setOnlineCount(0);
       setUniqueUserCount(0);
@@ -338,7 +331,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
     window.addEventListener('online', reconnectWhenOnline);
     window.addEventListener('offline', markOffline);
     const deliverySweepTimer = setInterval(() => {
-      if (joinedSocket?.readyState === WebSocket.OPEN) {
+      if (joinedSocket?.connected) {
         flushPending(joinedSocket);
       }
     }, 1_000);
@@ -346,12 +339,19 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
     return () => {
       cancelled = true;
       clearInterval(deliverySweepTimer);
-      if (reconnectTimer) {
-        clearTimeout(reconnectTimer);
-      }
       window.removeEventListener('online', reconnectWhenOnline);
       window.removeEventListener('offline', markOffline);
-      socketRef.current?.close(1000, 'Leaving room');
+      const socket = socketRef.current;
+      if (socket?.connected) {
+        socket.emit('room.leave', {
+          payload: { roomId },
+          requestId: crypto.randomUUID(),
+          type: 'room.leave',
+          v: 1,
+        });
+      }
+      socket?.disconnect();
+      socketRef.current = undefined;
     };
   }, [loadHistory, roomId, roomStatus]);
 
@@ -364,7 +364,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
         return false;
       }
 
-      if (!socket || socket.readyState !== WebSocket.OPEN) {
+      if (!socket?.connected || connection !== 'connected') {
         setError('Wait for the live connection before sending.');
         return false;
       }
@@ -387,7 +387,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
       setError(undefined);
       return true;
     },
-    [roomId, userId],
+    [connection, roomId, userId],
   );
 
   return {
@@ -414,7 +414,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
 }
 
 function sendTrackedMessage(
-  socket: WebSocket,
+  socket: Socket,
   tracker: PendingMessageTracker,
   roomId: string,
   clientMessageId: string,
@@ -425,17 +425,15 @@ function sendTrackedMessage(
     return false;
   }
 
-  socket.send(
-    JSON.stringify({
-      payload: {
-        clientMessageId: delivery.clientMessageId,
-        roomId,
-        text: delivery.text,
-      },
-      requestId,
-      type: 'message.send',
-      v: 1,
-    }),
-  );
+  socket.emit('message.send', {
+    payload: {
+      clientMessageId: delivery.clientMessageId,
+      roomId,
+      text: delivery.text,
+    },
+    requestId,
+    type: 'message.send',
+    v: 1,
+  });
   return true;
 }

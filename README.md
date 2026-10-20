@@ -5,7 +5,7 @@ LivePulse is a TypeScript full-stack MVP for interactive live rooms. Viewers can
 ## Stack
 
 - Next.js 16 and React 19 for the web application
-- NestJS 12 and Fastify for REST and WebSocket services
+- NestJS 12 and Fastify for REST, with Socket.IO for realtime events
 - PostgreSQL and Prisma for transactional data and message history
 - Redis Pub/Sub and leased presence for cross-instance realtime delivery
 - LiveKit for screen, camera, and microphone publishing and playback
@@ -49,7 +49,7 @@ or browser tests against the production database.
 
 Vercel should keep `apps/web` as its root directory, include source files
 outside that directory for `packages/contracts`, and provide the production
-values of `API_ORIGIN` and `NEXT_PUBLIC_WEBSOCKET_URL`. Railway should use the
+values of `API_ORIGIN` and `NEXT_PUBLIC_SOCKET_IO_URL`. Railway should use the
 repository root as its build directory and keep its existing PostgreSQL,
 Redis, authentication, and LiveKit variables in the API service. No production
 credentials are needed in GitHub Actions for these checks.

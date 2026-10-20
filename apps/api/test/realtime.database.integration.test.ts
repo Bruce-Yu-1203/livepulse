@@ -11,7 +11,7 @@ import {
 import { createDatabaseClient } from '@livepulse/db';
 import { createClient } from 'redis';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import WebSocket from 'ws';
+import { io, type Socket } from 'socket.io-client';
 
 import { sessionCookieName } from '../src/auth/better-auth.service.js';
 import { createApp } from '../src/create-app.js';
@@ -45,11 +45,11 @@ const endedRoomId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const endingRoomId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 const originalProhibitedWords = process.env.PROHIBITED_WORDS;
 
-describe('room WebSocket gateway', () => {
+describe('room Socket.IO gateway', () => {
   let app: NestFastifyApplication;
   let secondApp: NestFastifyApplication;
-  let websocketUrl: string;
-  let secondWebsocketUrl: string;
+  let socketIoUrl: string;
+  let secondSocketIoUrl: string;
   let accessCookie: string;
   let hostHeaders: Record<string, string>;
 
@@ -81,8 +81,8 @@ describe('room WebSocket gateway', () => {
     secondApp = await createApp({ logger: false });
     await app.listen(0, '127.0.0.1');
     await secondApp.listen(0, '127.0.0.1');
-    websocketUrl = `${await app.getUrl().then((url) => url.replace('http:', 'ws:'))}/ws`;
-    secondWebsocketUrl = `${await secondApp.getUrl().then((url) => url.replace('http:', 'ws:'))}/ws`;
+    socketIoUrl = await app.getUrl();
+    secondSocketIoUrl = await secondApp.getUrl();
     accessCookie = (await login('realtime-viewer@example.com')).cookie;
     hostHeaders = (await login('realtime-host@example.com')).headers;
   });
@@ -103,9 +103,11 @@ describe('room WebSocket gateway', () => {
   it('joins live rooms, blocks guest sends, and broadcasts one message', async () => {
     const sender = await connect(accessCookie);
     const guest = await connect(undefined, 'http://localhost:3000', true);
+    expect(sender.io.engine.transport.name).toBe('websocket');
+    expect(guest.io.engine.transport.name).toBe('websocket');
 
     const senderJoined = nextEventOfType(sender, 'room.joined');
-    sender.send(JSON.stringify(joinEvent(liveRoomId, 1)));
+    send(sender, joinEvent(liveRoomId, 1));
     expect(
       RoomJoinedEventSchema.parse(await senderJoined).payload,
     ).toMatchObject({
@@ -115,7 +117,7 @@ describe('room WebSocket gateway', () => {
     });
 
     const guestJoined = nextEventOfType(guest, 'room.joined');
-    guest.send(JSON.stringify(joinEvent(liveRoomId, 2)));
+    send(guest, joinEvent(liveRoomId, 2));
     expect(
       RoomJoinedEventSchema.parse(await guestJoined).payload,
     ).toMatchObject({
@@ -126,7 +128,7 @@ describe('room WebSocket gateway', () => {
 
     const secondTab = await connect(accessCookie);
     const secondTabJoined = nextEventOfType(secondTab, 'room.joined');
-    secondTab.send(JSON.stringify(joinEvent(liveRoomId, 3)));
+    send(secondTab, joinEvent(liveRoomId, 3));
     expect(
       RoomJoinedEventSchema.parse(await secondTabJoined).payload,
     ).toMatchObject({
@@ -136,14 +138,14 @@ describe('room WebSocket gateway', () => {
     });
 
     const guestRejected = nextEventOfType(guest, 'error');
-    guest.send(JSON.stringify(sendEvent(liveRoomId, 4, 1, 'Guest message')));
+    send(guest, sendEvent(liveRoomId, 4, 1, 'Guest message'));
     expect(
       RealtimeErrorEventSchema.parse(await guestRejected).payload.code,
     ).toBe('REALTIME_AUTHENTICATION_REQUIRED');
 
     const senderCreated = nextEventOfType(sender, 'message.created');
     const guestCreated = nextEventOfType(guest, 'message.created');
-    sender.send(JSON.stringify(sendEvent(liveRoomId, 5, 2, 'Hello live room')));
+    send(sender, sendEvent(liveRoomId, 5, 2, 'Hello live room'));
     const sent = ServerRealtimeEventSchema.parse(await senderCreated);
     const observed = ServerRealtimeEventSchema.parse(await guestCreated);
     expect(sent).toMatchObject({
@@ -164,29 +166,76 @@ describe('room WebSocket gateway', () => {
       ListRoomMessagesResponseSchema.parse(historyResponse.json()).items,
     ).toMatchObject([{ authorId: viewerId, text: 'Hello live room' }]);
 
-    sender.close();
-    guest.close();
-    secondTab.close();
+    sender.disconnect();
+    guest.disconnect();
+    secondTab.disconnect();
   });
 
   it('rejects ended-room joins and untrusted origins', async () => {
     const viewer = await connect(accessCookie);
+    const invalidEvent = nextEventOfType(viewer, 'error');
+    viewer.emit('message.send', joinEvent(liveRoomId, 50));
+    expect(
+      RealtimeErrorEventSchema.parse(await invalidEvent).payload.code,
+    ).toBe('REALTIME_INVALID_EVENT');
     const rejectedJoin = nextEventOfType(viewer, 'error');
-    viewer.send(JSON.stringify(joinEvent(endedRoomId, 5)));
+    send(viewer, joinEvent(endedRoomId, 5));
     expect(
       RealtimeErrorEventSchema.parse(await rejectedJoin).payload.code,
     ).toBe('REALTIME_ROOM_NOT_LIVE');
-    viewer.close();
+    viewer.disconnect();
 
     await expect(
       connect(undefined, 'https://untrusted.example.com'),
-    ).rejects.toThrow('Unexpected server response: 403');
+    ).rejects.toThrow();
+  });
+
+  it('broadcasts across instances and stops delivery after room.leave', async () => {
+    const sender = await connect(accessCookie);
+    const observer = await connect(undefined, 'http://localhost:3000', true);
+    const senderJoined = nextEventOfType(sender, 'room.joined');
+    send(sender, joinEvent(liveRoomId, 40));
+    await senderJoined;
+    const observerJoined = nextEventOfType(observer, 'room.joined');
+    send(observer, joinEvent(liveRoomId, 41));
+    const joinedCount = RoomJoinedEventSchema.parse(await observerJoined)
+      .payload.connections;
+
+    const received = nextEventOfType(observer, 'message.created');
+    send(sender, sendEvent(liveRoomId, 42, 42, 'Across instances'));
+    expect(ServerRealtimeEventSchema.parse(await received)).toMatchObject({
+      payload: { text: 'Across instances' },
+      type: 'message.created',
+    });
+
+    const remaining = nextEventOfType(sender, 'room.stats');
+    observer.emit('room.leave', {
+      payload: { roomId: liveRoomId },
+      requestId: uuid(43),
+      type: 'room.leave',
+      v: 1,
+    });
+    expect(ServerRealtimeEventSchema.parse(await remaining)).toMatchObject({
+      payload: { connections: joinedCount - 1, roomId: liveRoomId },
+      type: 'room.stats',
+    });
+
+    const receivedAfterLeave: unknown[] = [];
+    observer.on('message.created', (event: unknown) =>
+      receivedAfterLeave.push(event),
+    );
+    const sentAgain = nextEventOfType(sender, 'message.created');
+    send(sender, sendEvent(liveRoomId, 44, 44, 'Only joined peers'));
+    await sentAgain;
+    expect(receivedAfterLeave).toHaveLength(0);
+    sender.disconnect();
+    observer.disconnect();
   });
 
   it('enforces a mute created on one instance against another instance', async () => {
     const viewer = await connect(accessCookie, 'http://localhost:3000', true);
     const joined = nextEventOfType(viewer, 'room.joined');
-    viewer.send(JSON.stringify(joinEvent(liveRoomId, 10)));
+    send(viewer, joinEvent(liveRoomId, 10));
     await joined;
 
     const muted = await app
@@ -201,10 +250,9 @@ describe('room WebSocket gateway', () => {
     expect(muted.statusCode).toBe(201);
 
     const rejected = nextEventOfType(viewer, 'error');
-    viewer.send(
-      JSON.stringify(
-        sendEvent(liveRoomId, 11, 10, 'This message must not persist'),
-      ),
+    send(
+      viewer,
+      sendEvent(liveRoomId, 11, 10, 'This message must not persist'),
     );
     expect(
       RealtimeErrorEventSchema.parse(await rejected).payload,
@@ -230,7 +278,7 @@ describe('room WebSocket gateway', () => {
         },
       }),
     ).resolves.toBe(1);
-    viewer.close();
+    viewer.disconnect();
   });
 
   it('rejects prohibited content without persisting it', async () => {
@@ -240,18 +288,14 @@ describe('room WebSocket gateway', () => {
     const sender = await connect(accessCookie);
     const observer = await connect(undefined, 'http://localhost:3000', true);
     const senderJoined = nextEventOfType(sender, 'room.joined');
-    sender.send(JSON.stringify(joinEvent(liveRoomId, 20)));
+    send(sender, joinEvent(liveRoomId, 20));
     await senderJoined;
     const observerJoined = nextEventOfType(observer, 'room.joined');
-    observer.send(JSON.stringify(joinEvent(liveRoomId, 21)));
+    send(observer, joinEvent(liveRoomId, 21));
     await observerJoined;
 
     const rejected = nextEventOfType(sender, 'error');
-    sender.send(
-      JSON.stringify(
-        sendEvent(liveRoomId, 22, 20, 'A limited SCAM-OFFER today'),
-      ),
-    );
+    send(sender, sendEvent(liveRoomId, 22, 20, 'A limited SCAM-OFFER today'));
     expect(RealtimeErrorEventSchema.parse(await rejected).payload.code).toBe(
       'REALTIME_CONTENT_BLOCKED',
     );
@@ -264,8 +308,8 @@ describe('room WebSocket gateway', () => {
       }),
     ).resolves.toBe(0);
 
-    sender.close();
-    observer.close();
+    sender.disconnect();
+    observer.disconnect();
   });
 
   it('propagates a room ending to viewers connected through both instances', async () => {
@@ -276,10 +320,10 @@ describe('room WebSocket gateway', () => {
       true,
     );
     const firstJoined = nextEventOfType(firstViewer, 'room.joined');
-    firstViewer.send(JSON.stringify(joinEvent(endingRoomId, 30)));
+    send(firstViewer, joinEvent(endingRoomId, 30));
     await firstJoined;
     const secondJoined = nextEventOfType(secondViewer, 'room.joined');
-    secondViewer.send(JSON.stringify(joinEvent(endingRoomId, 31)));
+    send(secondViewer, joinEvent(endingRoomId, 31));
     await secondJoined;
 
     const firstEnded = nextEventOfType(firstViewer, 'room.ended');
@@ -298,18 +342,14 @@ describe('room WebSocket gateway', () => {
     const published = RoomEndedEventSchema.parse(await firstEnded);
     expect(published.payload).toMatchObject({ roomId: endingRoomId });
     expect(RoomEndedEventSchema.parse(await secondEnded)).toEqual(published);
-    firstViewer.close();
-    secondViewer.close();
+    firstViewer.disconnect();
+    secondViewer.disconnect();
   });
 
-  it('closes an expired authenticated handshake without retry ambiguity', async () => {
-    const socket = await connect(`${sessionCookieName}=expired-token`);
-
-    await expect(
-      new Promise<number>((resolve) => {
-        socket.once('close', (code) => resolve(code));
-      }),
-    ).resolves.toBe(4401);
+  it('rejects an expired authenticated handshake without retry ambiguity', async () => {
+    await expect(connect(`${sessionCookieName}=expired-token`)).rejects.toThrow(
+      'Authentication expired',
+    );
   });
 
   async function login(email: string): Promise<{
@@ -333,17 +373,18 @@ describe('room WebSocket gateway', () => {
     cookie?: string,
     origin = 'http://localhost:3000',
     secondInstance = false,
-  ): Promise<WebSocket> {
+  ): Promise<Socket> {
     return new Promise((resolve, reject) => {
-      const socket = new WebSocket(
-        secondInstance ? secondWebsocketUrl : websocketUrl,
-        {
-          ...(cookie ? { headers: { cookie } } : {}),
-          origin,
-        },
-      );
-      socket.once('open', () => resolve(socket));
-      socket.once('error', reject);
+      const socket = io(secondInstance ? secondSocketIoUrl : socketIoUrl, {
+        extraHeaders: { ...(cookie ? { cookie } : {}), origin },
+        reconnection: false,
+        transports: ['websocket'],
+      });
+      socket.once('connect', () => resolve(socket));
+      socket.once('connect_error', (error) => {
+        socket.disconnect();
+        reject(error);
+      });
     });
   }
 
@@ -375,27 +416,25 @@ describe('room WebSocket gateway', () => {
 });
 
 function nextEventOfType(
-  socket: WebSocket,
-  type: 'error' | 'message.created' | 'room.ended' | 'room.joined',
+  socket: Socket,
+  type:
+    'error' | 'message.created' | 'room.ended' | 'room.joined' | 'room.stats',
 ): Promise<unknown> {
   return new Promise((resolve, reject) => {
-    const receive = (data: WebSocket.RawData) => {
+    const receive = (data: unknown) => {
       try {
-        const event = ServerRealtimeEventSchema.parse(
-          JSON.parse(data.toString()) as unknown,
-        );
-        if (event.type === type) {
-          socket.off('message', receive);
-          resolve(event);
-        }
+        resolve(ServerRealtimeEventSchema.parse(data));
       } catch (error) {
-        socket.off('message', receive);
         reject(error instanceof Error ? error : new Error('Invalid event'));
       }
     };
-    socket.on('message', receive);
-    socket.once('error', reject);
+    socket.once(type, receive);
+    socket.once('connect_error', reject);
   });
+}
+
+function send(socket: Socket, event: { type: string }): void {
+  socket.emit(event.type, event);
 }
 
 function joinEvent(roomId: string, request: number) {
