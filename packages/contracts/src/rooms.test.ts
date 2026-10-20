@@ -15,7 +15,6 @@ import {
 
 const validRequest = {
   coverImageUrl: 'https://cdn.example.com/live/cover.jpg',
-  demoVideoUrl: 'https://video.example.com/demo.mp4',
   description: 'A live room for TypeScript learners.',
   title: 'Build LivePulse Together',
 };
@@ -31,12 +30,21 @@ describe('CreateRoomRequestSchema', () => {
     ).toEqual(validRequest);
   });
 
+  it('allows the cover to be generated when broadcasting starts', () => {
+    const withoutCover = {
+      description: validRequest.description,
+      title: validRequest.title,
+    };
+
+    expect(CreateRoomRequestSchema.parse(withoutCover)).toEqual(withoutCover);
+  });
+
   it.each([
     { ...validRequest, title: '' },
     { ...validRequest, title: 'x'.repeat(121) },
     { ...validRequest, description: 'x'.repeat(2_001) },
     { ...validRequest, coverImageUrl: 'ftp://example.com/cover.jpg' },
-    { ...validRequest, demoVideoUrl: 'not-a-url' },
+    { ...validRequest, demoVideoUrl: 'https://example.com/legacy.mp4' },
     { ...validRequest, status: 'LIVE' },
   ])('rejects invalid or server-owned room input: %o', (input) => {
     expect(CreateRoomRequestSchema.safeParse(input).success).toBe(false);
@@ -169,6 +177,18 @@ describe('host room management', () => {
         room: { ...room, version: 2 },
       }).room.version,
     ).toBe(2);
+  });
+
+  it('accepts a generated cover frame', () => {
+    expect(
+      UpdateRoomRequestSchema.parse({
+        coverImageUrl: 'data:image/jpeg;base64,Y292ZXI=',
+        expectedVersion: 1,
+      }),
+    ).toEqual({
+      coverImageUrl: 'data:image/jpeg;base64,Y292ZXI=',
+      expectedVersion: 1,
+    });
   });
 
   it.each([

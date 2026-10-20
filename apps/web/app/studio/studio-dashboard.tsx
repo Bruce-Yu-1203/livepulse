@@ -78,8 +78,6 @@ export function StudioDashboard() {
 
     const form = new FormData(formElement);
     const parsed = CreateRoomRequestSchema.safeParse({
-      coverImageUrl: form.get('coverImageUrl'),
-      demoVideoUrl: form.get('demoVideoUrl'),
       description: form.get('description'),
       title: form.get('title'),
     });
@@ -87,7 +85,7 @@ export function StudioDashboard() {
     if (!parsed.success) {
       setNotice({
         kind: 'error',
-        message: 'Complete every field and use valid HTTP or HTTPS media URLs.',
+        message: 'Add a title and description before creating the room.',
       });
       setPending(false);
       return;
@@ -123,8 +121,6 @@ export function StudioDashboard() {
 
     const form = new FormData(event.currentTarget);
     const parsed = UpdateRoomRequestSchema.safeParse({
-      coverImageUrl: form.get('coverImageUrl'),
-      demoVideoUrl: form.get('demoVideoUrl'),
       description: form.get('description'),
       expectedVersion: selectedRoom.version,
       title: form.get('title'),
@@ -133,7 +129,7 @@ export function StudioDashboard() {
     if (!parsed.success) {
       setNotice({
         kind: 'error',
-        message: 'Complete every field and use valid HTTP or HTTPS media URLs.',
+        message: 'Add a title and description before saving the room.',
       });
       return;
     }
@@ -150,7 +146,30 @@ export function StudioDashboard() {
       { expectedVersion: room.version, status },
       status === 'LIVE'
         ? 'The room is live and visible to viewers.'
-        : 'The broadcast ended and is now available as a replay.',
+        : 'The broadcast ended and the room is now archived.',
+    );
+
+    return updated !== undefined;
+  }
+
+  async function markBroadcastReady(
+    room: Room,
+    generatedCover?: string,
+  ): Promise<boolean> {
+    if (room.status === 'LIVE' && !generatedCover) {
+      return true;
+    }
+
+    const updated = await updateRoom(
+      room,
+      {
+        ...(generatedCover ? { coverImageUrl: generatedCover } : {}),
+        expectedVersion: room.version,
+        ...(room.status === 'DRAFT' ? { status: 'LIVE' as const } : {}),
+      },
+      room.status === 'DRAFT'
+        ? 'The room is live and visible to viewers.'
+        : 'The broadcast preview was refreshed.',
     );
 
     return updated !== undefined;
@@ -321,7 +340,9 @@ export function StudioDashboard() {
               disabled={pending}
               key={selectedRoom.id}
               onEnd={() => transitionRoom(selectedRoom, 'ENDED')}
-              onGoLive={() => transitionRoom(selectedRoom, 'LIVE')}
+              onGoLive={(generatedCover) =>
+                markBroadcastReady(selectedRoom, generatedCover)
+              }
               onSubmit={saveRoom}
               room={selectedRoom}
             />
@@ -366,18 +387,6 @@ function CreateRoomForm({
           name="description"
           placeholder="What will the audience experience?"
         />
-        <StudioField
-          label="Cover image URL"
-          name="coverImageUrl"
-          placeholder="https://…"
-          type="url"
-        />
-        <StudioField
-          label="Demo video URL"
-          name="demoVideoUrl"
-          placeholder="https://…"
-          type="url"
-        />
       </div>
       <button
         className="mt-5 w-full rounded-2xl bg-white px-4 py-3 text-sm font-bold text-zinc-950 transition hover:bg-cyan-200 disabled:cursor-wait disabled:opacity-50"
@@ -399,7 +408,7 @@ function RoomEditor({
 }: {
   disabled: boolean;
   onEnd(): Promise<boolean>;
-  onGoLive(): Promise<boolean>;
+  onGoLive(generatedCover?: string): Promise<boolean>;
   onSubmit(event: FormEvent<HTMLFormElement>): void;
   room: Room;
 }) {
@@ -424,7 +433,7 @@ function RoomEditor({
           </div>
           {immutable ? (
             <span className="rounded-full border border-white/10 px-4 py-2 text-xs font-semibold text-zinc-400">
-              Archived replay
+              Broadcast ended
             </span>
           ) : null}
         </div>
@@ -441,41 +450,23 @@ function RoomEditor({
 
       <form className="p-6 sm:p-8" onSubmit={onSubmit}>
         <div className="grid gap-6 lg:grid-cols-2">
-          <div className="space-y-5">
-            <StudioField
-              defaultValue={room.title}
-              disabled={immutable}
-              label="Title"
-              name="title"
-            />
-            <StudioTextArea
-              defaultValue={room.description}
-              disabled={immutable}
-              label="Description"
-              name="description"
-            />
-          </div>
-          <div className="space-y-5">
-            <StudioField
-              defaultValue={room.coverImageUrl}
-              disabled={immutable}
-              label="Cover image URL"
-              name="coverImageUrl"
-              type="url"
-            />
-            <StudioField
-              defaultValue={room.demoVideoUrl}
-              disabled={immutable}
-              label="Demo video URL"
-              name="demoVideoUrl"
-              type="url"
-            />
-          </div>
+          <StudioField
+            defaultValue={room.title}
+            disabled={immutable}
+            label="Title"
+            name="title"
+          />
+          <StudioTextArea
+            defaultValue={room.description}
+            disabled={immutable}
+            label="Description"
+            name="description"
+          />
         </div>
         <div className="mt-8 flex flex-col justify-between gap-4 border-t border-white/8 pt-6 sm:flex-row sm:items-center">
           <p className="max-w-xl text-sm leading-6 text-zinc-500">
             {immutable
-              ? 'Ended rooms are preserved as immutable replay records.'
+              ? 'Ended rooms are preserved as immutable broadcast records.'
               : 'Saving checks the server version first, protecting newer edits from being overwritten.'}
           </p>
           {!immutable ? (

@@ -75,7 +75,6 @@ describe('POST /api/v1/reports', () => {
     await database.room.create({
       data: {
         coverImageUrl: 'https://cdn.example.com/cover.jpg',
-        demoVideoUrl: 'https://video.example.com/demo.mp4',
         description: 'A room for report integration tests.',
         hostId,
         id: roomId,

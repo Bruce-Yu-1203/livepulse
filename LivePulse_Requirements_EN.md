@@ -6,7 +6,7 @@
 
 ## 1. Product vision and scope
 
-LivePulse is a portfolio-grade live-event interaction platform. Visitors browse public rooms and watch a licensed/demo video; authenticated viewers post real-time chat/danmaku, like a room, inspect recent history, and report abuse. Hosts create/manage rooms and moderate participants. Administrators investigate reports and maintain audit trails. The principal engineering demonstrations are reliable event ingestion, cross-replica WebSocket fan-out, transient Redis read models, asynchronous PostgreSQL persistence, security, repeatable cloud deployment, load testing, and failure recovery.
+LivePulse is a portfolio-grade live-event interaction platform. Visitors browse public rooms and watch LiveKit broadcasts; authenticated viewers post real-time chat/danmaku, like a room, inspect recent history, and report abuse. Hosts create/manage rooms and moderate participants. Administrators investigate reports and maintain audit trails. The principal engineering demonstrations are reliable event ingestion, cross-replica WebSocket fan-out, transient Redis read models, asynchronous PostgreSQL persistence, security, repeatable cloud deployment, load testing, and failure recovery.
 
 **In scope:** room management, email authentication, Google OAuth sign-in, session security, custom RBAC, live interaction, cursor-paginated history, one-like-per-user state, online user/connection estimates, moderation, secure room cover uploads, administration, CI/CD, instrumentation, and distributed test scenarios.
 
@@ -35,7 +35,7 @@ Targets below are **design goals only** and require reproducible verification be
 
 | Role   | Rights                                                                | Denials                                                                |
 | ------ | --------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| Guest  | Browse visible rooms and read public history / demo video             | Cannot send, like, report as an authenticated account, or create rooms |
+| Guest  | Browse visible rooms and read public history / live broadcast          | Cannot send, like, report as an authenticated account, or create rooms |
 | Viewer | Send danmaku, like/unlike, read history, report content               | Subject to rate limits, bans/mutes and room status                     |
 | Host   | Create, edit and end **owned** rooms; mute users in owned rooms       | Cannot modify another host's room                                      |
 | Admin  | Review reports, remove content, manage users, view operations summary | All sensitive actions audited                                          |
@@ -67,7 +67,9 @@ Do not implement MongoDB and PostgreSQL message histories in parallel. For a gre
 
 ### FR02 — Rooms and lifecycle
 
-- Room fields: ID, host, title, description, cover asset ID, demo video URL, visibility, creation timestamps, optimistic-lock version.
+- Room fields: ID, host, title, description, optional cover, visibility, creation timestamps, optimistic-lock version.
+- Before publishing, hosts preview screen sharing, camera, or both. Screen sharing is the main picture and camera is an upper-right overlay when both are enabled.
+- If no cover is configured, the client captures a frame from the main local preview when broadcasting starts.
 - Lifecycle: `DRAFT -> LIVE -> ENDED`; ended rooms become read-only, and cannot accept new danmaku or likes if product policy disables likes after end (define and test explicitly).
 - Room lists use cursor pagination; non-visible drafts must not leak; stale host updates return conflict.
 - Acceptance: another host cannot modify a room; concurrent updates do not silently overwrite; new messages rejected when ENDED.
@@ -144,7 +146,7 @@ Do not implement MongoDB and PostgreSQL message histories in parallel. For a gre
 | --------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | Sign up / login | Forms, field errors, session                                              | loading / rejected / authenticated                                   |
 | Room directory  | Cover, host, status, online estimate, search                              | loading / empty / error                                              |
-| Room detail     | Licensed demo video, danmaku overlay, chat panel, like, presence, history | connecting / ready / reconnecting / message pending / failed / ended |
+| Room detail     | LiveKit broadcast, danmaku overlay, chat panel, like, presence, history    | connecting / ready / reconnecting / message pending / failed / ended |
 | Host console    | Room CRUD, upload status, lifecycle, mutes                                | unauthorized / conflict / uploading / scanning / ready               |
 | Admin console   | Reports, deletions, audit logs, ops summary                               | pending / confirmed / conflict / forbidden                           |
 

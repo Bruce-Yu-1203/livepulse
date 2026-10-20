@@ -149,7 +149,6 @@ function roomRepository(
     findById: vi.fn().mockResolvedValue({
       coverImageUrl: 'https://cdn.example.com/cover.jpg',
       createdAt: new Date('2026-10-10T19:00:00.000Z'),
-      demoVideoUrl: 'https://video.example.com/demo.mp4',
       description: 'A moderated room',
       hostId,
       id: roomId,

@@ -44,8 +44,6 @@ try {
       create: {
         coverImageUrl:
           'https://images.unsplash.com/photo-1516321318423-f06f85e504b3',
-        demoVideoUrl:
-          'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
         description:
           'A seeded live room for trying chat, danmaku, likes, reports, and moderation.',
         hostId: host.id,
@@ -56,8 +54,6 @@ try {
       update: {
         coverImageUrl:
           'https://images.unsplash.com/photo-1516321318423-f06f85e504b3',
-        demoVideoUrl:
-          'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
         description:
           'A seeded live room for trying chat, danmaku, likes, reports, and moderation.',
         hostId: host.id,

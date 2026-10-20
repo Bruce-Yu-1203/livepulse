@@ -13,7 +13,7 @@ export function formatRoomDate(value: string): string {
 }
 
 export function roomStatusLabel(status: VisibleRoom['status']): string {
-  return status === 'LIVE' ? 'Live now' : 'Replay';
+  return status === 'LIVE' ? 'Live now' : 'Ended';
 }
 
 export function summarizeRooms(rooms: VisibleRoom[]) {

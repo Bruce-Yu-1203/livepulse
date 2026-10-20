@@ -26,7 +26,7 @@ export function LiveBroadcastPlayer({
   coverImageUrl,
   roomId,
 }: {
-  coverImageUrl: string;
+  coverImageUrl: string | null;
   roomId: string;
 }) {
   const liveKitRoom = useRef<Room | undefined>(undefined);
@@ -128,7 +128,11 @@ export function LiveBroadcastPlayer({
       ) : (
         <div
           className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(${JSON.stringify(coverImageUrl)})` }}
+          style={
+            coverImageUrl
+              ? { backgroundImage: `url(${JSON.stringify(coverImageUrl)})` }
+              : undefined
+          }
         >
           <div className="grid h-full place-items-center bg-black/70 px-6 text-center">
             <div>

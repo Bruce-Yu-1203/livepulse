@@ -98,15 +98,14 @@ describe('authentication database constraints', () => {
     );
     await pool.query(
       `INSERT INTO rooms
-        (id, host_id, title, description, cover_image_url, demo_video_url)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+        (id, host_id, title, description, cover_image_url)
+       VALUES ($1, $2, $3, $4, $5)`,
       [
         roomId,
         hostId,
         'Live room',
         'A room description',
         'https://cdn.example.com/cover.jpg',
-        'https://video.example.com/demo.mp4',
       ],
     );
 
@@ -139,15 +138,14 @@ describe('authentication database constraints', () => {
     );
     await pool.query(
       `INSERT INTO rooms
-        (id, host_id, title, description, cover_image_url, demo_video_url, status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'LIVE')`,
+        (id, host_id, title, description, cover_image_url, status)
+       VALUES ($1, $2, $3, $4, $5, 'LIVE')`,
       [
         roomId,
         hostId,
         'Likeable room',
         'A room with relational likes',
         'https://cdn.example.com/cover.jpg',
-        'https://video.example.com/demo.mp4',
       ],
     );
     await pool.query(
@@ -181,15 +179,14 @@ describe('authentication database constraints', () => {
     );
     await pool.query(
       `INSERT INTO rooms
-        (id, host_id, title, description, cover_image_url, demo_video_url, status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'LIVE')`,
+        (id, host_id, title, description, cover_image_url, status)
+       VALUES ($1, $2, $3, $4, $5, 'LIVE')`,
       [
         roomId,
         hostId,
         'Moderated room',
         'A room with expiring mutes',
         'https://cdn.example.com/cover.jpg',
-        'https://video.example.com/demo.mp4',
       ],
     );
     await pool.query(

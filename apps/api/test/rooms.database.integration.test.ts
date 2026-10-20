@@ -32,7 +32,6 @@ const database = createDatabaseClient(databaseUrl);
 const password = 'correct horse battery staple';
 const roomInput = {
   coverImageUrl: 'https://cdn.example.com/live/cover.jpg',
-  demoVideoUrl: 'https://video.example.com/demo.mp4',
   description: 'A room for learning distributed systems.',
   title: 'LivePulse Architecture Lab',
 };

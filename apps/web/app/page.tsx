@@ -39,7 +39,7 @@ export default async function HomePage({
                 </h1>
                 <p className="mt-7 max-w-2xl text-base leading-8 text-zinc-400 sm:text-lg">
                   Step into live conversations, learn alongside a crowd, and
-                  return to the moments worth replaying.
+                  share the moment with the room as it happens.
                 </p>
                 <div className="mt-10 flex flex-wrap gap-3">
                   <a
@@ -72,16 +72,18 @@ export default async function HomePage({
                     href={`/rooms/${featuredRoom.id}`}
                   >
                     <div className="relative aspect-[16/9] overflow-hidden bg-zinc-900">
-                      <img
-                        alt=""
-                        className="h-full w-full object-cover opacity-70 transition duration-500 group-hover:scale-105 group-hover:opacity-90"
-                        src={featuredRoom.coverImageUrl}
-                      />
+                      {featuredRoom.coverImageUrl ? (
+                        <img
+                          alt=""
+                          className="h-full w-full object-cover opacity-70 transition duration-500 group-hover:scale-105 group-hover:opacity-90"
+                          src={featuredRoom.coverImageUrl}
+                        />
+                      ) : (
+                        <div className="h-full bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.2),transparent_45%),linear-gradient(135deg,#18181b,#09090b)]" />
+                      )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
                       <span className="absolute bottom-3 left-3 rounded-full bg-black/55 px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-white backdrop-blur">
-                        {featuredRoom.status === 'LIVE'
-                          ? 'Watch now'
-                          : 'Replay'}
+                        {featuredRoom.status === 'LIVE' ? 'Watch now' : 'Ended'}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-4 p-4">
@@ -101,7 +103,7 @@ export default async function HomePage({
 
                 <dl className="mt-5 grid grid-cols-2 divide-x divide-white/8 border-t border-white/8 pt-5">
                   <div>
-                    <dt className="text-xs text-zinc-600">Replays</dt>
+                    <dt className="text-xs text-zinc-600">Ended rooms</dt>
                     <dd className="mt-1 text-2xl font-semibold text-white">
                       {summary.replays}
                     </dd>
@@ -148,7 +150,7 @@ export default async function HomePage({
                   The stage is quiet for a moment.
                 </p>
                 <p className="mt-2 text-sm text-zinc-500">
-                  Live and replay rooms will appear here as hosts publish them.
+                  Live and ended rooms will appear here as hosts publish them.
                 </p>
               </div>
             )}

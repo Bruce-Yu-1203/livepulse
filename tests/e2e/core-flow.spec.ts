@@ -143,14 +143,18 @@ test('viewer, host, and administrator complete the core live-room flow', async (
       .click();
     await hostStudioPage.getByRole('button', { name: 'End broadcast' }).click();
     await expect(hostStudioPage.getByRole('status')).toHaveText(
-      'The broadcast ended and is now available as a replay.',
+      'The broadcast ended and the room is now archived.',
     );
     await Promise.all([
       expect(
-        viewerPage.getByText('Replay mode').filter({ visible: true }),
+        viewerPage
+          .locator('aside:visible')
+          .getByText('Broadcast ended', { exact: true }),
       ).toBeVisible(),
       expect(
-        hostPage.getByText('Replay mode').filter({ visible: true }),
+        hostPage
+          .locator('aside:visible')
+          .getByText('Broadcast ended', { exact: true }),
       ).toBeVisible(),
       expect(
         viewerPage
@@ -166,7 +170,9 @@ test('viewer, host, and administrator complete the core live-room flow', async (
 
     await viewerPage.reload();
     await expect(
-      viewerPage.getByText('Replay mode').filter({ visible: true }),
+      viewerPage
+        .locator('aside:visible')
+        .getByText('Broadcast ended', { exact: true }),
     ).toBeVisible();
     await expect(
       viewerPage
@@ -191,19 +197,13 @@ async function createLiveRoom(page: Page, roomTitle: string): Promise<void> {
   await createForm
     .getByLabel('Description')
     .fill('A browser-tested room for the complete MVP interaction flow.');
-  await createForm
-    .getByLabel('Cover image URL')
-    .fill('https://example.com/e2e-cover.jpg');
-  await createForm
-    .getByLabel('Demo video URL')
-    .fill('https://example.com/e2e-video.mp4');
   await createForm.getByRole('button', { name: 'Create draft' }).click();
   await expect(page.getByRole('status')).toHaveText('Draft room created.');
 
   // The core application flow runs without external LiveKit credentials. The
   // dedicated broadcast UI and token permissions are covered by unit tests;
   // this transition keeps the isolated browser suite focused on room, chat,
-  // moderation, and replay behavior.
+  // moderation, and ended-room behavior.
   await page.evaluate(async (title) => {
     const roomsResponse = await fetch('/api/v1/rooms/mine', {
       credentials: 'include',

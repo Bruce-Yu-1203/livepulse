@@ -9,6 +9,17 @@ export function hasBroadcastVideo(selection: BroadcastVideoSelection): boolean {
   return selection.camera || selection.screen;
 }
 
+export function broadcastPreviewReady(
+  selection: BroadcastVideoSelection,
+  preview: BroadcastVideoSelection,
+): boolean {
+  return (
+    hasBroadcastVideo(selection) &&
+    (!selection.screen || preview.screen) &&
+    (!selection.camera || preview.camera)
+  );
+}
+
 export function primaryVideoSource(
   selection: BroadcastVideoSelection,
 ): Track.Source.Camera | Track.Source.ScreenShare | undefined {

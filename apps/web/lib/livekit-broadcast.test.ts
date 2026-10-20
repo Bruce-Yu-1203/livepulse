@@ -2,6 +2,7 @@ import { Track } from 'livekit-client';
 import { describe, expect, it } from 'vitest';
 
 import {
+  broadcastPreviewReady,
   cameraUsesOverlay,
   hasBroadcastVideo,
   mediaDeviceLabel,
@@ -13,6 +14,33 @@ describe('broadcast video layout', () => {
     expect(hasBroadcastVideo({ camera: false, screen: false })).toBe(false);
     expect(hasBroadcastVideo({ camera: true, screen: false })).toBe(true);
     expect(hasBroadcastVideo({ camera: false, screen: true })).toBe(true);
+  });
+
+  it('requires every enabled source to have a local preview', () => {
+    expect(
+      broadcastPreviewReady(
+        { camera: false, screen: true },
+        { camera: false, screen: false },
+      ),
+    ).toBe(false);
+    expect(
+      broadcastPreviewReady(
+        { camera: true, screen: true },
+        { camera: true, screen: false },
+      ),
+    ).toBe(false);
+    expect(
+      broadcastPreviewReady(
+        { camera: true, screen: true },
+        { camera: true, screen: true },
+      ),
+    ).toBe(true);
+    expect(
+      broadcastPreviewReady(
+        { camera: false, screen: false },
+        { camera: true, screen: true },
+      ),
+    ).toBe(false);
   });
 
   it('uses screen share as the main track and camera as the overlay', () => {

@@ -11,6 +11,15 @@ const HttpUrlSchema = z
     message: 'The URL must use HTTP or HTTPS',
   });
 
+const GeneratedCoverSchema = z
+  .string()
+  .max(500_000)
+  .regex(/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/u, {
+    message: 'The generated cover must be a supported base64 image',
+  });
+
+const CoverImageSchema = z.union([HttpUrlSchema, GeneratedCoverSchema]);
+
 function isHttpUrl(value: string): boolean {
   try {
     return ['http:', 'https:'].includes(new URL(value).protocol);
@@ -21,8 +30,7 @@ function isHttpUrl(value: string): boolean {
 
 export const CreateRoomRequestSchema = z
   .object({
-    coverImageUrl: HttpUrlSchema,
-    demoVideoUrl: HttpUrlSchema,
+    coverImageUrl: CoverImageSchema.optional(),
     description: z.string().trim().min(1).max(2_000),
     title: z.string().trim().min(1).max(120),
   })
@@ -32,9 +40,8 @@ export type CreateRoomRequest = z.infer<typeof CreateRoomRequestSchema>;
 
 export const RoomSchema = z
   .object({
-    coverImageUrl: HttpUrlSchema,
+    coverImageUrl: CoverImageSchema.nullable(),
     createdAt: z.iso.datetime(),
-    demoVideoUrl: HttpUrlSchema,
     description: z.string().min(1).max(2_000),
     hostId: z.uuid(),
     id: z.uuid(),
@@ -116,8 +123,7 @@ export type ListOwnedRoomsResponse = z.infer<
 
 export const UpdateRoomRequestSchema = z
   .object({
-    coverImageUrl: HttpUrlSchema.optional(),
-    demoVideoUrl: HttpUrlSchema.optional(),
+    coverImageUrl: CoverImageSchema.nullable().optional(),
     description: z.string().trim().min(1).max(2_000).optional(),
     expectedVersion: z.number().int().positive(),
     status: RoomStatusSchema.optional(),
@@ -125,8 +131,8 @@ export const UpdateRoomRequestSchema = z
   })
   .strict()
   .refine(
-    ({ coverImageUrl, demoVideoUrl, description, status, title }) =>
-      [coverImageUrl, demoVideoUrl, description, status, title].some(
+    ({ coverImageUrl, description, status, title }) =>
+      [coverImageUrl, description, status, title].some(
         (value) => value !== undefined,
       ),
     { message: 'At least one room change is required' },

@@ -11,13 +11,17 @@ export function RoomCard({ room }: { room: VisibleRoom }) {
     <article className="group overflow-hidden rounded-[1.75rem] border border-white/8 bg-white/[0.035] transition duration-300 hover:-translate-y-1 hover:border-cyan-300/25 hover:bg-white/[0.055]">
       <Link aria-label={`Open ${room.title}`} href={`/rooms/${room.id}`}>
         <div className="relative aspect-[16/10] overflow-hidden bg-zinc-900">
-          <img
-            alt=""
-            className="h-full w-full object-cover opacity-80 transition duration-500 group-hover:scale-[1.03] group-hover:opacity-95"
-            decoding="async"
-            loading="lazy"
-            src={room.coverImageUrl}
-          />
+          {room.coverImageUrl ? (
+            <img
+              alt=""
+              className="h-full w-full object-cover opacity-80 transition duration-500 group-hover:scale-[1.03] group-hover:opacity-95"
+              decoding="async"
+              loading="lazy"
+              src={room.coverImageUrl}
+            />
+          ) : (
+            <div className="h-full bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.2),transparent_45%),linear-gradient(135deg,#18181b,#09090b)]" />
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" />
           <div
             className={`absolute left-4 top-4 flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-[0.14em] ${

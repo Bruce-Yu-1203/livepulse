@@ -1,6 +1,6 @@
 # LivePulse
 
-LivePulse is a TypeScript full-stack MVP for interactive live rooms. Viewers can register, watch a demo video, join WebSocket chat and danmaku, recover message history, like rooms, and report messages. Hosts manage room lifecycle and mutes, while administrators review reports and preserve an audit trail.
+LivePulse is a TypeScript full-stack MVP for interactive live rooms. Viewers can register, watch LiveKit broadcasts, join WebSocket chat and danmaku, recover message history, like rooms, and report messages. Hosts manage room lifecycle and mutes, while administrators review reports and preserve an audit trail.
 
 ## Stack
 
@@ -8,6 +8,7 @@ LivePulse is a TypeScript full-stack MVP for interactive live rooms. Viewers can
 - NestJS 12 and Fastify for REST and WebSocket services
 - PostgreSQL and Prisma for transactional data and message history
 - Redis Pub/Sub and leased presence for cross-instance realtime delivery
+- LiveKit for screen, camera, and microphone publishing and playback
 - Zod contracts shared by browser and server
 - Vitest, ESLint, Prettier, and TypeScript for validation
 
@@ -53,6 +54,13 @@ export LIVEKIT_URL='wss://your-project.livekit.cloud'
 export LIVEKIT_API_KEY='your-api-key'
 export LIVEKIT_API_SECRET='your-api-secret'
 ```
+
+In Studio, the host first chooses a screen and/or enables a camera. The selected
+sources appear in a private local preview; the broadcast button stays disabled
+until every enabled video source is ready. When both sources are enabled, the
+screen is the main picture and the camera is placed in the upper-right corner.
+Starting the broadcast publishes the prepared tracks. If the room has no cover,
+the browser captures a frame from the main preview and saves it as the cover.
 
 Start the API and web application in separate terminals:
 

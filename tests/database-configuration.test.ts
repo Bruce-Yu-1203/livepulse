@@ -60,9 +60,23 @@ describe('database configuration', () => {
     expect(schema).toMatch(/hostId\s+String\s+@map\("host_id"\)/);
     expect(schema).toMatch(/status\s+RoomStatus\s+@default\(DRAFT\)/);
     expect(schema).toMatch(/version\s+Int\s+@default\(1\)/);
+    expect(schema).toMatch(
+      /coverImageUrl\s+String\?\s+@map\("cover_image_url"\)\s+@db\.Text/,
+    );
+    expect(schema).not.toContain('demoVideoUrl');
     expect(schema).toContain(
       '@relation(fields: [hostId], references: [id], onDelete: Restrict)',
     );
     expect(schema).toContain('@@index([status, createdAt, id])');
+
+    const migration = await readFile(
+      resolve(
+        process.cwd(),
+        'packages/db/prisma/migrations/20261020023000_optional_generated_room_cover/migration.sql',
+      ),
+      'utf8',
+    );
+    expect(migration).toContain('ALTER COLUMN "cover_image_url" DROP NOT NULL');
+    expect(migration).toContain('DROP COLUMN "demo_video_url"');
   });
 });

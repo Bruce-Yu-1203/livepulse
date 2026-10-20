@@ -9,7 +9,7 @@ import {
 describe('room presentation', () => {
   it('turns API room states into audience-facing labels', () => {
     expect(roomStatusLabel('LIVE')).toBe('Live now');
-    expect(roomStatusLabel('ENDED')).toBe('Replay');
+    expect(roomStatusLabel('ENDED')).toBe('Ended');
   });
 
   it('formats an ISO timestamp for the interface', () => {

@@ -66,8 +66,7 @@ model Room {
   hostId        String     @map("host_id") @db.Uuid
   title         String     @db.VarChar(120)
   description   String     @db.VarChar(2000)
-  coverImageUrl String     @map("cover_image_url") @db.VarChar(2048)
-  demoVideoUrl  String     @map("demo_video_url") @db.VarChar(2048)
+  coverImageUrl String?    @map("cover_image_url") @db.Text
   status        RoomStatus @default(DRAFT)
   version       Int        @default(1)
   createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)

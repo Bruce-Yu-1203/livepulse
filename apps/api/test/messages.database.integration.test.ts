@@ -42,7 +42,6 @@ describe('PostgreSQL message history', () => {
     await database.room.create({
       data: {
         coverImageUrl: 'https://cdn.example.com/cover.jpg',
-        demoVideoUrl: 'https://video.example.com/demo.mp4',
         description: 'A room with PostgreSQL message history.',
         hostId,
         id: roomId,

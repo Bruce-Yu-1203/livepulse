@@ -81,15 +81,25 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
             roomId={room.id}
           />
         ) : (
-          <video
-            className="aspect-video h-full min-h-64 w-full object-cover"
-            controls
-            poster={room.coverImageUrl}
-            preload="metadata"
-            src={room.demoVideoUrl}
-          >
-            Your browser does not support embedded video.
-          </video>
+          <div className="relative aspect-video min-h-64 overflow-hidden bg-zinc-950">
+            {room.coverImageUrl ? (
+              <img
+                alt=""
+                className="h-full w-full object-cover opacity-45"
+                src={room.coverImageUrl}
+              />
+            ) : null}
+            <div className="absolute inset-0 grid place-items-center bg-black/55 text-center">
+              <div>
+                <p className="text-sm font-semibold text-white">
+                  Broadcast ended
+                </p>
+                <p className="mt-2 text-xs text-zinc-400">
+                  This room is no longer streaming live.
+                </p>
+              </div>
+            </div>
+          </div>
         )}
         {danmakuVisible ? (
           <DanmakuLayer density={danmakuDensity} messages={chat.messages} />
@@ -358,7 +368,7 @@ function connectionLabel(
   }
 
   if (connection === 'ended') {
-    return 'Replay mode';
+    return 'Broadcast ended';
   }
 
   return connection === 'connecting' ? 'Connecting…' : 'Reconnecting…';

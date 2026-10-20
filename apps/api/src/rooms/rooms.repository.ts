@@ -13,7 +13,8 @@ import {
 } from './rooms.errors.js';
 import type { RoomCursor } from './room-cursor.js';
 
-export interface RoomRecord extends CreateRoomRequest {
+export interface RoomRecord extends Omit<CreateRoomRequest, 'coverImageUrl'> {
+  coverImageUrl: string | null;
   createdAt: Date;
   hostId: string;
   id: string;
@@ -61,8 +62,7 @@ export class PrismaRoomsRepository implements RoomsRepository {
     try {
       const room = await this.database.client.room.create({
         data: {
-          coverImageUrl: input.coverImageUrl,
-          demoVideoUrl: input.demoVideoUrl,
+          coverImageUrl: input.coverImageUrl ?? null,
           description: input.description,
           hostId: input.hostId,
           status: 'DRAFT',
@@ -190,9 +190,6 @@ export class PrismaRoomsRepository implements RoomsRepository {
           ...(input.changes.coverImageUrl === undefined
             ? {}
             : { coverImageUrl: input.changes.coverImageUrl }),
-          ...(input.changes.demoVideoUrl === undefined
-            ? {}
-            : { demoVideoUrl: input.changes.demoVideoUrl }),
           ...(input.changes.description === undefined
             ? {}
             : { description: input.changes.description }),

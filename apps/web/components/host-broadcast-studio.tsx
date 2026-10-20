@@ -10,21 +10,25 @@ import {
   RoomEvent,
   Track,
   createLocalScreenTracks,
+  createLocalVideoTrack,
 } from 'livekit-client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { clientApiRequest } from '../lib/client-api';
 import {
+  broadcastPreviewReady,
   cameraUsesOverlay,
   hasBroadcastVideo,
   mediaDeviceLabel,
 } from '../lib/livekit-broadcast';
 import { LiveKitVideo } from './livekit-media';
 
-interface HostTracks {
+interface PreviewTracks {
   camera?: LocalVideoTrack;
   screen?: LocalVideoTrack;
 }
+
+type CaptureTarget = 'camera' | 'screen' | undefined;
 
 export function HostBroadcastStudio({
   disabled,
@@ -34,10 +38,13 @@ export function HostBroadcastStudio({
 }: {
   disabled: boolean;
   onEnd(): Promise<boolean>;
-  onGoLive(): Promise<boolean>;
+  onGoLive(generatedCover?: string): Promise<boolean>;
   room: RoomRecord;
 }) {
   const liveKitRoom = useRef<Room | undefined>(undefined);
+  const cameraTrack = useRef<LocalVideoTrack | undefined>(undefined);
+  const screenTracks = useRef<LocalTrack[]>([]);
+  const [previewTracks, setPreviewTracks] = useState<PreviewTracks>({});
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
   const [audioDeviceId, setAudioDeviceId] = useState('');
@@ -48,7 +55,7 @@ export function HostBroadcastStudio({
   const [connection, setConnection] = useState<ConnectionState>(
     ConnectionState.Disconnected,
   );
-  const [tracks, setTracks] = useState<HostTracks>({});
+  const [captureTarget, setCaptureTarget] = useState<CaptureTarget>();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
 
@@ -64,23 +71,44 @@ export function HostBroadcastStudio({
       setVideoDevices(cameras);
       setAudioDeviceId((current) => current || microphones[0]?.deviceId || '');
       setVideoDeviceId((current) => current || cameras[0]?.deviceId || '');
-      setError(undefined);
     } catch (caught) {
       setError(mediaErrorMessage(caught));
     }
   }, []);
 
-  const disconnect = useCallback(async () => {
-    const current = liveKitRoom.current;
-    liveKitRoom.current = undefined;
+  const stopLocalMedia = useCallback((updatePreview = true) => {
+    const activeCamera = cameraTrack.current;
+    const activeScreenTracks = screenTracks.current;
+    cameraTrack.current = undefined;
+    screenTracks.current = [];
 
-    if (current) {
-      await current.disconnect();
+    activeCamera?.stop();
+    for (const track of activeScreenTracks) {
+      track.stop();
     }
 
-    setTracks({});
-    setConnection(ConnectionState.Disconnected);
+    if (updatePreview) {
+      setPreviewTracks({});
+    }
   }, []);
+
+  const disconnect = useCallback(
+    async (stopMedia = true) => {
+      const current = liveKitRoom.current;
+      liveKitRoom.current = undefined;
+
+      if (current) {
+        await current.disconnect();
+      }
+
+      if (stopMedia) {
+        stopLocalMedia();
+      }
+
+      setConnection(ConnectionState.Disconnected);
+    },
+    [stopLocalMedia],
+  );
 
   useEffect(() => {
     void loadDevices(false);
@@ -96,9 +124,12 @@ export function HostBroadcastStudio({
         'devicechange',
         handleDeviceChange,
       );
-      void disconnect();
+      const activeRoom = liveKitRoom.current;
+      liveKitRoom.current = undefined;
+      void activeRoom?.disconnect();
+      stopLocalMedia(false);
     };
-  }, [disconnect, loadDevices]);
+  }, [loadDevices, stopLocalMedia]);
 
   useEffect(() => {
     if (room.status === 'ENDED') {
@@ -106,56 +137,223 @@ export function HostBroadcastStudio({
     }
   }, [disconnect, room.status]);
 
+  async function chooseScreen() {
+    setCaptureTarget('screen');
+    setError(undefined);
+
+    try {
+      // This call must happen directly from the click gesture so the browser
+      // is allowed to open its screen picker.
+      const nextTracks = await createLocalScreenTracks({
+        audio: true,
+        contentHint: 'detail',
+        selfBrowserSurface: 'exclude',
+        surfaceSwitching: 'include',
+        systemAudio: 'include',
+      });
+      const nextVideo = nextTracks.find(
+        (track): track is LocalVideoTrack =>
+          track.kind === Track.Kind.Video &&
+          track.source === Track.Source.ScreenShare,
+      );
+
+      if (!nextVideo) {
+        throw new Error('The selected source did not provide a video track.');
+      }
+
+      const currentRoom = liveKitRoom.current;
+      const previousTracks = screenTracks.current;
+
+      if (currentRoom && connection === ConnectionState.Connected) {
+        for (const track of previousTracks) {
+          await currentRoom.localParticipant.unpublishTrack(track, false);
+        }
+        for (const track of nextTracks) {
+          await currentRoom.localParticipant.publishTrack(track, {
+            source: track.source,
+          });
+        }
+      }
+
+      screenTracks.current = nextTracks;
+
+      for (const track of previousTracks) {
+        track.stop();
+      }
+
+      setScreenEnabled(true);
+      setPreviewTracks((current) => ({ ...current, screen: nextVideo }));
+      watchScreenEnd(nextVideo);
+    } catch (caught) {
+      setError(mediaErrorMessage(caught));
+    } finally {
+      setCaptureTarget(undefined);
+    }
+  }
+
+  function watchScreenEnd(track: LocalVideoTrack) {
+    track.mediaStreamTrack.addEventListener(
+      'ended',
+      () => {
+        if (
+          !screenTracks.current.some(
+            (candidate) =>
+              candidate.mediaStreamTrack.id === track.mediaStreamTrack.id,
+          )
+        ) {
+          return;
+        }
+
+        const activeTracks = screenTracks.current;
+        screenTracks.current = [];
+        for (const candidate of activeTracks) {
+          candidate.stop();
+        }
+        setPreviewTracks((current) => ({ camera: current.camera }));
+        setError('Screen sharing stopped. Choose a screen again to continue.');
+      },
+      { once: true },
+    );
+  }
+
+  async function prepareCamera(deviceId = videoDeviceId) {
+    setCaptureTarget('camera');
+    setError(undefined);
+
+    try {
+      const currentRoom = liveKitRoom.current;
+
+      if (
+        currentRoom &&
+        connection === ConnectionState.Connected &&
+        cameraTrack.current
+      ) {
+        if (deviceId) {
+          await currentRoom.switchActiveDevice('videoinput', deviceId);
+        }
+        setCameraEnabled(true);
+        setPreviewTracks((current) => ({
+          ...current,
+          camera: cameraTrack.current,
+        }));
+        return;
+      }
+
+      const nextTrack = await createLocalVideoTrack({
+        ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
+      });
+      const previousTrack = cameraTrack.current;
+
+      if (currentRoom && connection === ConnectionState.Connected) {
+        await currentRoom.localParticipant.publishTrack(nextTrack, {
+          source: Track.Source.Camera,
+        });
+      }
+
+      previousTrack?.stop();
+      cameraTrack.current = nextTrack;
+      setCameraEnabled(true);
+      setPreviewTracks((current) => ({ ...current, camera: nextTrack }));
+      await loadDevices(false);
+    } catch (caught) {
+      setCameraEnabled(false);
+      setError(mediaErrorMessage(caught));
+    } finally {
+      setCaptureTarget(undefined);
+    }
+  }
+
+  async function disableCamera() {
+    const track = cameraTrack.current;
+    const currentRoom = liveKitRoom.current;
+
+    if (track && currentRoom && connection === ConnectionState.Connected) {
+      await currentRoom.localParticipant.unpublishTrack(track, false);
+    }
+
+    track?.stop();
+    cameraTrack.current = undefined;
+    setCameraEnabled(false);
+    setPreviewTracks((current) => ({ screen: current.screen }));
+  }
+
+  async function disableScreen() {
+    const currentRoom = liveKitRoom.current;
+
+    if (currentRoom && connection === ConnectionState.Connected) {
+      for (const track of screenTracks.current) {
+        await currentRoom.localParticipant.unpublishTrack(track, false);
+      }
+    }
+
+    const activeTracks = screenTracks.current;
+    screenTracks.current = [];
+    for (const track of activeTracks) {
+      track.stop();
+    }
+    setScreenEnabled(false);
+    setPreviewTracks((current) => ({ camera: current.camera }));
+  }
+
   async function startBroadcast() {
     if (!hasBroadcastVideo({ camera: cameraEnabled, screen: screenEnabled })) {
       setError('Choose screen sharing, camera, or both before going live.');
       return;
     }
 
+    if (screenEnabled && !previewTracks.screen) {
+      setError('Choose a screen and confirm its preview before going live.');
+      return;
+    }
+
+    if (cameraEnabled && !previewTracks.camera) {
+      setError('Wait for the camera preview before going live.');
+      return;
+    }
+
+    const mainTrack = previewTracks.screen ?? previewTracks.camera;
+
+    if (!mainTrack) {
+      setError('Prepare at least one video source before going live.');
+      return;
+    }
+
     setPending(true);
     setError(undefined);
-    let capturedScreenTracks: LocalTrack[] = [];
     let connectingRoom: Room | undefined;
+    let mediaWasPublished = false;
 
     try {
-      // Capture the screen before any network await so the browser still treats
-      // the chooser as part of the host's click gesture.
-      if (screenEnabled) {
-        capturedScreenTracks = await createLocalScreenTracks({
-          audio: true,
-          contentHint: 'detail',
-          selfBrowserSurface: 'exclude',
-          surfaceSwitching: 'include',
-          systemAudio: 'include',
-        });
-      }
-
+      const generatedCover = room.coverImageUrl
+        ? undefined
+        : await captureVideoFrame(mainTrack).catch(() => undefined);
       const credentials = await clientApiRequest(
         `/api/v1/rooms/${room.id}/broadcast/host-token`,
         BroadcastConnectionResponseSchema,
         { method: 'POST' },
       );
       connectingRoom = new Room({ adaptiveStream: true, dynacast: true });
-      const refreshTracks = () =>
-        setTracks(collectHostTracks(connectingRoom as Room));
-
-      connectingRoom
-        .on(RoomEvent.LocalTrackPublished, refreshTracks)
-        .on(RoomEvent.LocalTrackUnpublished, refreshTracks)
-        .on(RoomEvent.TrackMuted, refreshTracks)
-        .on(RoomEvent.TrackUnmuted, refreshTracks)
-        .on(RoomEvent.ConnectionStateChanged, setConnection);
-
+      connectingRoom.on(RoomEvent.ConnectionStateChanged, setConnection);
       liveKitRoom.current = connectingRoom;
+
       await connectingRoom.connect(
         credentials.serverUrl,
         credentials.participantToken,
       );
 
-      for (const track of capturedScreenTracks) {
+      for (const track of screenTracks.current) {
         await connectingRoom.localParticipant.publishTrack(track, {
           source: track.source,
         });
+        mediaWasPublished = true;
+      }
+
+      if (cameraTrack.current) {
+        await connectingRoom.localParticipant.publishTrack(
+          cameraTrack.current,
+          { source: Track.Source.Camera },
+        );
+        mediaWasPublished = true;
       }
 
       if (microphoneEnabled) {
@@ -166,23 +364,20 @@ export function HostBroadcastStudio({
         });
       }
 
-      if (cameraEnabled) {
-        await connectingRoom.localParticipant.setCameraEnabled(true, {
-          ...(videoDeviceId ? { deviceId: { exact: videoDeviceId } } : {}),
-        });
-      }
-
-      refreshTracks();
       await loadDevices(false);
 
-      if (room.status === 'DRAFT' && !(await onGoLive())) {
+      if (!(await onGoLive(generatedCover))) {
         throw new Error('The room could not be moved live.');
       }
     } catch (caught) {
-      for (const track of capturedScreenTracks) {
-        track.stop();
+      liveKitRoom.current = undefined;
+      await connectingRoom?.disconnect();
+
+      if (mediaWasPublished) {
+        stopLocalMedia();
       }
-      await disconnect();
+
+      setConnection(ConnectionState.Disconnected);
       setError(mediaErrorMessage(caught));
     } finally {
       setPending(false);
@@ -199,60 +394,6 @@ export function HostBroadcastStudio({
       }
     } finally {
       setPending(false);
-    }
-  }
-
-  async function toggleCamera(enabled: boolean) {
-    if (!enabled && !screenEnabled) {
-      setError('Keep at least one video source enabled.');
-      return;
-    }
-
-    const current = liveKitRoom.current;
-    setCameraEnabled(enabled);
-    setError(undefined);
-
-    if (!current || connection !== ConnectionState.Connected) {
-      return;
-    }
-
-    try {
-      await current.localParticipant.setCameraEnabled(enabled, {
-        ...(videoDeviceId ? { deviceId: { exact: videoDeviceId } } : {}),
-      });
-      setTracks(collectHostTracks(current));
-    } catch (caught) {
-      setCameraEnabled(!enabled);
-      setError(mediaErrorMessage(caught));
-    }
-  }
-
-  async function toggleScreen(enabled: boolean) {
-    if (!enabled && !cameraEnabled) {
-      setError('Keep at least one video source enabled.');
-      return;
-    }
-
-    const current = liveKitRoom.current;
-    setScreenEnabled(enabled);
-    setError(undefined);
-
-    if (!current || connection !== ConnectionState.Connected) {
-      return;
-    }
-
-    try {
-      await current.localParticipant.setScreenShareEnabled(enabled, {
-        audio: true,
-        contentHint: 'detail',
-        selfBrowserSurface: 'exclude',
-        surfaceSwitching: 'include',
-        systemAudio: 'include',
-      });
-      setTracks(collectHostTracks(current));
-    } catch (caught) {
-      setScreenEnabled(!enabled);
-      setError(mediaErrorMessage(caught));
     }
   }
 
@@ -286,35 +427,41 @@ export function HostBroadcastStudio({
 
     const current = liveKitRoom.current;
 
-    if (!current || connection !== ConnectionState.Connected || !id) {
-      return;
-    }
-
     try {
-      await current.switchActiveDevice(kind, id);
+      if (current && connection === ConnectionState.Connected && id) {
+        await current.switchActiveDevice(kind, id);
+      } else if (kind === 'videoinput' && cameraEnabled) {
+        await prepareCamera(id);
+      }
     } catch (caught) {
       setError(mediaErrorMessage(caught));
     }
   }
 
   const connected = connection === ConnectionState.Connected;
-  const mainTrack = tracks.screen ?? tracks.camera;
-  const cameraOverlay = tracks.screen ? tracks.camera : undefined;
+  const mainTrack = previewTracks.screen ?? previewTracks.camera;
+  const cameraOverlay = previewTracks.screen ? previewTracks.camera : undefined;
+  const previewReady = broadcastPreviewReady(
+    { camera: cameraEnabled, screen: screenEnabled },
+    {
+      camera: Boolean(previewTracks.camera),
+      screen: Boolean(previewTracks.screen),
+    },
+  );
 
   return (
     <section className="border-b border-white/8 p-6 sm:p-8">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-300">
-            Broadcast controls
+            Broadcast setup
           </p>
           <p className="mt-2 text-sm text-zinc-400">
-            Share your screen, camera, or both. The camera stays at the top
-            right when both are active.
+            Prepare and verify your local preview before viewers can see it.
           </p>
         </div>
         <span className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-semibold text-zinc-300">
-          {hostConnectionLabel(connection)}
+          {hostConnectionLabel(connection, previewReady)}
         </span>
       </div>
 
@@ -327,17 +474,27 @@ export function HostBroadcastStudio({
               track={mainTrack}
             />
           ) : (
-            <div className="grid h-full place-items-center px-8 text-center">
+            <div className="grid h-full place-items-center bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.08),transparent_55%)] px-8 text-center">
               <div>
-                <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl border border-white/10 bg-white/5 text-2xl">
-                  ◫
-                </div>
-                <p className="mt-4 text-sm font-semibold text-white">
-                  Your live preview appears here
+                <p className="text-sm font-semibold text-white">
+                  Select a source to start the local preview
                 </p>
-                <p className="mt-2 text-xs leading-5 text-zinc-500">
-                  Screen sharing opens the browser source picker when you start.
+                <p className="mt-2 max-w-sm text-xs leading-5 text-zinc-500">
+                  Nothing is sent to viewers until you confirm this preview and
+                  start the broadcast.
                 </p>
+                {screenEnabled ? (
+                  <button
+                    className="mt-5 rounded-full bg-white px-5 py-2.5 text-sm font-bold text-zinc-950 transition hover:bg-cyan-200 disabled:opacity-50"
+                    disabled={captureTarget !== undefined || pending}
+                    onClick={() => void chooseScreen()}
+                    type="button"
+                  >
+                    {captureTarget === 'screen'
+                      ? 'Opening screen picker…'
+                      : 'Choose a screen'}
+                  </button>
+                ) : null}
               </div>
             </div>
           )}
@@ -352,21 +509,41 @@ export function HostBroadcastStudio({
               />
             </div>
           ) : null}
+
+          {previewReady && !connected ? (
+            <span className="absolute bottom-4 left-4 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1.5 text-xs font-semibold text-emerald-200 backdrop-blur">
+              Local preview · not live
+            </span>
+          ) : null}
         </div>
 
         <div className="space-y-5 border-t border-white/10 bg-[#101116] p-5 xl:border-l xl:border-t-0">
           <SourceToggle
             checked={screenEnabled}
             label="Share screen"
-            onChange={(checked) => void toggleScreen(checked)}
+            onChange={(checked) =>
+              void (checked ? chooseScreen() : disableScreen())
+            }
           />
+          {screenEnabled ? (
+            <button
+              className="w-full rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-zinc-300 transition hover:border-cyan-300/40 hover:text-cyan-200 disabled:opacity-50"
+              disabled={captureTarget !== undefined || pending}
+              onClick={() => void chooseScreen()}
+              type="button"
+            >
+              {previewTracks.screen ? 'Change shared screen' : 'Choose screen'}
+            </button>
+          ) : null}
           <SourceToggle
             checked={cameraEnabled}
             label="Use camera"
-            onChange={(checked) => void toggleCamera(checked)}
+            onChange={(checked) =>
+              void (checked ? prepareCamera() : disableCamera())
+            }
           />
           <DeviceSelect
-            disabled={!cameraEnabled}
+            disabled={!cameraEnabled || captureTarget === 'camera'}
             fallback="Camera"
             label="Camera input"
             onChange={(id) => void selectDevice('videoinput', id)}
@@ -389,11 +566,11 @@ export function HostBroadcastStudio({
 
           <button
             className="w-full rounded-2xl border border-white/10 px-4 py-2.5 text-xs font-semibold text-zinc-300 transition hover:border-cyan-300/40 hover:text-cyan-200 disabled:opacity-50"
-            disabled={pending}
+            disabled={pending || captureTarget !== undefined}
             onClick={() => void loadDevices(true)}
             type="button"
           >
-            Allow / refresh devices
+            Refresh input devices
           </button>
 
           {connected ? (
@@ -408,8 +585,14 @@ export function HostBroadcastStudio({
           ) : (
             <div className="space-y-2">
               <button
-                className="w-full rounded-2xl bg-cyan-300 px-4 py-3 text-sm font-bold text-zinc-950 transition hover:bg-cyan-200 disabled:cursor-wait disabled:opacity-50"
-                disabled={disabled || pending || room.status === 'ENDED'}
+                className="w-full rounded-2xl bg-cyan-300 px-4 py-3 text-sm font-bold text-zinc-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={
+                  disabled ||
+                  pending ||
+                  captureTarget !== undefined ||
+                  !previewReady ||
+                  room.status === 'ENDED'
+                }
                 onClick={() => void startBroadcast()}
                 type="button"
               >
@@ -419,6 +602,11 @@ export function HostBroadcastStudio({
                     ? 'Reconnect broadcast'
                     : 'Start live broadcast'}
               </button>
+              {!previewReady ? (
+                <p className="text-center text-[0.7rem] leading-5 text-zinc-500">
+                  Prepare a screen or camera preview first.
+                </p>
+              ) : null}
               {room.status === 'LIVE' ? (
                 <button
                   className="w-full rounded-2xl border border-rose-300/25 bg-rose-300/10 px-4 py-3 text-sm font-bold text-rose-100 transition hover:bg-rose-300/15 disabled:cursor-wait disabled:opacity-50"
@@ -503,21 +691,62 @@ function DeviceSelect({
   );
 }
 
-function collectHostTracks(room: Room): HostTracks {
-  const camera = room.localParticipant.getTrackPublication(
-    Track.Source.Camera,
-  )?.videoTrack;
-  const screen = room.localParticipant.getTrackPublication(
-    Track.Source.ScreenShare,
-  )?.videoTrack;
+async function captureVideoFrame(track: LocalVideoTrack): Promise<string> {
+  const video = document.createElement('video');
+  video.autoplay = true;
+  video.muted = true;
+  video.playsInline = true;
+  track.attach(video);
 
-  return {
-    ...(camera && !camera.isMuted ? { camera: camera as LocalVideoTrack } : {}),
-    ...(screen && !screen.isMuted ? { screen: screen as LocalVideoTrack } : {}),
-  };
+  try {
+    await video.play();
+
+    if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+      await new Promise<void>((resolve, reject) => {
+        const timeout = window.setTimeout(
+          () => reject(new Error('The preview frame was not ready in time.')),
+          3_000,
+        );
+        video.addEventListener(
+          'loadeddata',
+          () => {
+            window.clearTimeout(timeout);
+            resolve();
+          },
+          { once: true },
+        );
+      });
+    }
+
+    const sourceWidth = video.videoWidth;
+    const sourceHeight = video.videoHeight;
+
+    if (sourceWidth === 0 || sourceHeight === 0) {
+      throw new Error('The preview did not produce a frame for the cover.');
+    }
+
+    const width = Math.min(640, sourceWidth);
+    const height = Math.round((sourceHeight / sourceWidth) * width);
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+
+    if (!context) {
+      throw new Error('The browser could not create a cover image.');
+    }
+
+    context.drawImage(video, 0, 0, width, height);
+    return canvas.toDataURL('image/jpeg', 0.76);
+  } finally {
+    track.detach(video);
+  }
 }
 
-function hostConnectionLabel(connection: ConnectionState): string {
+function hostConnectionLabel(
+  connection: ConnectionState,
+  previewReady: boolean,
+): string {
   if (connection === ConnectionState.Connected) {
     return 'On air';
   }
@@ -530,7 +759,7 @@ function hostConnectionLabel(connection: ConnectionState): string {
     return 'Reconnecting';
   }
 
-  return 'Not connected';
+  return previewReady ? 'Preview ready' : 'Setup required';
 }
 
 function mediaErrorMessage(error: unknown): string {
@@ -540,5 +769,5 @@ function mediaErrorMessage(error: unknown): string {
 
   return error instanceof Error
     ? error.message
-    : 'The broadcast media could not be started.';
+    : 'The broadcast media could not be prepared.';
 }

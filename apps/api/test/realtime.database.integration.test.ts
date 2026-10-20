@@ -424,7 +424,6 @@ function sendEvent(
 function roomRecord(id: string, status: 'ENDED' | 'LIVE') {
   return {
     coverImageUrl: 'https://cdn.example.com/cover.jpg',
-    demoVideoUrl: 'https://video.example.com/demo.mp4',
     description: 'A realtime integration room.',
     hostId,
     id,

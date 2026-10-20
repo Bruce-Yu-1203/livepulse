@@ -8,7 +8,6 @@ import { RoomCard } from './room-card';
 const room: VisibleRoom = {
   coverImageUrl: 'https://cdn.example.com/cover.jpg',
   createdAt: '2026-10-09T15:30:00.000Z',
-  demoVideoUrl: 'https://video.example.com/demo.mp4',
   description: 'Learn distributed systems with a live audience.',
   hostId: 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',
   id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',

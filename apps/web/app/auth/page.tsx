@@ -25,14 +25,14 @@ export default function AuthPage() {
             Be present when the moment happens.
           </h2>
           <p className="mt-7 max-w-xl text-lg leading-8 text-zinc-400">
-            Join live conversations, return for replays, and keep one secure
-            session across the entire experience.
+            Join live conversations, meet the people in the moment, and keep one
+            secure session across the entire experience.
           </p>
           <div className="mt-12 grid max-w-xl grid-cols-3 gap-4">
             {[
               ['01', 'Secure sessions'],
               ['02', 'Live rooms'],
-              ['03', 'Instant replays'],
+              ['03', 'Room history'],
             ].map(([number, item]) => (
               <div
                 className="rounded-2xl border border-white/8 bg-white/[0.03] p-4 text-sm text-zinc-300"

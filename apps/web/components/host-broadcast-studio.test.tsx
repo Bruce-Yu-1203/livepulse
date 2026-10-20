@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { HostBroadcastStudio } from './host-broadcast-studio';
 
 describe('HostBroadcastStudio', () => {
-  it('starts with screen sharing selected and exposes optional camera controls', () => {
+  it('requires a local preview before the host can start broadcasting', () => {
     const markup = renderToStaticMarkup(
       <HostBroadcastStudio
         disabled={false}
@@ -20,15 +20,16 @@ describe('HostBroadcastStudio', () => {
     expect(markup).toContain('Use camera');
     expect(markup).toContain('Camera input');
     expect(markup).toContain('Microphone input');
+    expect(markup).toContain('Choose a screen');
+    expect(markup).toContain('Prepare a screen or camera preview first.');
     expect(markup).toContain('Start live broadcast');
   });
 });
 
 function draftRoom(): Room {
   return {
-    coverImageUrl: 'https://cdn.example.com/cover.jpg',
+    coverImageUrl: null,
     createdAt: '2026-10-19T20:00:00.000Z',
-    demoVideoUrl: 'https://cdn.example.com/demo.mp4',
     description: 'A live product demonstration',
     hostId: '295d5bd9-d9da-44b2-8f5d-8839f13a4437',
     id: '99d30467-ed47-43b8-96b0-d36ab2ee60e0',
