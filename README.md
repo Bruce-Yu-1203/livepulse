@@ -44,6 +44,16 @@ pnpm db:migrate
 DEMO_PASSWORD='choose-a-local-demo-password' pnpm db:seed
 ```
 
+Create a LiveKit Cloud project and set its connection credentials before using
+the browser broadcast controls. The API key and secret are server-only values;
+never expose them through a `NEXT_PUBLIC_` variable:
+
+```bash
+export LIVEKIT_URL='wss://your-project.livekit.cloud'
+export LIVEKIT_API_KEY='your-api-key'
+export LIVEKIT_API_SECRET='your-api-secret'
+```
+
 Start the API and web application in separate terminals:
 
 ```bash
@@ -99,6 +109,9 @@ export BETTER_AUTH_URL='http://localhost:3001'
 export AUTH_COOKIE_DOMAIN=''
 export GOOGLE_CLIENT_ID='your-google-client-id'
 export GOOGLE_CLIENT_SECRET='your-google-client-secret'
+export LIVEKIT_URL='wss://your-project.livekit.cloud'
+export LIVEKIT_API_KEY='your-api-key'
+export LIVEKIT_API_SECRET='your-api-secret'
 export DEMO_PASSWORD='choose-a-local-demo-password'
 docker compose -f infra/compose/compose.yml up --build -d --wait
 docker compose -f infra/compose/compose.yml run --rm seed

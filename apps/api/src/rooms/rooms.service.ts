@@ -79,10 +79,9 @@ export class RoomsService {
     return this.rooms.listOwned(hostId);
   }
 
-  public async update(
+  public async getManageable(
     actor: { role: 'ADMIN' | 'HOST' | 'VIEWER'; userId: string },
     id: string,
-    input: UpdateRoomRequest,
   ) {
     const room = await this.rooms.findById(id);
 
@@ -96,6 +95,16 @@ export class RoomsService {
     ) {
       throw new RoomForbiddenError();
     }
+
+    return room;
+  }
+
+  public async update(
+    actor: { role: 'ADMIN' | 'HOST' | 'VIEWER'; userId: string },
+    id: string,
+    input: UpdateRoomRequest,
+  ) {
+    const room = await this.getManageable(actor, id);
 
     if (room.version !== input.expectedVersion) {
       throw new RoomVersionConflictError();

@@ -11,6 +11,9 @@ export type {
   ListAuditLogsResponse,
 } from './audit-logs.js';
 
+export { BroadcastConnectionResponseSchema } from './broadcast.js';
+export type { BroadcastConnectionResponse } from './broadcast.js';
+
 export {
   RoomStatus,
   RoomStatusSchema,

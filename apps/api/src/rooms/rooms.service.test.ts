@@ -145,6 +145,28 @@ describe('RoomsService', () => {
     expect(rooms.listOwned).toHaveBeenCalledWith(room.hostId);
   });
 
+  it('returns a manageable room only to its host or an administrator', async () => {
+    const room = draftRoom();
+    const rooms = repository({ findById: vi.fn().mockResolvedValue(room) });
+    const service = new RoomsService(rooms, roomLifecycle());
+
+    await expect(
+      service.getManageable({ role: 'HOST', userId: room.hostId }, room.id),
+    ).resolves.toEqual(room);
+    await expect(
+      service.getManageable(
+        { role: 'ADMIN', userId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' },
+        room.id,
+      ),
+    ).resolves.toEqual(room);
+    await expect(
+      service.getManageable(
+        { role: 'HOST', userId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' },
+        room.id,
+      ),
+    ).rejects.toBeInstanceOf(RoomForbiddenError);
+  });
+
   it('updates an owned draft and atomically increments its version', async () => {
     const room = draftRoom();
     const updated = { ...room, status: 'LIVE' as const, version: 2 };

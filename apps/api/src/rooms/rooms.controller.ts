@@ -20,6 +20,7 @@ import {
   UpdateRoomRequestSchema,
 } from '@livepulse/contracts';
 import type {
+  BroadcastConnectionResponse,
   CreateRoomResponse,
   GetRoomResponse,
   ListOwnedRoomsResponse,
@@ -33,6 +34,11 @@ import type { AuthenticatedRequest } from '../auth/authenticated-request.js';
 import { CsrfGuard } from '../auth/csrf.guard.js';
 import { AllowedRoles } from '../authorization/allowed-roles.decorator.js';
 import { RolesGuard } from '../authorization/roles.guard.js';
+import {
+  BroadcastConfigurationError,
+  BroadcastUnavailableError,
+} from '../broadcast/broadcast.errors.js';
+import { BroadcastService } from '../broadcast/broadcast.service.js';
 import {
   InvalidRoomCursorError,
   InvalidRoomTransitionError,
@@ -49,6 +55,7 @@ import { RoomsService } from './rooms.service.js';
 export class RoomsController {
   public constructor(
     @Inject(RoomsService) private readonly rooms: RoomsService,
+    @Inject(BroadcastService) private readonly broadcast: BroadcastService,
   ) {}
 
   @Get()
@@ -110,6 +117,65 @@ export class RoomsController {
       return {
         requestId: request.id,
         room: this.serializeRoom(room),
+      };
+    } catch (error) {
+      this.throwRoomError(error);
+    }
+  }
+
+  @Post(':id/broadcast/viewer-token')
+  public async createViewerBroadcastToken(
+    @Param('id') id: string,
+    @Req() request: FastifyRequest,
+  ): Promise<BroadcastConnectionResponse> {
+    const parsed = GetRoomParamsSchema.safeParse({ id });
+
+    if (!parsed.success) {
+      this.throwValidationError('The room identifier is invalid');
+    }
+
+    try {
+      const room = await this.rooms.getVisible(parsed.data.id);
+
+      if (room.status !== 'LIVE') {
+        throw new BroadcastUnavailableError();
+      }
+
+      return {
+        ...(await this.broadcast.createViewerCredentials(room.id)),
+        requestId: request.id,
+      };
+    } catch (error) {
+      this.throwRoomError(error);
+    }
+  }
+
+  @AllowedRoles('HOST', 'ADMIN')
+  @Post(':id/broadcast/host-token')
+  @UseGuards(SessionGuard, CsrfGuard, RolesGuard)
+  public async createHostBroadcastToken(
+    @Param('id') id: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<BroadcastConnectionResponse> {
+    const parsed = GetRoomParamsSchema.safeParse({ id });
+
+    if (!parsed.success) {
+      this.throwValidationError('The room identifier is invalid');
+    }
+
+    try {
+      const room = await this.rooms.getManageable(request.auth, parsed.data.id);
+
+      if (room.status === 'ENDED') {
+        throw new BroadcastUnavailableError();
+      }
+
+      return {
+        ...(await this.broadcast.createHostCredentials(
+          room.id,
+          request.auth.userId,
+        )),
+        requestId: request.id,
       };
     } catch (error) {
       this.throwRoomError(error);
@@ -222,6 +288,26 @@ export class RoomsController {
           message: error.message,
         },
         HttpStatus.CONFLICT,
+      );
+    }
+
+    if (error instanceof BroadcastUnavailableError) {
+      throw new HttpException(
+        {
+          code: ApiErrorCode.RoomInvalidTransition,
+          message: error.message,
+        },
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    if (error instanceof BroadcastConfigurationError) {
+      throw new HttpException(
+        {
+          code: ApiErrorCode.ServiceUnavailable,
+          message: error.message,
+        },
+        HttpStatus.SERVICE_UNAVAILABLE,
       );
     }
 

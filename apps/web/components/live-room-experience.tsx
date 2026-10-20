@@ -23,6 +23,7 @@ import { canModerateRoom } from '../lib/room-moderation';
 import { useRoomChat } from '../lib/use-room-chat';
 import { MessageReportForm } from './message-report-form';
 import { RoomLikeButton } from './room-like-button';
+import { LiveBroadcastPlayer } from './live-broadcast-player';
 
 export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
   const chat = useRoomChat(room.id, room.status);
@@ -74,15 +75,22 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
   return (
     <div className="mt-7 grid overflow-hidden rounded-[2rem] border border-white/10 bg-black shadow-2xl shadow-black/40 lg:grid-cols-[minmax(0,1fr)_23rem]">
       <div className="relative isolate overflow-hidden bg-zinc-950">
-        <video
-          className="aspect-video h-full min-h-64 w-full object-cover"
-          controls
-          poster={room.coverImageUrl}
-          preload="metadata"
-          src={room.demoVideoUrl}
-        >
-          Your browser does not support embedded video.
-        </video>
+        {room.status === 'LIVE' ? (
+          <LiveBroadcastPlayer
+            coverImageUrl={room.coverImageUrl}
+            roomId={room.id}
+          />
+        ) : (
+          <video
+            className="aspect-video h-full min-h-64 w-full object-cover"
+            controls
+            poster={room.coverImageUrl}
+            preload="metadata"
+            src={room.demoVideoUrl}
+          >
+            Your browser does not support embedded video.
+          </video>
+        )}
         {danmakuVisible ? (
           <DanmakuLayer density={danmakuDensity} messages={chat.messages} />
         ) : null}

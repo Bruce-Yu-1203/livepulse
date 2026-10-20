@@ -14,8 +14,9 @@ import Link from 'next/link';
 import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 
+import { HostBroadcastStudio } from '../../components/host-broadcast-studio';
 import { ClientApiError, clientApiRequest } from '../../lib/client-api';
-import { nextRoomStatus, replaceRoom, roomActionLabel } from '../../lib/studio';
+import { replaceRoom } from '../../lib/studio';
 
 type StudioState = 'forbidden' | 'loading' | 'ready' | 'signed-out';
 type Notice = { kind: 'error' | 'success'; message: string } | undefined;
@@ -140,27 +141,26 @@ export function StudioDashboard() {
     await updateRoom(selectedRoom, parsed.data, 'Room details saved.');
   }
 
-  async function transitionRoom(room: Room) {
-    const status = nextRoomStatus(room.status);
-
-    if (!status) {
-      return;
-    }
-
-    await updateRoom(
+  async function transitionRoom(
+    room: Room,
+    status: 'ENDED' | 'LIVE',
+  ): Promise<boolean> {
+    const updated = await updateRoom(
       room,
       { expectedVersion: room.version, status },
       status === 'LIVE'
         ? 'The room is live and visible to viewers.'
         : 'The broadcast ended and is now available as a replay.',
     );
+
+    return updated !== undefined;
   }
 
   async function updateRoom(
     room: Room,
     input: unknown,
     successMessage: string,
-  ) {
+  ): Promise<Room | undefined> {
     setPending(true);
     setNotice(undefined);
 
@@ -176,6 +176,7 @@ export function StudioDashboard() {
       );
       setRooms((current) => replaceRoom(current, response.room));
       setNotice({ kind: 'success', message: successMessage });
+      return response.room;
     } catch (error) {
       showMutationError(error);
       if (
@@ -184,6 +185,7 @@ export function StudioDashboard() {
       ) {
         await loadStudio();
       }
+      return undefined;
     } finally {
       setPending(false);
     }
@@ -317,9 +319,10 @@ export function StudioDashboard() {
           {selectedRoom ? (
             <RoomEditor
               disabled={pending}
-              key={`${selectedRoom.id}:${selectedRoom.version}`}
+              key={selectedRoom.id}
+              onEnd={() => transitionRoom(selectedRoom, 'ENDED')}
+              onGoLive={() => transitionRoom(selectedRoom, 'LIVE')}
               onSubmit={saveRoom}
-              onTransition={() => void transitionRoom(selectedRoom)}
               room={selectedRoom}
             />
           ) : (
@@ -389,16 +392,17 @@ function CreateRoomForm({
 
 function RoomEditor({
   disabled,
+  onEnd,
+  onGoLive,
   onSubmit,
-  onTransition,
   room,
 }: {
   disabled: boolean;
+  onEnd(): Promise<boolean>;
+  onGoLive(): Promise<boolean>;
   onSubmit(event: FormEvent<HTMLFormElement>): void;
-  onTransition(): void;
   room: Room;
 }) {
-  const actionLabel = roomActionLabel(room.status);
   const immutable = room.status === 'ENDED';
 
   return (
@@ -418,26 +422,22 @@ function RoomEditor({
               Version {room.version} · Room {room.id.slice(0, 8)}
             </p>
           </div>
-          {actionLabel ? (
-            <button
-              className={`rounded-full px-5 py-3 text-sm font-bold transition disabled:cursor-wait disabled:opacity-50 ${
-                room.status === 'DRAFT'
-                  ? 'bg-cyan-300 text-zinc-950 hover:bg-cyan-200'
-                  : 'border border-rose-300/25 bg-rose-300/10 text-rose-100 hover:bg-rose-300/15'
-              }`}
-              disabled={disabled}
-              onClick={onTransition}
-              type="button"
-            >
-              {actionLabel}
-            </button>
-          ) : (
+          {immutable ? (
             <span className="rounded-full border border-white/10 px-4 py-2 text-xs font-semibold text-zinc-400">
               Archived replay
             </span>
-          )}
+          ) : null}
         </div>
       </div>
+
+      {!immutable ? (
+        <HostBroadcastStudio
+          disabled={disabled}
+          onEnd={onEnd}
+          onGoLive={onGoLive}
+          room={room}
+        />
+      ) : null}
 
       <form className="p-6 sm:p-8" onSubmit={onSubmit}>
         <div className="grid gap-6 lg:grid-cols-2">

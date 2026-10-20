@@ -199,10 +199,42 @@ async function createLiveRoom(page: Page, roomTitle: string): Promise<void> {
     .fill('https://example.com/e2e-video.mp4');
   await createForm.getByRole('button', { name: 'Create draft' }).click();
   await expect(page.getByRole('status')).toHaveText('Draft room created.');
-  await page.getByRole('button', { name: 'Go live' }).click();
-  await expect(page.getByRole('status')).toHaveText(
-    'The room is live and visible to viewers.',
-  );
+
+  // The core application flow runs without external LiveKit credentials. The
+  // dedicated broadcast UI and token permissions are covered by unit tests;
+  // this transition keeps the isolated browser suite focused on room, chat,
+  // moderation, and replay behavior.
+  await page.evaluate(async (title) => {
+    const roomsResponse = await fetch('/api/v1/rooms/mine', {
+      credentials: 'include',
+    });
+    const rooms = (await roomsResponse.json()) as {
+      items: Array<{ id: string; title: string; version: number }>;
+    };
+    const room = rooms.items.find((item) => item.title === title);
+
+    if (!room) {
+      throw new Error('The E2E room was not found');
+    }
+
+    const updateResponse = await fetch(`/api/v1/rooms/${room.id}`, {
+      body: JSON.stringify({
+        expectedVersion: room.version,
+        status: 'LIVE',
+      }),
+      credentials: 'include',
+      headers: { 'content-type': 'application/json' },
+      method: 'PATCH',
+    });
+
+    if (!updateResponse.ok) {
+      throw new Error('The E2E room could not be moved live');
+    }
+  }, roomTitle);
+  await page.reload();
+  await expect(
+    page.getByRole('button', { name: 'Reconnect broadcast' }),
+  ).toBeVisible();
 }
 
 async function registerAndSignInViewer(

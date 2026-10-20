@@ -4,6 +4,7 @@ import { AuthModule } from '../auth/auth.module.js';
 import { DatabaseModule } from '../database/database.module.js';
 import { RoomLifecycleModule } from '../room-lifecycle/room-lifecycle.module.js';
 import { RolesGuard } from '../authorization/roles.guard.js';
+import { BroadcastModule } from '../broadcast/broadcast.module.js';
 import { RoomMutesController } from './room-mutes.controller.js';
 import { PrismaRoomMutesRepository } from './room-mutes.repository.js';
 import { RoomMutesService } from './room-mutes.service.js';
@@ -20,7 +21,7 @@ import { ROOMS_REPOSITORY } from './rooms.tokens.js';
 @Module({
   controllers: [RoomsController, RoomLikesController, RoomMutesController],
   exports: [RoomsService],
-  imports: [AuthModule, DatabaseModule, RoomLifecycleModule],
+  imports: [AuthModule, BroadcastModule, DatabaseModule, RoomLifecycleModule],
   providers: [
     RoomsService,
     RoomLikesService,

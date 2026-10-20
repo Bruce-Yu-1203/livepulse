@@ -1,0 +1,41 @@
+import type { Room } from '@livepulse/contracts';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it, vi } from 'vitest';
+
+import { HostBroadcastStudio } from './host-broadcast-studio';
+
+describe('HostBroadcastStudio', () => {
+  it('starts with screen sharing selected and exposes optional camera controls', () => {
+    const markup = renderToStaticMarkup(
+      <HostBroadcastStudio
+        disabled={false}
+        onEnd={vi.fn().mockResolvedValue(true)}
+        onGoLive={vi.fn().mockResolvedValue(true)}
+        room={draftRoom()}
+      />,
+    );
+
+    expect(markup).toContain('Share screen');
+    expect(markup).toContain('checked=""');
+    expect(markup).toContain('Use camera');
+    expect(markup).toContain('Camera input');
+    expect(markup).toContain('Microphone input');
+    expect(markup).toContain('Start live broadcast');
+  });
+});
+
+function draftRoom(): Room {
+  return {
+    coverImageUrl: 'https://cdn.example.com/cover.jpg',
+    createdAt: '2026-10-19T20:00:00.000Z',
+    demoVideoUrl: 'https://cdn.example.com/demo.mp4',
+    description: 'A live product demonstration',
+    hostId: '295d5bd9-d9da-44b2-8f5d-8839f13a4437',
+    id: '99d30467-ed47-43b8-96b0-d36ab2ee60e0',
+    likeCount: 0,
+    status: 'DRAFT',
+    title: 'Live room',
+    updatedAt: '2026-10-19T20:00:00.000Z',
+    version: 1,
+  };
+}
