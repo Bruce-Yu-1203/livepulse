@@ -165,8 +165,8 @@ export function AuthPanel({
   }
 
   return (
-    <section className="auth-panel w-full max-w-md rounded-xl border border-white/10 bg-white/[0.045] p-6 shadow-2xl shadow-black/40 backdrop-blur-xl sm:p-8">
-      <div className="auth-tab-list grid grid-cols-2 rounded-full bg-black/30 p-1 text-sm">
+    <section className="auth-panel w-full max-w-md rounded-2xl border p-6 sm:p-8">
+      <div className="auth-tab-list grid grid-cols-2 rounded-full bg-sunken p-1 text-sm">
         <ModeButton
           active={mode === 'login'}
           label="Sign in"
@@ -180,15 +180,15 @@ export function AuthPanel({
       </div>
 
       <div className="mt-8">
-        <p className="auth-eyebrow text-xs font-bold uppercase tracking-[0.22em] text-cyan-300">
+        <p className="auth-eyebrow text-xs font-bold text-accent">
           {mode === 'login' ? 'Welcome back' : 'Join the room'}
         </p>
-        <h1 className="auth-title mt-3 text-3xl font-semibold tracking-[-0.04em] text-white">
+        <h1 className="auth-title mt-3 text-3xl font-semibold tracking-[-0.04em] text-fg">
           {mode === 'login'
             ? 'Welcome back to the room.'
             : 'Come join the conversation.'}
         </h1>
-        <p className="auth-description mt-3 text-sm leading-6 text-zinc-400">
+        <p className="auth-description mt-3 text-sm leading-6 text-muted">
           {mode === 'login'
             ? 'Sign in to watch, chat, and pick up where you left off.'
             : 'Create an account to join rooms and share your reactions.'}
@@ -196,7 +196,7 @@ export function AuthPanel({
       </div>
 
       <button
-        className="auth-google mt-8 flex w-full items-center justify-center gap-3 rounded-2xl border border-white/15 bg-white px-5 py-3.5 font-semibold text-zinc-950 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50"
+        className="auth-google mt-8 flex w-full items-center justify-center gap-3 rounded-2xl border border-fg/15 bg-fg px-5 py-3.5 font-semibold text-canvas transition hover:bg-fg/85 disabled:cursor-not-allowed disabled:opacity-50"
         disabled={
           google.loading || !google.enabled || status.kind === 'pending'
         }
@@ -211,32 +211,32 @@ export function AuthPanel({
             : 'Google sign-in unavailable'}
       </button>
 
-      <div className="auth-divider my-7 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.16em] text-zinc-600">
-        <span className="h-px flex-1 bg-white/10" />
+      <div className="auth-divider my-7 flex items-center gap-3 text-xs font-semibold text-subtle">
+        <span className="h-px flex-1 bg-fg/10" />
         <span>or use email</span>
-        <span className="h-px flex-1 bg-white/10" />
+        <span className="h-px flex-1 bg-fg/10" />
       </div>
 
       <form className="space-y-5" onSubmit={submit}>
-        <label className="auth-label block text-sm font-medium text-zinc-300">
+        <label className="auth-label block text-sm font-medium text-fg-soft">
           Email
           <input
             autoComplete="email"
-            className="auth-input mt-2 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3.5 text-white outline-none transition placeholder:text-zinc-600 focus:border-cyan-300/60 focus:ring-4 focus:ring-cyan-300/10"
+            className="auth-input mt-2 w-full rounded-2xl border border-fg/10 bg-sunken px-4 py-3.5 text-fg outline-none transition placeholder:text-subtle focus:border-accent/60 focus:ring-4 focus:ring-accent/10"
             name="email"
             placeholder="you@example.com"
             required
             type="email"
           />
         </label>
-        <div className="auth-label text-sm font-medium text-zinc-300">
+        <div className="auth-label text-sm font-medium text-fg-soft">
           <label htmlFor="auth-password">Password</label>
           <span className="relative mt-2 block">
             <input
               autoComplete={
                 mode === 'login' ? 'current-password' : 'new-password'
               }
-              className="auth-input w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3.5 pr-20 text-white outline-none transition placeholder:text-zinc-600 focus:border-cyan-300/60 focus:ring-4 focus:ring-cyan-300/10"
+              className="auth-input w-full rounded-2xl border border-fg/10 bg-sunken px-4 py-3.5 pr-20 text-fg outline-none transition placeholder:text-subtle focus:border-accent/60 focus:ring-4 focus:ring-accent/10"
               id="auth-password"
               minLength={12}
               name="password"
@@ -246,7 +246,7 @@ export function AuthPanel({
             />
             <button
               aria-label={showPassword ? 'Hide password' : 'Show password'}
-              className="auth-password-toggle absolute inset-y-0 right-3 my-auto h-fit rounded-lg px-2 py-1 text-xs font-semibold text-zinc-500 transition hover:bg-white/5 hover:text-zinc-200"
+              className="auth-password-toggle absolute inset-y-0 right-3 my-auto h-fit rounded-lg px-2 py-1 text-xs font-semibold text-muted transition hover:bg-fg/5 hover:text-fg-soft"
               onClick={() => setShowPassword((current) => !current)}
               type="button"
             >
@@ -259,8 +259,8 @@ export function AuthPanel({
           <p
             className={`rounded-2xl border px-4 py-3 text-sm ${
               status.kind === 'error'
-                ? 'border-rose-400/20 bg-rose-400/10 text-rose-200'
-                : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-200'
+                ? 'border-danger/20 bg-danger/10 text-danger'
+                : 'border-success/20 bg-success/10 text-success'
             }`}
             role="status"
           >
@@ -269,7 +269,7 @@ export function AuthPanel({
         ) : null}
 
         <button
-          className="auth-submit w-full rounded-2xl bg-cyan-300 px-5 py-3.5 font-bold text-zinc-950 transition hover:bg-cyan-200 disabled:cursor-wait disabled:opacity-60"
+          className="auth-submit w-full rounded-2xl bg-accent px-5 py-3.5 font-bold text-on-accent transition hover:bg-accent-hover disabled:cursor-wait disabled:opacity-60"
           disabled={status.kind === 'pending'}
           type="submit"
         >
@@ -337,7 +337,7 @@ function ModeButton({
   return (
     <button
       className={`auth-tab rounded-full px-3 py-2.5 font-medium transition ${
-        active ? 'bg-white text-zinc-950' : 'text-zinc-400 hover:text-white'
+        active ? 'bg-fg text-canvas' : 'text-muted hover:text-fg'
       }`}
       data-active={active}
       onClick={onClick}

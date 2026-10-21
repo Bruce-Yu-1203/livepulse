@@ -264,14 +264,12 @@ export function AdminDashboard() {
 
   return (
     <div>
-      <section className="border-b border-white/8 pb-10">
-        <p className="text-xs font-bold uppercase tracking-[0.24em] text-amber-200">
-          Trust and safety
-        </p>
-        <h1 className="mt-4 text-4xl font-semibold tracking-[-0.05em] text-white sm:text-6xl">
+      <section className="border-b border-fg/8 pb-10">
+        <p className="text-xs font-bold text-warning">Trust and safety</p>
+        <h1 className="mt-4 text-4xl font-semibold tracking-[-0.05em] text-fg sm:text-6xl">
           Moderation queue
         </h1>
-        <p className="mt-4 max-w-2xl leading-7 text-zinc-400">
+        <p className="mt-4 max-w-2xl leading-7 text-muted">
           Review reported messages, preserve an audit trail, and remove
           prohibited content from history and every connected room.
         </p>
@@ -279,7 +277,7 @@ export function AdminDashboard() {
 
       {notice ? (
         <p
-          className="mt-8 rounded-2xl border border-rose-400/20 bg-rose-400/10 px-5 py-4 text-sm text-rose-200"
+          className="mt-8 rounded-2xl border border-danger/20 bg-danger/10 px-5 py-4 text-sm text-danger"
           role="status"
         >
           {notice}
@@ -296,9 +294,9 @@ export function AdminDashboard() {
 
       <section className="mt-10 space-y-5">
         {reports.length === 0 ? (
-          <div className="rounded-[2rem] border border-dashed border-white/10 px-6 py-16 text-center">
-            <p className="text-lg font-semibold text-white">Queue cleared</p>
-            <p className="mt-2 text-sm text-zinc-500">
+          <div className="rounded-[2rem] border border-dashed border-fg/10 px-6 py-16 text-center">
+            <p className="text-lg font-semibold text-fg">Queue cleared</p>
+            <p className="mt-2 text-sm text-muted">
               {nextCursor
                 ? 'This batch is complete. Load the next reports to continue.'
                 : 'There are no pending message reports.'}
@@ -307,32 +305,32 @@ export function AdminDashboard() {
         ) : (
           reports.map((report) => (
             <article
-              className="rounded-[2rem] border border-white/8 bg-white/[0.035] p-6"
+              className="rounded-[2rem] border border-fg/8 bg-fg/[0.035] p-6"
               key={report.id}
             >
               <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
                 <div>
-                  <span className="rounded-full bg-amber-200/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-amber-200">
+                  <span className="rounded-full bg-warning/10 px-3 py-1 text-xs font-bold text-warning">
                     {reportReasonLabel(report.reason)}
                   </span>
-                  <p className="mt-3 text-xs text-zinc-600">
+                  <p className="mt-3 text-xs text-subtle">
                     Reported {formatReportTime(report.createdAt)}
                   </p>
                 </div>
                 <Link
-                  className="text-sm font-semibold text-cyan-300 transition hover:text-cyan-200"
+                  className="text-sm font-semibold text-accent transition hover:text-accent-hover"
                   href={`/rooms/${report.roomId}`}
                 >
                   Open room
                 </Link>
               </div>
 
-              <blockquote className="mt-5 rounded-2xl border border-white/8 bg-black/25 px-5 py-4 text-sm leading-6 text-zinc-300">
+              <blockquote className="mt-5 rounded-2xl border border-fg/8 bg-sunken px-5 py-4 text-sm leading-6 text-fg-soft">
                 {report.message?.text ??
                   'The referenced message is unavailable.'}
               </blockquote>
               {report.details ? (
-                <p className="mt-4 text-sm leading-6 text-zinc-400">
+                <p className="mt-4 text-sm leading-6 text-muted">
                   Reporter context: {report.details}
                 </p>
               ) : null}
@@ -357,14 +355,12 @@ export function AdminDashboard() {
         />
       </section>
 
-      <section className="mt-16 border-t border-white/8 pt-10">
-        <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-200">
-          Accountability
-        </p>
-        <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-white">
+      <section className="mt-16 border-t border-fg/8 pt-10">
+        <p className="text-xs font-bold text-accent">Accountability</p>
+        <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-fg">
           Recent audit history
         </h2>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-500">
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
           Newest first. Each entry records the actor, target, room, and server
           time for a moderation event.
         </p>
@@ -389,23 +385,19 @@ export function OperationsOverview({
   summary: OperationsSummaryResponse;
 }) {
   return (
-    <section className="mt-10 rounded-[2rem] border border-white/8 bg-white/[0.035] p-6 sm:p-8">
+    <section className="mt-10 rounded-[2rem] border border-fg/8 bg-fg/[0.035] p-6 sm:p-8">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-200">
-            Operations snapshot
-          </p>
-          <h2 className="mt-2 text-2xl font-semibold text-white">
-            Runtime pulse
-          </h2>
-          <p className="mt-2 text-sm text-zinc-500">
+          <p className="text-xs font-bold text-success">Operations snapshot</p>
+          <h2 className="mt-2 text-2xl font-semibold text-fg">Runtime pulse</h2>
+          <p className="mt-2 text-sm text-muted">
             Local process counters · {formatCount(summary.business.liveRooms)}{' '}
             live rooms · {formatCount(summary.business.pendingReports)} pending
             reports
           </p>
         </div>
         <button
-          className="rounded-full border border-white/12 px-4 py-2 text-sm font-bold text-zinc-200 transition hover:border-emerald-300/40 hover:text-emerald-200 disabled:cursor-wait disabled:opacity-50"
+          className="rounded-full border border-fg/12 px-4 py-2 text-sm font-bold text-fg-soft transition hover:border-success/40 hover:text-success disabled:cursor-wait disabled:opacity-50"
           disabled={refreshing}
           onClick={onRefresh}
           type="button"
@@ -416,22 +408,20 @@ export function OperationsOverview({
       <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {operationMetricCards(summary).map((metric) => (
           <article
-            className="rounded-2xl border border-white/8 bg-black/20 p-4"
+            className="rounded-2xl border border-fg/8 bg-sunken p-4"
             key={metric.label}
           >
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-zinc-500">
-              {metric.label}
-            </p>
-            <p className="mt-2 text-3xl font-semibold text-white">
+            <p className="text-xs font-bold text-muted">{metric.label}</p>
+            <p className="mt-2 text-3xl font-semibold text-fg">
               {metric.value}
             </p>
-            <p className="mt-2 text-xs leading-5 text-zinc-600">
+            <p className="mt-2 text-xs leading-5 text-subtle">
               {metric.detail}
             </p>
           </article>
         ))}
       </div>
-      <p className="mt-5 text-xs text-zinc-600">
+      <p className="mt-5 text-xs text-subtle">
         {formatCount(summary.business.users)} users ·{' '}
         {formatCount(summary.business.auditActions)} audited moderation actions
         · generated {formatReportTime(summary.generatedAt)}
@@ -443,7 +433,7 @@ export function OperationsOverview({
 export function AuditTrail({ logs }: { logs: AuditLog[] }) {
   if (logs.length === 0) {
     return (
-      <p className="mt-6 rounded-2xl border border-dashed border-white/10 px-5 py-8 text-center text-sm text-zinc-500">
+      <p className="mt-6 rounded-2xl border border-dashed border-fg/10 px-5 py-8 text-center text-sm text-muted">
         No moderation activity has been recorded yet.
       </p>
     );
@@ -453,23 +443,23 @@ export function AuditTrail({ logs }: { logs: AuditLog[] }) {
     <ol className="mt-6 space-y-3">
       {logs.map((log) => (
         <li
-          className="rounded-2xl border border-white/8 bg-white/[0.025] px-5 py-4"
+          className="rounded-2xl border border-fg/8 bg-fg/[0.025] px-5 py-4"
           key={log.id}
         >
           <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
-            <p className="font-semibold text-zinc-200">
+            <p className="font-semibold text-fg-soft">
               {auditActionLabel(log.action)}
             </p>
-            <time className="text-xs text-zinc-600" dateTime={log.createdAt}>
+            <time className="text-xs text-subtle" dateTime={log.createdAt}>
               {formatReportTime(log.createdAt)}
             </time>
           </div>
-          <p className="mt-2 break-all text-xs leading-5 text-zinc-500">
+          <p className="mt-2 break-all text-xs leading-5 text-muted">
             Actor {log.actorId} · Target {log.targetId}
           </p>
           {log.roomId ? (
             <Link
-              className="mt-2 inline-flex text-xs font-semibold text-cyan-300 transition hover:text-cyan-200"
+              className="mt-2 inline-flex text-xs font-semibold text-accent transition hover:text-accent-hover"
               href={`/rooms/${log.roomId}`}
             >
               Open related room
@@ -496,7 +486,7 @@ export function AuditHistoryPagination({
 
   return (
     <button
-      className="mx-auto mt-6 block rounded-full border border-white/12 px-5 py-2.5 text-sm font-bold text-zinc-200 transition hover:border-cyan-300/40 hover:text-cyan-200 disabled:cursor-wait disabled:opacity-50"
+      className="mx-auto mt-6 block rounded-full border border-fg/12 px-5 py-2.5 text-sm font-bold text-fg-soft transition hover:border-accent/40 hover:text-accent disabled:cursor-wait disabled:opacity-50"
       disabled={loading}
       onClick={onLoad}
       type="button"
@@ -521,7 +511,7 @@ export function ModerationQueuePagination({
 
   return (
     <button
-      className="mx-auto block rounded-full border border-white/12 px-5 py-2.5 text-sm font-bold text-zinc-200 transition hover:border-cyan-300/40 hover:text-cyan-200 disabled:cursor-wait disabled:opacity-50"
+      className="mx-auto block rounded-full border border-fg/12 px-5 py-2.5 text-sm font-bold text-fg-soft transition hover:border-accent/40 hover:text-accent disabled:cursor-wait disabled:opacity-50"
       disabled={loading}
       onClick={onLoad}
       type="button"
@@ -545,7 +535,7 @@ export function ModerationReportActions({
   return (
     <div className="mt-6 flex flex-col justify-end gap-3 sm:flex-row">
       <button
-        className="rounded-xl border border-white/12 px-4 py-2.5 text-sm font-bold text-zinc-200 transition hover:border-white/25 hover:bg-white/6 disabled:cursor-wait disabled:opacity-45"
+        className="rounded-xl border border-fg/12 px-4 py-2.5 text-sm font-bold text-fg-soft transition hover:border-fg/25 hover:bg-fg/6 disabled:cursor-wait disabled:opacity-45"
         disabled={Boolean(pendingAction)}
         onClick={onDismiss}
         type="button"
@@ -553,7 +543,7 @@ export function ModerationReportActions({
         {pendingAction === 'dismiss' ? 'Dismissing…' : 'Keep message'}
       </button>
       <button
-        className="rounded-xl bg-rose-300 px-4 py-2.5 text-sm font-bold text-zinc-950 transition hover:bg-rose-200 disabled:cursor-wait disabled:opacity-45"
+        className="rounded-xl bg-danger px-4 py-2.5 text-sm font-bold text-on-accent transition hover:bg-danger-hover disabled:cursor-wait disabled:opacity-45"
         disabled={
           !report.message ||
           Boolean(report.message.deletedAt) ||
@@ -582,15 +572,15 @@ function AdminMessage({
   title: string;
 }) {
   return (
-    <div className="rounded-[2rem] border border-white/8 bg-white/[0.035] px-6 py-16 text-center">
-      <p className="text-xl font-semibold text-white">{title}</p>
+    <div className="rounded-[2rem] border border-fg/8 bg-fg/[0.035] px-6 py-16 text-center">
+      <p className="text-xl font-semibold text-fg">{title}</p>
       {actionHref === '/auth' && actionLabel ? (
-        <AuthEntryLink className="mt-6 inline-flex rounded-full bg-white px-5 py-2.5 text-sm font-bold text-zinc-950 transition hover:bg-cyan-200">
+        <AuthEntryLink className="mt-6 inline-flex rounded-full bg-fg px-5 py-2.5 text-sm font-bold text-canvas transition hover:bg-accent hover:text-on-accent">
           {actionLabel}
         </AuthEntryLink>
       ) : actionHref && actionLabel ? (
         <Link
-          className="mt-6 inline-flex rounded-full bg-white px-5 py-2.5 text-sm font-bold text-zinc-950 transition hover:bg-cyan-200"
+          className="mt-6 inline-flex rounded-full bg-fg px-5 py-2.5 text-sm font-bold text-canvas transition hover:bg-accent hover:text-on-accent"
           href={actionHref}
         >
           {actionLabel}

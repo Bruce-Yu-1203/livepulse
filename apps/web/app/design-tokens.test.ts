@@ -1,0 +1,81 @@
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+
+const webRoot = join(__dirname, '..');
+const css = readFileSync(join(__dirname, 'globals.css'), 'utf8');
+
+function sourceFiles(dir: string): string[] {
+  return readdirSync(dir).flatMap((name) => {
+    const path = join(dir, name);
+    if (statSync(path).isDirectory()) {
+      return sourceFiles(path);
+    }
+    return path.endsWith('.tsx') && !path.includes('.test.') ? [path] : [];
+  });
+}
+
+function block(selector: string): string {
+  const start = css.indexOf(`${selector} {`);
+  expect(start, `${selector} block`).toBeGreaterThanOrEqual(0);
+  return css.slice(start, css.indexOf('}', start));
+}
+
+const tokens = [
+  'canvas',
+  'surface',
+  'raised',
+  'sunken',
+  'fg',
+  'fg-soft',
+  'muted',
+  'subtle',
+  'line',
+  'accent',
+  'accent-hover',
+  'on-accent',
+  'danger',
+  'success',
+  'warning',
+  'live',
+];
+
+describe('design tokens', () => {
+  it('defines every semantic colour for both light and dark themes', () => {
+    const light = block(':root');
+    const dark = block(":root[data-theme='dark']");
+
+    for (const token of tokens) {
+      expect(light).toContain(`--lp-${token}:`);
+      expect(dark).toContain(`--lp-${token}:`);
+    }
+  });
+
+  it('exposes the tokens to Tailwind utilities', () => {
+    for (const token of tokens) {
+      expect(css).toContain(`--color-${token}: var(--lp-${token});`);
+    }
+  });
+
+  it('keeps raw Tailwind palette colours out of components', () => {
+    const palette =
+      /\b(?:text|bg|border|ring|accent|placeholder:text)-(?:zinc|cyan|rose|emerald|amber|violet|slate|gray|neutral)-\d+/;
+    const offenders = [
+      ...sourceFiles(join(webRoot, 'app')),
+      ...sourceFiles(join(webRoot, 'components')),
+    ].filter((file) => palette.test(readFileSync(file, 'utf8')));
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('uses no hard-coded hex colours in component class names', () => {
+    const offenders = [
+      ...sourceFiles(join(webRoot, 'app')),
+      ...sourceFiles(join(webRoot, 'components')),
+    ].filter((file) =>
+      /(?:bg|text|border)-\[#/.test(readFileSync(file, 'utf8')),
+    );
+
+    expect(offenders).toEqual([]);
+  });
+});

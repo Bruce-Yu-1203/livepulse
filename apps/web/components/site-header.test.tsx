@@ -23,6 +23,12 @@ describe('SiteHeader', () => {
     expect(markup).toContain('Search rooms');
   });
 
+  it('offers a light and dark mode switch', () => {
+    expect(renderHeader()).toContain(
+      'aria-label="Switch between light and dark mode"',
+    );
+  });
+
   it('keeps the current search in the input', () => {
     expect(renderHeader('design')).toContain('value="design"');
   });

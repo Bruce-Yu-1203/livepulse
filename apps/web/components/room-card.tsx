@@ -1,14 +1,18 @@
 import type { VisibleRoom } from '@livepulse/contracts';
 import Link from 'next/link';
 
-import { formatRoomDate, roomStatusLabel } from '../lib/presentation';
+import {
+  formatRoomDate,
+  roomMonogram,
+  roomStatusLabel,
+} from '../lib/presentation';
 import { formatLikeCount } from '../lib/room-likes';
 
 export function RoomCard({ room }: { room: VisibleRoom }) {
   const isLive = room.status === 'LIVE';
 
   return (
-    <article className="room-card">
+    <article className={`room-card ${isLive ? 'room-card-live' : ''}`}>
       <Link aria-label={`Open ${room.title}`} href={`/rooms/${room.id}`}>
         <div className="room-card-image">
           {room.coverImageUrl ? (
@@ -26,16 +30,20 @@ export function RoomCard({ room }: { room: VisibleRoom }) {
           >
             {roomStatusLabel(room.status)}
           </span>
+          <span className="room-card-likes">
+            {formatLikeCount(room.likeCount)} likes
+          </span>
         </div>
         <div className="room-card-body">
-          <time className="room-card-date" dateTime={room.createdAt}>
-            {formatRoomDate(room.createdAt)}
-          </time>
-          <h2>{room.title}</h2>
-          <p>{room.description}</p>
-          <div className="room-card-footer">
-            <span>{formatLikeCount(room.likeCount)} likes</span>
-            <span>Enter room ↗</span>
+          <span aria-hidden="true" className="room-card-avatar">
+            {roomMonogram(room.title)}
+          </span>
+          <div className="room-card-text">
+            <h2>{room.title}</h2>
+            <p>{room.description}</p>
+            <time className="room-card-date" dateTime={room.createdAt}>
+              {formatRoomDate(room.createdAt)}
+            </time>
           </div>
         </div>
       </Link>

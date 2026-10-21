@@ -45,7 +45,7 @@ export default async function RoomPage({
       <AppShell activeRoomId={room.id} rooms={channels}>
         <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 sm:py-10">
           <Link
-            className="text-sm text-zinc-500 transition hover:text-white"
+            className="text-sm text-muted transition hover:text-fg"
             href="/"
           >
             ← All rooms
@@ -56,22 +56,20 @@ export default async function RoomPage({
             <section>
               <div className="flex flex-wrap items-center gap-3">
                 <span
-                  className={`rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-[0.14em] ${
-                    isLive
-                      ? 'bg-rose-500 text-white'
-                      : 'bg-white/8 text-zinc-300'
+                  className={`rounded-full px-3 py-1.5 text-xs font-bold ${
+                    isLive ? 'bg-danger text-on-accent' : 'bg-fg/8 text-fg-soft'
                   }`}
                 >
                   {roomStatusLabel(room.status)}
                 </span>
-                <span className="text-sm text-zinc-500">
+                <span className="text-sm text-muted">
                   Started {formatRoomDate(room.createdAt)}
                 </span>
               </div>
-              <h1 className="mt-6 text-4xl font-semibold tracking-[-0.045em] text-white sm:text-6xl">
+              <h1 className="mt-6 text-4xl font-semibold tracking-[-0.045em] text-fg sm:text-6xl">
                 {room.title}
               </h1>
-              <p className="mt-6 max-w-3xl text-lg leading-8 text-zinc-400">
+              <p className="mt-6 max-w-3xl text-lg leading-8 text-muted">
                 {room.description}
               </p>
             </section>

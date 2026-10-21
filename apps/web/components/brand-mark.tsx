@@ -9,17 +9,18 @@ export function BrandMark({ className }: { className?: string }) {
     >
       <path
         d="M17 12C3 26 3 54 17 68M63 12c14 14 14 42 0 56"
-        stroke="#858589"
+        className="brand-mark-outer"
+        stroke="currentColor"
         strokeLinecap="round"
         strokeWidth="7"
       />
       <path
         d="M27 21c-10 10-10 28 0 38m26-38c10 10 10 28 0 38"
-        stroke="#F8F8FA"
+        stroke="currentColor"
         strokeLinecap="round"
         strokeWidth="7"
       />
-      <circle cx="40" cy="40" fill="#FF4961" r="10" />
+      <circle cx="40" cy="40" fill="#F0384F" r="10" />
     </svg>
   );
 }

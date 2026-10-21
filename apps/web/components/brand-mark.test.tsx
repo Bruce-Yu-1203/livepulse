@@ -13,8 +13,8 @@ describe('BrandMark', () => {
     );
 
     expect(mark).toContain('M17 12C3 26 3 54 17 68');
-    expect(mark).toContain('fill="#FF4961"');
+    expect(mark).toContain('fill="#F0384F"');
     expect(icon).toContain('M17 12C3 26 3 54 17 68');
-    expect(icon).toContain('fill="#FF4961"');
+    expect(icon).toContain('fill="#F0384F"');
   });
 });

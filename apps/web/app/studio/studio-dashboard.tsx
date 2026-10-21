@@ -256,25 +256,21 @@ export function StudioDashboard() {
 
   return (
     <div>
-      <section className="flex flex-col justify-between gap-6 border-b border-white/8 pb-10 lg:flex-row lg:items-end">
+      <section className="flex flex-col justify-between gap-6 border-b border-fg/8 pb-10 lg:flex-row lg:items-end">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.24em] text-cyan-300">
-            Host studio
-          </p>
-          <h1 className="mt-4 text-4xl font-semibold tracking-[-0.05em] text-white sm:text-6xl">
+          <p className="text-xs font-bold text-accent">Host studio</p>
+          <h1 className="mt-4 text-4xl font-semibold tracking-[-0.05em] text-fg sm:text-6xl">
             Shape the next live moment.
           </h1>
-          <p className="mt-4 max-w-2xl leading-7 text-zinc-400">
+          <p className="mt-4 max-w-2xl leading-7 text-muted">
             Draft the room, refine its story, then move it live when the stage
             is ready.
           </p>
         </div>
         {user ? (
-          <div className="rounded-2xl border border-white/8 bg-white/[0.035] px-5 py-4 text-sm">
-            <p className="font-medium text-white">{user.email}</p>
-            <p className="mt-1 text-xs uppercase tracking-[0.18em] text-zinc-500">
-              {user.role} account
-            </p>
+          <div className="rounded-2xl border border-fg/8 bg-fg/[0.035] px-5 py-4 text-sm">
+            <p className="font-medium text-fg">{user.email}</p>
+            <p className="mt-1 text-xs text-muted">{user.role} account</p>
           </div>
         ) : null}
       </section>
@@ -283,8 +279,8 @@ export function StudioDashboard() {
         <p
           className={`mt-8 rounded-2xl border px-5 py-4 text-sm ${
             notice.kind === 'error'
-              ? 'border-rose-400/20 bg-rose-400/10 text-rose-200'
-              : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-200'
+              ? 'border-danger/20 bg-danger/10 text-danger'
+              : 'border-success/20 bg-success/10 text-success'
           }`}
           role="status"
         >
@@ -294,10 +290,10 @@ export function StudioDashboard() {
 
       <div className="mt-10 grid gap-8 xl:grid-cols-[22rem_1fr]">
         <aside className="space-y-8">
-          <section className="rounded-[2rem] border border-white/8 bg-white/[0.035] p-5">
+          <section className="rounded-[2rem] border border-fg/8 bg-fg/[0.035] p-5">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white">Your rooms</h2>
-              <span className="rounded-full bg-white/7 px-2.5 py-1 text-xs text-zinc-400">
+              <h2 className="text-lg font-semibold text-fg">Your rooms</h2>
+              <span className="rounded-full bg-fg/7 px-2.5 py-1 text-xs text-muted">
                 {rooms.length}
               </span>
             </div>
@@ -307,8 +303,8 @@ export function StudioDashboard() {
                   <button
                     className={`w-full rounded-2xl border p-4 text-left transition ${
                       selectedId === room.id
-                        ? 'border-cyan-300/35 bg-cyan-300/8'
-                        : 'border-white/7 bg-black/20 hover:border-white/15'
+                        ? 'border-accent/35 bg-accent/8'
+                        : 'border-fg/7 bg-sunken hover:border-fg/15'
                     }`}
                     key={room.id}
                     onClick={() => {
@@ -317,19 +313,19 @@ export function StudioDashboard() {
                     }}
                     type="button"
                   >
-                    <span className="block truncate font-medium text-white">
+                    <span className="block truncate font-medium text-fg">
                       {room.title}
                     </span>
-                    <span className="mt-2 flex items-center justify-between text-xs uppercase tracking-[0.14em]">
+                    <span className="mt-2 flex items-center justify-between text-xs">
                       <span className={statusColor(room.status)}>
                         {room.status}
                       </span>
-                      <span className="text-zinc-600">v{room.version}</span>
+                      <span className="text-subtle">v{room.version}</span>
                     </span>
                   </button>
                 ))
               ) : (
-                <p className="rounded-2xl border border-dashed border-white/10 px-4 py-8 text-center text-sm leading-6 text-zinc-500">
+                <p className="rounded-2xl border border-dashed border-fg/10 px-4 py-8 text-center text-sm leading-6 text-muted">
                   No rooms yet. Create your first draft below.
                 </p>
               )}
@@ -352,12 +348,12 @@ export function StudioDashboard() {
               room={selectedRoom}
             />
           ) : (
-            <div className="grid min-h-[34rem] place-items-center rounded-[2rem] border border-dashed border-white/10 bg-white/[0.02] p-8 text-center">
+            <div className="grid min-h-[34rem] place-items-center rounded-[2rem] border border-dashed border-fg/10 bg-fg/[0.02] p-8 text-center">
               <div>
-                <p className="text-lg font-semibold text-white">
+                <p className="text-lg font-semibold text-fg">
                   Your next room starts as a draft.
                 </p>
-                <p className="mt-2 text-sm text-zinc-500">
+                <p className="mt-2 text-sm text-muted">
                   Use the creation form to prepare the stage.
                 </p>
               </div>
@@ -378,13 +374,11 @@ function CreateRoomForm({
 }) {
   return (
     <form
-      className="rounded-[2rem] border border-white/8 bg-white/[0.035] p-5"
+      className="rounded-[2rem] border border-fg/8 bg-fg/[0.035] p-5"
       onSubmit={onSubmit}
     >
-      <p className="text-xs font-bold uppercase tracking-[0.2em] text-violet-300">
-        New draft
-      </p>
-      <h2 className="mt-2 text-lg font-semibold text-white">Create a room</h2>
+      <p className="text-xs font-bold text-accent">New draft</p>
+      <h2 className="mt-2 text-lg font-semibold text-fg">Create a room</h2>
       <div className="mt-5 space-y-4">
         <StudioField label="Title" name="title" placeholder="Design critique" />
         <StudioTextArea
@@ -394,7 +388,7 @@ function CreateRoomForm({
         />
       </div>
       <button
-        className="mt-5 w-full rounded-2xl bg-white px-4 py-3 text-sm font-bold text-zinc-950 transition hover:bg-cyan-200 disabled:cursor-wait disabled:opacity-50"
+        className="mt-5 w-full rounded-2xl bg-fg px-4 py-3 text-sm font-bold text-canvas transition hover:bg-accent disabled:cursor-wait disabled:opacity-50 hover:text-on-accent"
         disabled={disabled}
         type="submit"
       >
@@ -420,24 +414,22 @@ function RoomEditor({
   const immutable = room.status === 'ENDED';
 
   return (
-    <div className="overflow-hidden rounded-[2rem] border border-white/8 bg-white/[0.035]">
-      <div className="border-b border-white/8 bg-black/20 p-6 sm:p-8">
+    <div className="overflow-hidden rounded-[2rem] border border-fg/8 bg-fg/[0.035]">
+      <div className="border-b border-fg/8 bg-sunken p-6 sm:p-8">
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
           <div>
-            <p
-              className={`text-xs font-bold uppercase tracking-[0.2em] ${statusColor(room.status)}`}
-            >
+            <p className={`text-xs font-bold ${statusColor(room.status)}`}>
               {room.status}
             </p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-white">
+            <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-fg">
               {room.title}
             </h2>
-            <p className="mt-2 text-sm text-zinc-500">
+            <p className="mt-2 text-sm text-muted">
               Version {room.version} · Room {room.id.slice(0, 8)}
             </p>
           </div>
           {immutable ? (
-            <span className="rounded-full border border-white/10 px-4 py-2 text-xs font-semibold text-zinc-400">
+            <span className="rounded-full border border-fg/10 px-4 py-2 text-xs font-semibold text-muted">
               Broadcast ended
             </span>
           ) : null}
@@ -468,15 +460,15 @@ function RoomEditor({
             name="description"
           />
         </div>
-        <div className="mt-8 flex flex-col justify-between gap-4 border-t border-white/8 pt-6 sm:flex-row sm:items-center">
-          <p className="max-w-xl text-sm leading-6 text-zinc-500">
+        <div className="mt-8 flex flex-col justify-between gap-4 border-t border-fg/8 pt-6 sm:flex-row sm:items-center">
+          <p className="max-w-xl text-sm leading-6 text-muted">
             {immutable
               ? 'Ended rooms are preserved as immutable broadcast records.'
               : 'Saving checks the server version first, protecting newer edits from being overwritten.'}
           </p>
           {!immutable ? (
             <button
-              className="rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:border-cyan-300/40 hover:text-cyan-200 disabled:cursor-wait disabled:opacity-50"
+              className="rounded-full border border-fg/15 px-5 py-3 text-sm font-semibold text-fg transition hover:border-accent/40 hover:text-accent disabled:cursor-wait disabled:opacity-50"
               disabled={disabled}
               type="submit"
             >
@@ -505,10 +497,10 @@ function StudioField({
   type?: 'text' | 'url';
 }) {
   return (
-    <label className="block text-sm font-medium text-zinc-300">
+    <label className="block text-sm font-medium text-fg-soft">
       {label}
       <input
-        className="mt-2 w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none transition placeholder:text-zinc-700 focus:border-cyan-300/50 focus:ring-4 focus:ring-cyan-300/10 disabled:cursor-not-allowed disabled:text-zinc-500"
+        className="mt-2 w-full rounded-2xl border border-fg/10 bg-sunken px-4 py-3 text-fg outline-none transition placeholder:text-subtle focus:border-accent/50 focus:ring-4 focus:ring-accent/10 disabled:cursor-not-allowed disabled:text-muted"
         defaultValue={defaultValue}
         disabled={disabled}
         name={name}
@@ -534,10 +526,10 @@ function StudioTextArea({
   placeholder?: string;
 }) {
   return (
-    <label className="block text-sm font-medium text-zinc-300">
+    <label className="block text-sm font-medium text-fg-soft">
       {label}
       <textarea
-        className="mt-2 min-h-32 w-full resize-y rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white outline-none transition placeholder:text-zinc-700 focus:border-cyan-300/50 focus:ring-4 focus:ring-cyan-300/10 disabled:cursor-not-allowed disabled:text-zinc-500"
+        className="mt-2 min-h-32 w-full resize-y rounded-2xl border border-fg/10 bg-sunken px-4 py-3 text-fg outline-none transition placeholder:text-subtle focus:border-accent/50 focus:ring-4 focus:ring-accent/10 disabled:cursor-not-allowed disabled:text-muted"
         defaultValue={defaultValue}
         disabled={disabled}
         name={name}
@@ -562,19 +554,17 @@ function StudioMessage({
   return (
     <section className="grid min-h-[65vh] place-items-center text-center">
       <div>
-        <p className="text-xs font-bold uppercase tracking-[0.22em] text-cyan-300">
-          {eyebrow}
-        </p>
-        <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-white">
+        <p className="text-xs font-bold text-accent">{eyebrow}</p>
+        <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-fg">
           {title}
         </h1>
         {actionHref === '/auth' && actionLabel ? (
-          <AuthEntryLink className="mt-8 inline-flex rounded-full bg-white px-6 py-3 font-bold text-zinc-950 transition hover:bg-cyan-200">
+          <AuthEntryLink className="mt-8 inline-flex rounded-full bg-fg px-6 py-3 font-bold text-canvas transition hover:bg-accent hover:text-on-accent">
             {actionLabel}
           </AuthEntryLink>
         ) : actionHref && actionLabel ? (
           <Link
-            className="mt-8 inline-flex rounded-full bg-white px-6 py-3 font-bold text-zinc-950 transition hover:bg-cyan-200"
+            className="mt-8 inline-flex rounded-full bg-fg px-6 py-3 font-bold text-canvas transition hover:bg-accent hover:text-on-accent"
             href={actionHref}
           >
             {actionLabel}
@@ -587,12 +577,12 @@ function StudioMessage({
 
 function statusColor(status: Room['status']): string {
   if (status === 'LIVE') {
-    return 'text-emerald-300';
+    return 'text-success';
   }
 
   if (status === 'ENDED') {
-    return 'text-zinc-500';
+    return 'text-muted';
   }
 
-  return 'text-amber-300';
+  return 'text-warning';
 }

@@ -2,6 +2,7 @@ import Link from 'next/link';
 
 import { AuthNavigation } from './auth-navigation';
 import { BrandMark } from './brand-mark';
+import { ThemeToggle } from './theme-toggle';
 
 export function SiteHeader({ searchQuery = '' }: { searchQuery?: string }) {
   return (
@@ -14,7 +15,7 @@ export function SiteHeader({ searchQuery = '' }: { searchQuery?: string }) {
             href="/"
           >
             <BrandMark className="site-brand-mark" />
-            <span className="site-brand-name hidden text-xl text-white md:inline">
+            <span className="site-brand-name hidden text-xl text-fg md:inline">
               livepulse
             </span>
           </Link>
@@ -52,7 +53,8 @@ export function SiteHeader({ searchQuery = '' }: { searchQuery?: string }) {
           </button>
         </form>
 
-        <div className="flex shrink-0 items-center text-sm">
+        <div className="flex shrink-0 items-center gap-2 text-sm">
+          <ThemeToggle />
           <AuthNavigation />
         </div>
       </div>
