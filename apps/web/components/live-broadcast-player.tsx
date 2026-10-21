@@ -119,7 +119,7 @@ export function LiveBroadcastPlayer({
   }
 
   return (
-    <div className="relative aspect-video min-h-64 overflow-hidden bg-zinc-950">
+    <div className="relative aspect-video min-h-64 overflow-hidden bg-stage">
       {mainTrack ? (
         <LiveKitVideo
           className="h-full w-full object-contain"
@@ -136,11 +136,11 @@ export function LiveBroadcastPlayer({
         >
           <div className="grid h-full place-items-center bg-black/70 px-6 text-center">
             <div>
-              <span className="mx-auto block h-3 w-3 animate-pulse rounded-full bg-rose-400" />
+              <span className="mx-auto block h-3 w-3 animate-pulse rounded-full bg-danger" />
               <p className="mt-4 text-sm font-semibold text-white">
                 Waiting for the host video…
               </p>
-              <p className="mt-2 text-xs text-zinc-400">
+              <p className="mt-2 text-xs text-white/60">
                 {error ?? connectionLabel(connection)}
               </p>
             </div>
@@ -164,7 +164,7 @@ export function LiveBroadcastPlayer({
       <div className="absolute bottom-4 right-4 z-20 flex items-center gap-2">
         {audioBlocked ? (
           <button
-            className="rounded-full bg-white px-3 py-2 text-xs font-bold text-zinc-950"
+            className="rounded-full bg-white px-3 py-2 text-xs font-bold text-black"
             onClick={() => void enableAudio()}
             type="button"
           >

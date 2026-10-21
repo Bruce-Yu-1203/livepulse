@@ -73,15 +73,15 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
   }
 
   return (
-    <div className="mt-7 grid overflow-hidden rounded-[2rem] border border-white/10 bg-black shadow-2xl shadow-black/40 lg:grid-cols-[minmax(0,1fr)_23rem]">
-      <div className="relative isolate overflow-hidden bg-zinc-950">
+    <div className="mt-7 grid overflow-hidden rounded-[2rem] border border-fg/10 bg-surface shadow-2xl shadow-black/20 lg:grid-cols-[minmax(0,1fr)_23rem]">
+      <div className="relative isolate overflow-hidden bg-stage">
         {room.status === 'LIVE' ? (
           <LiveBroadcastPlayer
             coverImageUrl={room.coverImageUrl}
             roomId={room.id}
           />
         ) : (
-          <div className="relative aspect-video min-h-64 overflow-hidden bg-zinc-950">
+          <div className="relative aspect-video min-h-64 overflow-hidden bg-stage">
             {room.coverImageUrl ? (
               <img
                 alt=""
@@ -94,7 +94,7 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
                 <p className="text-sm font-semibold text-white">
                   Broadcast ended
                 </p>
-                <p className="mt-2 text-xs text-zinc-400">
+                <p className="mt-2 text-xs text-white/60">
                   This room is no longer streaming live.
                 </p>
               </div>
@@ -125,7 +125,11 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
               value={danmakuDensity}
             >
               {danmakuDensities.map((density) => (
-                <option className="bg-zinc-950" key={density} value={density}>
+                <option
+                  className="bg-surface text-fg"
+                  key={density}
+                  value={density}
+                >
                   {density} density
                 </option>
               ))}
@@ -142,11 +146,11 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
         </div>
       </div>
 
-      <aside className="flex min-h-[30rem] flex-col border-t border-white/10 bg-[#0d0e12] lg:border-l lg:border-t-0">
-        <div className="flex items-center justify-between border-b border-white/8 px-5 py-4">
+      <aside className="flex min-h-[30rem] flex-col border-t border-fg/10 bg-surface lg:border-l lg:border-t-0">
+        <div className="flex items-center justify-between border-b border-fg/8 px-5 py-4">
           <div>
-            <p className="text-sm font-semibold text-white">Live chat</p>
-            <p className="mt-1 text-xs text-zinc-500">
+            <p className="text-sm font-semibold text-fg">Live chat</p>
+            <p className="mt-1 text-xs text-muted">
               {connectionLabel(chat.connection)}
               {chat.connection === 'connected'
                 ? ` · ${roomPresenceLabel(
@@ -158,7 +162,7 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
           </div>
           <div className="flex items-center gap-3">
             <button
-              className="rounded-full border border-white/10 px-2.5 py-1 text-[0.65rem] font-semibold text-zinc-400 transition hover:border-cyan-300/40 hover:text-cyan-200 disabled:cursor-wait disabled:opacity-50"
+              className="rounded-full border border-fg/10 px-2.5 py-1 text-[0.65rem] font-semibold text-muted transition hover:border-accent/40 hover:text-accent disabled:cursor-wait disabled:opacity-50"
               disabled={chat.historyLoading}
               onClick={chat.synchronize}
               type="button"
@@ -178,7 +182,7 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
         >
           {chat.canLoadEarlier ? (
             <button
-              className="mx-auto block rounded-full border border-white/10 px-3 py-1.5 text-xs font-semibold text-zinc-400 transition hover:border-cyan-300/40 hover:text-cyan-200 disabled:cursor-wait disabled:opacity-50"
+              className="mx-auto block rounded-full border border-fg/10 px-3 py-1.5 text-xs font-semibold text-muted transition hover:border-accent/40 hover:text-accent disabled:cursor-wait disabled:opacity-50"
               disabled={chat.historyLoading}
               onClick={chat.loadEarlier}
               type="button"
@@ -202,10 +206,10 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
           ) : (
             <div className="grid h-full min-h-48 place-items-center text-center">
               <div>
-                <p className="text-sm font-medium text-zinc-300">
+                <p className="text-sm font-medium text-fg-soft">
                   The chat is ready.
                 </p>
-                <p className="mt-2 text-xs leading-5 text-zinc-600">
+                <p className="mt-2 text-xs leading-5 text-subtle">
                   Be the first to say something useful.
                 </p>
               </div>
@@ -213,20 +217,20 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
           )}
         </div>
 
-        <div className="border-t border-white/8 p-4">
+        <div className="border-t border-fg/8 p-4">
           {roomChatIsClosed(room.status, chat.connection) ? (
-            <p className="rounded-2xl bg-white/5 px-4 py-3 text-center text-sm text-zinc-400">
+            <p className="rounded-2xl bg-fg/5 px-4 py-3 text-center text-sm text-muted">
               Chat closed when this broadcast ended.
             </p>
           ) : chat.authChecked && !chat.userId ? (
-            <AuthEntryLink className="block rounded-2xl bg-white px-4 py-3 text-center text-sm font-bold text-zinc-950 transition hover:bg-cyan-200">
+            <AuthEntryLink className="block rounded-2xl bg-fg px-4 py-3 text-center text-sm font-bold text-canvas transition hover:bg-accent hover:text-on-accent">
               Sign in to chat
             </AuthEntryLink>
           ) : (
             <form className="flex gap-2" onSubmit={submit}>
               <input
                 aria-label="Chat message"
-                className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-700 focus:border-cyan-300/50"
+                className="min-w-0 flex-1 rounded-2xl border border-fg/10 bg-sunken px-4 py-3 text-sm text-fg outline-none placeholder:text-subtle focus:border-accent/50"
                 disabled={!chat.userId || chat.connection !== 'connected'}
                 maxLength={200}
                 name="message"
@@ -234,7 +238,7 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
                 required
               />
               <button
-                className="rounded-2xl bg-cyan-300 px-4 py-3 text-sm font-bold text-zinc-950 transition hover:bg-cyan-200 disabled:cursor-wait disabled:opacity-40"
+                className="rounded-2xl bg-accent px-4 py-3 text-sm font-bold text-on-accent transition hover:bg-accent-hover disabled:cursor-wait disabled:opacity-40"
                 disabled={!chat.userId || chat.connection !== 'connected'}
                 type="submit"
               >
@@ -243,12 +247,12 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
             </form>
           )}
           {chat.error ? (
-            <p className="mt-3 text-xs leading-5 text-rose-300" role="status">
+            <p className="mt-3 text-xs leading-5 text-danger" role="status">
               {chat.error}
             </p>
           ) : null}
           {moderationError ? (
-            <p className="mt-3 text-xs leading-5 text-rose-300" role="status">
+            <p className="mt-3 text-xs leading-5 text-danger" role="status">
               {moderationError}
             </p>
           ) : null}
@@ -278,12 +282,12 @@ function ChatMessageRow({
   return (
     <div className={message.status === 'failed' ? 'opacity-50' : undefined}>
       <div className="flex items-center gap-2 text-xs">
-        <span className="font-bold text-cyan-300">
+        <span className="font-bold text-accent">
           {message.authorId === currentUserId
             ? 'You'
             : `Viewer ${message.authorId.slice(0, 5)}`}
         </span>
-        <span className="text-zinc-700">
+        <span className="text-subtle">
           {message.status === 'pending'
             ? 'sending…'
             : message.status === 'failed'
@@ -294,7 +298,7 @@ function ChatMessageRow({
         message.authorId !== currentUserId &&
         !message.deletedAt ? (
           <button
-            className="ml-auto rounded-full border border-rose-300/20 px-2 py-1 text-[0.65rem] font-semibold text-rose-200 transition hover:border-rose-300/50 disabled:cursor-wait disabled:opacity-50"
+            className="ml-auto rounded-full border border-danger/20 px-2 py-1 text-[0.65rem] font-semibold text-danger transition hover:border-danger/50 disabled:cursor-wait disabled:opacity-50"
             disabled={muted || muting}
             onClick={() => onMute(message.authorId)}
             type="button"
@@ -303,7 +307,7 @@ function ChatMessageRow({
           </button>
         ) : null}
       </div>
-      <p className="mt-1 break-words text-sm leading-6 text-zinc-300">
+      <p className="mt-1 break-words text-sm leading-6 text-fg-soft">
         {message.text}
       </p>
       {currentUserId &&
@@ -375,12 +379,12 @@ function connectionColor(
   connection: ReturnType<typeof useRoomChat>['connection'],
 ): string {
   if (connection === 'connected') {
-    return 'bg-emerald-300 shadow-[0_0_14px_rgba(110,231,183,0.8)]';
+    return 'bg-success shadow-[0_0_14px_rgba(110,231,183,0.8)]';
   }
 
   if (connection === 'ended') {
-    return 'bg-zinc-600';
+    return 'bg-subtle';
   }
 
-  return 'animate-pulse bg-amber-300';
+  return 'animate-pulse bg-warning';
 }

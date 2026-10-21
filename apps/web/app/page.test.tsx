@@ -45,7 +45,7 @@ describe('HomePage', () => {
     const html = await renderHome();
 
     expect(html).toContain('class="site-brand-mark"');
-    expect(html).toContain('fill="#FF4961"');
+    expect(html).toContain('fill="#F0384F"');
     expect(html).toContain('role="search"');
     expect(html).toContain('aria-label="Live channels"');
     expect(html).toContain('aria-roledescription="carousel"');
