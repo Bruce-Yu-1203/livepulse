@@ -46,6 +46,9 @@ describe('MVP delivery assets', () => {
 
     expect(dockerfile).toContain('FROM workspace AS api-build');
     expect(dockerfile).toContain('FROM workspace AS web-build');
+    expect(dockerfile).toContain(
+      'apt-get install --yes --no-install-recommends openssl',
+    );
     expect(dockerfile.match(/USER node/g)).toHaveLength(2);
     expect(compose).toContain('service_completed_successfully');
     expect(compose).toContain('target: api');
@@ -60,6 +63,25 @@ describe('MVP delivery assets', () => {
     expect(e2eRunner).toContain("'run', '--build', '--rm', 'seed'");
     expect(e2eRunner).toContain("'stop',\n      ...runningDevelopmentServices");
     expect(e2eRunner).toContain("'start', ...runningDevelopmentServices");
+  });
+
+  it('provides a dedicated Railway API image', async () => {
+    const dockerfile = await readFile(
+      resolve(process.cwd(), 'infra/railway/api.Dockerfile'),
+      'utf8',
+    );
+
+    expect(dockerfile).toContain('pnpm install --frozen-lockfile');
+    expect(dockerfile).toContain(
+      'apt-get install --yes --no-install-recommends openssl',
+    );
+    expect(dockerfile).toContain('pnpm --filter @livepulse/contracts build');
+    expect(dockerfile).toContain('pnpm --filter @livepulse/db build');
+    expect(dockerfile).toContain('pnpm --filter @livepulse/api build');
+    expect(dockerfile).toContain('ENV NODE_ENV=production');
+    expect(dockerfile).toContain('USER node');
+    expect(dockerfile).toContain('CMD ["node", "apps/api/dist/main.js"]');
+    expect(dockerfile).not.toContain('@livepulse/web build');
   });
 
   it('documents PostgreSQL as the only durable message store', async () => {

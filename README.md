@@ -54,6 +54,40 @@ repository root as its build directory and keep its existing PostgreSQL,
 Redis, authentication, and LiveKit variables in the API service. No production
 credentials are needed in GitHub Actions for these checks.
 
+### Persistent staging environment
+
+Use a persistent Railway environment backed by its own PostgreSQL and Redis
+instances for load testing. Bind the Railway API service in that environment to
+the `staging` branch and keep the service root directory at the repository root.
+Configure these service settings:
+
+```text
+Dockerfile path: infra/railway/api.Dockerfile
+Pre-deploy command: pnpm --filter @livepulse/db exec prisma migrate deploy --config prisma7.config.ts
+Healthcheck path: /health/ready
+Replicas: 1
+```
+
+Reference the PostgreSQL and Redis variables from the services in the same
+Railway environment. Set the remaining API variables with staging-only values:
+
+```dotenv
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+REDIS_URL=${{Redis.REDIS_URL}}
+REDIS_KEY_PREFIX=livepulse-staging
+BETTER_AUTH_SECRET=replace-with-an-independent-secret-of-at-least-32-bytes
+BETTER_AUTH_URL=https://replace-with-the-staging-api-domain
+WEB_ORIGIN=https://replace-with-the-staging-web-origin
+AUTH_COOKIE_DOMAIN=
+PROHIBITED_WORDS=scam-offer,spam-link
+```
+
+Do not reuse production secrets or data in staging. Generate a public Railway
+domain for the API, update `BETTER_AUTH_URL` to that exact HTTPS origin, and use
+the exact trusted frontend or load-generator origin for `WEB_ORIGIN`. Run the
+seed command manually only when the isolated staging database needs demo users;
+do not make seeding part of every deployment.
+
 ## Run locally for development
 
 The application has localhost-only development defaults. To override them, copy the environment template, edit it, and export its values into each terminal that starts an application process:

@@ -1,5 +1,9 @@
 FROM node:24.12.0-bookworm-slim AS workspace
 
+RUN apt-get update \
+  && apt-get install --yes --no-install-recommends openssl \
+  && rm -rf /var/lib/apt/lists/*
+
 RUN corepack enable && corepack prepare pnpm@11.19.0 --activate
 
 WORKDIR /workspace
