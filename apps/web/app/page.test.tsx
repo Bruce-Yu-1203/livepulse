@@ -43,6 +43,8 @@ describe('HomePage', () => {
     const html = await renderHome();
 
     expect(html).toContain('Be there.');
+    expect(html).toContain('class="site-brand-mark"');
+    expect(html).toContain('fill="#FF4961"');
     expect(html).toContain('Featured room: The Making Room');
     expect(html).toContain('Open The Making Room');
     expect(html).toContain('1 live now');

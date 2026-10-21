@@ -2,6 +2,7 @@ import type { ListRoomsResponse } from '@livepulse/contracts';
 import Link from 'next/link';
 
 import { HomeAccountAction } from '../components/home-account-action';
+import { BrandMark } from '../components/brand-mark';
 import { RoomCard } from '../components/room-card';
 import { SiteHeader } from '../components/site-header';
 import { listRooms } from '../lib/api';
@@ -92,14 +93,14 @@ export default async function HomePage({
                 <div className="home-feature home-feature-empty">
                   <SignalArtwork />
                   <div className="home-feature-message">
-                    <span>LivePulse</span>
+                    <span>livepulse</span>
                     <strong>Something good is coming on.</strong>
                   </div>
                 </div>
               )}
               <div className="home-feature-bottomline">
                 <span>Watch together, from anywhere</span>
-                <span aria-hidden="true">✳</span>
+                <BrandMark className="home-feature-brand-mark" />
               </div>
             </div>
           </div>
@@ -165,7 +166,7 @@ export default async function HomePage({
           ) : (
             <div className="home-room-notice">
               <span aria-hidden="true" className="home-notice-mark">
-                ✳
+                <BrandMark />
               </span>
               <div>
                 <h3>No rooms yet</h3>
@@ -195,10 +196,7 @@ export default async function HomePage({
 function SignalArtwork() {
   return (
     <div aria-hidden="true" className="signal-artwork">
-      <span className="signal-orbit signal-orbit-one" />
-      <span className="signal-orbit signal-orbit-two" />
-      <span className="signal-orbit signal-orbit-three" />
-      <span className="signal-core" />
+      <BrandMark className="signal-artwork-mark" />
     </div>
   );
 }

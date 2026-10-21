@@ -13,6 +13,8 @@ describe('AuthPage', () => {
     );
 
     expect(html).toContain('Back to rooms');
+    expect(html).toContain('livepulse');
+    expect(html).toContain('fill="#FF4961"');
     expect(html).toContain('Every good room starts with people showing up.');
     expect(html).toContain('Welcome back to the room.');
     expect(html).toContain('Sign in');

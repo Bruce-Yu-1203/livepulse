@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { AuthNavigation } from './auth-navigation';
+import { BrandMark } from './brand-mark';
 
 export function SiteHeader() {
   return (
@@ -11,10 +12,8 @@ export function SiteHeader() {
           className="flex items-center gap-3"
           href="/"
         >
-          <span aria-hidden="true" className="site-brand-mark">
-            ✳
-          </span>
-          <span className="site-brand-name text-xl text-white">LivePulse</span>
+          <BrandMark className="site-brand-mark" />
+          <span className="site-brand-name text-xl text-white">livepulse</span>
         </Link>
         <nav
           aria-label="Primary navigation"

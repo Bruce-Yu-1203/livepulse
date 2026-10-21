@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+import { BrandMark } from '../../components/brand-mark';
 import { AuthPanel } from './auth-panel';
 
 export default function AuthPage() {
@@ -12,8 +13,9 @@ export default function AuthPage() {
         >
           ← Back to rooms
         </Link>
-        <span className="text-sm font-extrabold tracking-tight text-white">
-          LivePulse ✳
+        <span className="auth-brand text-sm font-extrabold tracking-tight text-white">
+          <BrandMark />
+          livepulse
         </span>
       </div>
       <div className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-6xl items-center gap-16 py-16 lg:grid-cols-[1fr_28rem]">

@@ -1,9 +1,9 @@
 @import 'tailwindcss';
 
 @theme {
-  --color-cyan-200: #ffdbad;
-  --color-cyan-300: #ffc082;
-  --color-cyan-400: #f5a766;
+  --color-cyan-200: #ff7184;
+  --color-cyan-300: #ff4961;
+  --color-cyan-400: #ee3c56;
   --color-rose-200: #ffd1ca;
   --color-rose-300: #ff9f91;
   --color-rose-400: #ed796f;
@@ -14,7 +14,7 @@
   color-scheme: dark;
   font-family:
     'Avenir Next', Avenir, 'Trebuchet MS', ui-sans-serif, system-ui, sans-serif;
-  background: #151222;
+  background: #0b0c10;
   color: #f8f3ef;
 }
 
@@ -24,7 +24,7 @@
 
 html {
   min-width: 320px;
-  background: #151222;
+  background: #0b0c10;
   scroll-behavior: smooth;
 }
 
@@ -32,12 +32,12 @@ body {
   min-height: 100vh;
   margin: 0;
   background:
-    radial-gradient(circle at 78% -10%, #3d2855 0, transparent 36rem), #151222;
+    radial-gradient(circle at 78% -10%, #23252f 0, transparent 36rem), #0b0c10;
 }
 
 ::selection {
-  background: #ffc082;
-  color: #151222;
+  background: #ff4961;
+  color: #0b0c10;
 }
 
 button,
@@ -50,46 +50,51 @@ a:focus-visible,
 button:focus-visible,
 input:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid #ffc082;
+  outline: 2px solid #ff4961;
   outline-offset: 3px;
 }
 
 .site-header {
-  background: rgb(21 18 34 / 0.92);
+  background: rgb(11 12 16 / 0.94);
   border-bottom: 1px solid rgb(255 255 255 / 0.1);
   backdrop-filter: blur(18px);
 }
 
 .site-brand-mark {
-  display: grid;
   width: 2.5rem;
   height: 2.5rem;
-  place-items: center;
-  border: 1px solid rgb(255 192 130 / 0.55);
-  border-radius: 0.65rem;
-  color: #ffc082;
-  font-size: 1.65rem;
-  font-weight: 800;
-  line-height: 1;
-  transform: rotate(-8deg);
+  flex: none;
 }
 
 .site-brand-name {
   font-weight: 800;
-  letter-spacing: -0.055em;
+  letter-spacing: -0.07em;
+}
+
+.auth-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 1.1rem;
+  letter-spacing: -0.065em;
+}
+
+.auth-brand svg {
+  width: 1.8rem;
+  height: 1.8rem;
 }
 .site-nav-link {
-  color: #c9bdce;
+  color: #c1c4cb;
 }
 .site-nav-link:hover {
-  color: #ffc082;
+  color: #ff4961;
 }
 .site-signin {
-  background: #ffc082;
+  background: #ff4961;
   color: #21162a;
 }
 .site-signin:hover {
-  background: #ffdbad;
+  background: #ff7184;
 }
 
 .account-control {
@@ -102,7 +107,7 @@ textarea:focus-visible {
   align-items: center;
   gap: 0.55rem;
   padding: 0.25rem 0.65rem 0.25rem 0.25rem;
-  border: 1px solid #57455e;
+  border: 1px solid #555962;
   border-radius: 0.65rem;
   color: #fff7ef;
   font-size: 0.85rem;
@@ -111,8 +116,8 @@ textarea:focus-visible {
 
 .account-trigger:hover,
 .account-trigger[aria-expanded='true'] {
-  border-color: #ffc082;
-  background: #2b203a;
+  border-color: #ff4961;
+  background: #22242b;
 }
 
 .account-avatar {
@@ -122,7 +127,7 @@ textarea:focus-visible {
   flex: none;
   place-items: center;
   border-radius: 0.45rem;
-  background: #ffc082;
+  background: #ff4961;
   color: #221526;
   font-weight: 800;
 }
@@ -149,7 +154,7 @@ textarea:focus-visible {
   overflow: hidden;
   border: 1px solid #eee4e8;
   border-radius: 0.85rem;
-  background: #fffaf6;
+  background: #f8f8fa;
   box-shadow: 0 1.5rem 3rem rgb(8 5 14 / 0.35);
   color: #241b2b;
 }
@@ -288,7 +293,7 @@ body:has(.auth-modal[open]) {
   padding-top: 3.5rem;
   border: 0;
   border-radius: 1rem;
-  background: #fffaf6;
+  background: #f8f8fa;
   box-shadow: none;
 }
 
@@ -301,7 +306,7 @@ body:has(.auth-modal[open]) {
 }
 
 .auth-modal .auth-tab[data-active='true'] {
-  background: #fffaf6;
+  background: #f8f8fa;
   color: #241b2b;
   box-shadow: 0 1px 4px rgb(36 27 43 / 0.12);
 }
@@ -337,7 +342,7 @@ body:has(.auth-modal[open]) {
 
 .auth-modal .auth-input:focus {
   border-color: #ae6b68;
-  box-shadow: 0 0 0 3px rgb(255 192 130 / 0.26);
+  box-shadow: 0 0 0 3px rgb(255 73 97 / 0.26);
 }
 
 .auth-modal .auth-password-toggle {
@@ -356,12 +361,12 @@ body:has(.auth-modal[open]) {
 
 .auth-modal .auth-submit {
   border-radius: 0.65rem;
-  background: #ffc082;
+  background: #ff4961;
   color: #241b2b;
 }
 
 .auth-modal .auth-submit:hover:enabled {
-  background: #ffdbad;
+  background: #ff7184;
 }
 
 .home-page {
@@ -373,10 +378,10 @@ body:has(.auth-modal[open]) {
   background:
     radial-gradient(
       circle at 82% 58%,
-      rgb(132 77 153 / 0.26),
+      rgb(255 73 97 / 0.11),
       transparent 34rem
     ),
-    linear-gradient(135deg, #191428 5%, #251834 55%, #1b192b);
+    linear-gradient(135deg, #0b0c10 5%, #17191f 55%, #111318);
 }
 
 .home-hero::after {
@@ -385,7 +390,7 @@ body:has(.auth-modal[open]) {
   bottom: -15rem;
   width: 38rem;
   height: 38rem;
-  border: 1px solid rgb(255 192 130 / 0.13);
+  border: 1px solid rgb(255 73 97 / 0.13);
   border-radius: 50%;
   content: '';
   pointer-events: none;
@@ -409,7 +414,7 @@ body:has(.auth-modal[open]) {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  color: #ffc082;
+  color: #ff4961;
   font-size: 0.86rem;
   font-weight: 700;
   letter-spacing: 0.015em;
@@ -419,8 +424,8 @@ body:has(.auth-modal[open]) {
   width: 0.55rem;
   height: 0.55rem;
   border-radius: 50%;
-  background: #ff9a75;
-  box-shadow: 0 0 0 0.3rem rgb(255 154 117 / 0.13);
+  background: #ff4961;
+  box-shadow: 0 0 0 0.3rem rgb(255 73 97 / 0.13);
 }
 
 .home-intro h1 {
@@ -433,13 +438,13 @@ body:has(.auth-modal[open]) {
 }
 
 .home-intro h1 span {
-  color: #ffc082;
+  color: #ff4961;
 }
 
 .home-description {
   max-width: 34rem;
   margin-top: 2.25rem;
-  color: #c8bdd0;
+  color: #c1c4cb;
   font-size: clamp(1rem, 1.45vw, 1.17rem);
   line-height: 1.75;
 }
@@ -469,11 +474,11 @@ body:has(.auth-modal[open]) {
 }
 
 .home-primary-action {
-  background: #ffc082;
+  background: #ff4961;
   color: #21162a;
 }
 .home-primary-action:hover {
-  background: #ffdbad;
+  background: #ff7184;
   transform: translateY(-2px);
 }
 .home-primary-action span {
@@ -481,12 +486,12 @@ body:has(.auth-modal[open]) {
   font-weight: 400;
 }
 .home-secondary-action {
-  border: 1px solid #786577;
+  border: 1px solid #757982;
   color: #fff4ed;
 }
 .home-secondary-action:hover {
-  border-color: #ffc082;
-  color: #ffc082;
+  border-color: #ff4961;
+  color: #ff4961;
 }
 
 .home-feature-wrap {
@@ -509,22 +514,16 @@ body:has(.auth-modal[open]) {
   align-items: center;
   margin-top: 0.8rem;
 }
-.home-feature-bottomline span:last-child {
-  color: #ffc082;
-  font-size: 1.8rem;
-  line-height: 1;
-}
-
 .home-feature {
   position: relative;
   display: block;
   overflow: hidden;
   aspect-ratio: 0.99;
-  border: 0.55rem solid #f5eee8;
+  border: 0.55rem solid #f8f8fa;
   border-radius: 0.75rem;
-  background: #462c56;
+  background: #282b34;
   box-shadow:
-    1.4rem 1.4rem 0 rgb(255 192 130 / 0.13),
+    1.4rem 1.4rem 0 rgb(255 73 97 / 0.13),
     0 2rem 5rem rgb(10 7 18 / 0.35);
 }
 .home-feature img {
@@ -543,7 +542,7 @@ body:has(.auth-modal[open]) {
   left: 1.25rem;
   padding: 0.55rem 0.8rem;
   border-radius: 0.4rem;
-  background: #e96d60;
+  background: #ff4961;
   color: #fff;
   font-size: 0.72rem;
   font-weight: 800;
@@ -585,7 +584,7 @@ body:has(.auth-modal[open]) {
 .home-feature-message span {
   display: block;
   margin-bottom: 0.5rem;
-  color: #ffd6a7;
+  color: #ff7184;
   font-size: 0.85rem;
   font-weight: 800;
 }
@@ -601,44 +600,33 @@ body:has(.auth-modal[open]) {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  background: radial-gradient(circle at 58% 38%, #82507d, #392846 58%, #281d38);
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 50% 50%, rgb(255 73 97 / 0.16), transparent 38%),
+    #111318;
 }
-.signal-orbit {
-  position: absolute;
-  top: 43%;
-  left: 53%;
-  display: block;
-  border: 1px solid rgb(255 216 171 / 0.6);
-  border-radius: 50%;
-  transform: translate(-50%, -50%) rotate(-23deg);
+
+.signal-artwork-mark {
+  width: min(42%, 11rem);
+  height: auto;
+  opacity: 0.9;
+  filter: drop-shadow(0 0 2.5rem rgb(255 73 97 / 0.16));
 }
-.signal-orbit-one {
-  width: 32%;
-  height: 28%;
+
+.home-feature-brand-mark {
+  width: 1.25rem;
+  height: 1.25rem;
 }
-.signal-orbit-two {
-  width: 67%;
-  height: 61%;
-}
-.signal-orbit-three {
-  width: 105%;
-  height: 95%;
-}
-.signal-core {
-  position: absolute;
-  top: 43%;
-  left: 53%;
-  width: 10%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: #ffc082;
-  box-shadow: 0 0 4rem #ffc082;
-  transform: translate(-50%, -50%);
+
+.home-notice-mark svg {
+  width: 1.35rem;
+  height: 1.35rem;
 }
 
 .home-activity {
   border-block: 1px solid rgb(255 255 255 / 0.08);
-  background: #21192f;
+  background: #14161c;
 }
 .home-activity-inner {
   display: flex;
@@ -694,7 +682,7 @@ body:has(.auth-modal[open]) {
 }
 .home-section-heading > p {
   max-width: 19rem;
-  color: #bcb0c3;
+  color: #aeb2bb;
   font-size: 0.91rem;
   line-height: 1.65;
 }
@@ -711,9 +699,9 @@ body:has(.auth-modal[open]) {
   min-height: 10rem;
   margin-top: 2.5rem;
   padding: 1.5rem;
-  border: 1px solid #5d4a63;
+  border: 1px solid #50535d;
   border-radius: 0.7rem;
-  background: #241b32;
+  background: #17191f;
 }
 .home-notice-mark {
   display: grid;
@@ -721,9 +709,9 @@ body:has(.auth-modal[open]) {
   height: 2.8rem;
   flex: none;
   place-items: center;
-  border: 1px solid #9d7898;
+  border: 1px solid #787c86;
   border-radius: 50%;
-  color: #ffc082;
+  color: #ff4961;
   font-size: 1.3rem;
   font-weight: 800;
 }
@@ -734,7 +722,7 @@ body:has(.auth-modal[open]) {
 }
 .home-room-notice p {
   margin-top: 0.35rem;
-  color: #bcb0c3;
+  color: #aeb2bb;
   font-size: 0.9rem;
   line-height: 1.5;
 }
@@ -745,21 +733,21 @@ body:has(.auth-modal[open]) {
 }
 .home-more a {
   padding: 0.8rem 1.25rem;
-  border: 1px solid #786577;
+  border: 1px solid #757982;
   border-radius: 0.6rem;
   color: #fff7ef;
   font-weight: 700;
 }
 .home-more a:hover {
-  border-color: #ffc082;
-  color: #ffc082;
+  border-color: #ff4961;
+  color: #ff4961;
 }
 
 .room-card {
   overflow: hidden;
-  border: 1px solid #47384f;
+  border: 1px solid #41444e;
   border-radius: 0.65rem;
-  background: #211a30;
+  background: #15171d;
   transition:
     border-color 160ms ease,
     transform 160ms ease;
@@ -772,7 +760,7 @@ body:has(.auth-modal[open]) {
   position: relative;
   overflow: hidden;
   aspect-ratio: 16 / 10;
-  background: #392846;
+  background: #252832;
 }
 .room-card-image img {
   width: 100%;
@@ -791,9 +779,9 @@ body:has(.auth-modal[open]) {
     repeating-radial-gradient(
       circle at 70% 30%,
       transparent 0 2.5rem,
-      rgb(255 192 130 / 0.23) 2.55rem 2.6rem
+      rgb(255 73 97 / 0.23) 2.55rem 2.6rem
     ),
-    #392846;
+    #252832;
 }
 .room-card-status {
   position: absolute;
@@ -801,13 +789,13 @@ body:has(.auth-modal[open]) {
   left: 0.9rem;
   padding: 0.4rem 0.65rem;
   border-radius: 0.35rem;
-  background: #e96d60;
+  background: #ff4961;
   color: white;
   font-size: 0.72rem;
   font-weight: 800;
 }
 .room-card-status-ended {
-  background: #352c42;
+  background: #272a33;
   color: #e8dce6;
 }
 .room-card-body {
@@ -830,7 +818,7 @@ body:has(.auth-modal[open]) {
   overflow: hidden;
   min-height: 3rem;
   margin-top: 0.5rem;
-  color: #bcb0c3;
+  color: #aeb2bb;
   font-size: 0.88rem;
   line-height: 1.5;
   -webkit-box-orient: vertical;
@@ -841,18 +829,18 @@ body:has(.auth-modal[open]) {
   justify-content: space-between;
   margin-top: 1.1rem;
   padding-top: 0.9rem;
-  border-top: 1px solid #46374d;
-  color: #bcb0c3;
+  border-top: 1px solid #41444e;
+  color: #aeb2bb;
   font-size: 0.78rem;
 }
 .room-card-footer span:last-child {
-  color: #ffc082;
+  color: #ff4961;
   font-weight: 750;
 }
 
 .auth-page {
   background:
-    radial-gradient(circle at 30% 40%, #422949, transparent 34rem), #1b1629;
+    radial-gradient(circle at 30% 40%, #292b34, transparent 34rem), #0b0c10;
 }
 .auth-intro h2 {
   max-width: 36rem;
@@ -868,7 +856,7 @@ body:has(.auth-modal[open]) {
   width: 0.75rem;
   height: 32%;
   border-radius: 1rem;
-  background: #ffc082;
+  background: #ff4961;
 }
 .auth-signal span:nth-child(2),
 .auth-signal span:nth-child(8) {
@@ -884,7 +872,7 @@ body:has(.auth-modal[open]) {
 }
 .auth-signal span:nth-child(5) {
   height: 100%;
-  background: #e96d60;
+  background: #ff4961;
 }
 
 @keyframes danmaku-slide {
