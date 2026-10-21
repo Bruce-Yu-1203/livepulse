@@ -1,22 +1,24 @@
-import type { ListRoomsResponse } from '@livepulse/contracts';
+import type { ListRoomsResponse, VisibleRoom } from '@livepulse/contracts';
 import Link from 'next/link';
 
-import { HomeAccountAction } from '../components/home-account-action';
+import { AppShell } from '../components/app-shell';
 import { BrandMark } from '../components/brand-mark';
+import { FeaturedCarousel } from '../components/featured-carousel';
+import { HomeAccountAction } from '../components/home-account-action';
 import { RoomCard } from '../components/room-card';
-import { SiteHeader } from '../components/site-header';
 import { listRooms } from '../lib/api';
-import { summarizeRooms } from '../lib/presentation';
-import { formatLikeCount } from '../lib/room-likes';
+import { selectFeaturedRooms } from '../lib/featured-carousel';
+import { filterRooms, normalizeSearchQuery } from '../lib/presentation';
 
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ cursor?: string }>;
+  searchParams: Promise<{ cursor?: string; q?: string }>;
 }) {
-  const { cursor } = await searchParams;
+  const { cursor, q } = await searchParams;
+  const searchQuery = normalizeSearchQuery(q);
   let page: Pick<ListRoomsResponse, 'items' | 'nextCursor'> = {
     items: [],
     nextCursor: null,
@@ -29,174 +31,107 @@ export default async function HomePage({
     roomsUnavailable = true;
   }
 
-  const summary = summarizeRooms(page.items);
-  const featuredRoom =
-    page.items.find((room) => room.status === 'LIVE') ?? page.items[0];
+  const rooms = filterRooms(page.items, searchQuery);
+  const liveRooms = rooms.filter((room) => room.status === 'LIVE');
+  const endedRooms = rooms.filter((room) => room.status !== 'LIVE');
 
   return (
-    <>
-      <SiteHeader />
-      <main className="home-page">
-        <section aria-labelledby="home-title" className="home-hero">
-          <div className="home-hero-inner">
-            <div className="home-intro">
-              <p className="home-kicker">
-                <span className="home-live-dot" /> The room is yours
-              </p>
-              <h1 id="home-title">
-                Be there.
-                <br />
-                <span>While it happens.</span>
-              </h1>
-              <p className="home-description">
-                Real voices, real reactions, all in the same moment. Find a room
-                to watch, talk, and be part of what happens next.
-              </p>
-              <div className="home-actions">
-                <a className="home-primary-action" href="#rooms">
-                  Explore rooms <span aria-hidden="true">↗</span>
-                </a>
-                <HomeAccountAction />
-              </div>
-            </div>
+    <AppShell
+      mainClassName="home-page"
+      rooms={page.items}
+      searchQuery={searchQuery}
+    >
+      {searchQuery || roomsUnavailable ? null : (
+        <FeaturedCarousel rooms={selectFeaturedRooms(page.items)} />
+      )}
 
-            <div className="home-feature-wrap">
-              <div className="home-feature-topline">
-                <span>On the air</span>
-                <span>
-                  {roomsUnavailable
-                    ? 'Waiting for rooms'
-                    : `${String(summary.live).padStart(2, '0')} live now`}
-                </span>
-              </div>
-              {featuredRoom ? (
-                <Link
-                  aria-label={`Featured room: ${featuredRoom.title}`}
-                  className="home-feature"
-                  href={`/rooms/${featuredRoom.id}`}
-                >
-                  {featuredRoom.coverImageUrl ? (
-                    <img alt="" src={featuredRoom.coverImageUrl} />
-                  ) : (
-                    <SignalArtwork />
-                  )}
-                  <span className="home-feature-shade" />
-                  <span className="home-feature-badge">
-                    {featuredRoom.status === 'LIVE' ? 'Live now' : 'Replay'}
-                  </span>
-                  <span className="home-feature-caption">
-                    <strong>{featuredRoom.title}</strong>
-                    <span aria-hidden="true">↗</span>
-                  </span>
-                </Link>
-              ) : (
-                <div className="home-feature home-feature-empty">
-                  <SignalArtwork />
-                  <div className="home-feature-message">
-                    <span>livepulse</span>
-                    <strong>Something good is coming on.</strong>
-                  </div>
-                </div>
-              )}
-              <div className="home-feature-bottomline">
-                <span>Watch together, from anywhere</span>
-                <BrandMark className="home-feature-brand-mark" />
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section aria-label="Community activity" className="home-activity">
-          <div className="home-activity-inner">
-            <p>Made for being there together.</p>
-            <dl>
-              <div>
-                <dt>Live rooms</dt>
-                <dd>{roomsUnavailable ? '—' : summary.live}</dd>
-              </div>
-              <div>
-                <dt>Past sessions</dt>
-                <dd>{roomsUnavailable ? '—' : summary.replays}</dd>
-              </div>
-              <div>
-                <dt>Room likes</dt>
-                <dd>
-                  {roomsUnavailable ? '—' : formatLikeCount(summary.likes)}
-                </dd>
-              </div>
-            </dl>
-          </div>
-        </section>
-
-        <section
-          aria-labelledby="rooms-title"
-          className="home-rooms"
-          id="rooms"
-        >
-          <div className="home-section-heading">
-            <div>
-              <p className="home-section-label">Find your next room</p>
-              <h2 id="rooms-title">What&apos;s happening</h2>
-            </div>
-            <p>
-              Join a live conversation or catch up with a session that already
-              ended.
+      <section aria-labelledby="rooms-title" className="home-rooms" id="rooms">
+        <div className="home-section-heading">
+          <div>
+            <p className="home-section-label">
+              {searchQuery ? 'Search results' : 'Find your next room'}
             </p>
+            <h2 id="rooms-title">
+              {searchQuery ? `“${searchQuery}”` : "What's happening"}
+            </h2>
           </div>
-
-          {roomsUnavailable ? (
-            <div className="home-room-notice" role="status">
-              <span aria-hidden="true" className="home-notice-mark">
-                !
-              </span>
-              <div>
-                <h3>Rooms are temporarily unavailable</h3>
-                <p>
-                  The room service isn&apos;t responding. Refresh this page in a
-                  little while.
-                </p>
-              </div>
-            </div>
-          ) : page.items.length > 0 ? (
-            <div className="home-room-grid">
-              {page.items.map((room) => (
-                <RoomCard key={room.id} room={room} />
-              ))}
-            </div>
+          {searchQuery ? (
+            <p>
+              {rooms.length === 1 ? '1 room' : `${rooms.length} rooms`} on this
+              page match. <Link href="/">Clear search</Link>
+            </p>
           ) : (
-            <div className="home-room-notice">
-              <span aria-hidden="true" className="home-notice-mark">
-                <BrandMark />
-              </span>
-              <div>
-                <h3>No rooms yet</h3>
-                <p>
-                  Live and past sessions will appear here when hosts publish
-                  them.
-                </p>
-              </div>
-            </div>
+            <HomeAccountAction />
           )}
+        </div>
 
-          {page.nextCursor ? (
-            <div className="home-more">
-              <Link
-                href={{ pathname: '/', query: { cursor: page.nextCursor } }}
-              >
-                View more rooms
-              </Link>
+        {roomsUnavailable ? (
+          <div className="home-room-notice" role="status">
+            <span aria-hidden="true" className="home-notice-mark">
+              !
+            </span>
+            <div>
+              <h3>Rooms are temporarily unavailable</h3>
+              <p>
+                The room service isn&apos;t responding. Refresh this page in a
+                little while.
+              </p>
             </div>
-          ) : null}
-        </section>
-      </main>
-    </>
+          </div>
+        ) : rooms.length > 0 ? (
+          <>
+            <RoomShelf rooms={liveRooms} title="Live on LivePulse" />
+            <RoomShelf rooms={endedRooms} title="Recently ended" />
+          </>
+        ) : (
+          <div className="home-room-notice">
+            <span aria-hidden="true" className="home-notice-mark">
+              <BrandMark />
+            </span>
+            <div>
+              <h3>{searchQuery ? 'No matching rooms' : 'No rooms yet'}</h3>
+              <p>
+                {searchQuery
+                  ? 'Try another word, or clear the search to see every room.'
+                  : 'Live and past sessions will appear here when hosts publish them.'}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {page.nextCursor ? (
+          <div className="home-more">
+            <Link
+              href={{
+                pathname: '/',
+                query: {
+                  cursor: page.nextCursor,
+                  ...(searchQuery ? { q: searchQuery } : {}),
+                },
+              }}
+            >
+              View more rooms
+            </Link>
+          </div>
+        ) : null}
+      </section>
+    </AppShell>
   );
 }
 
-function SignalArtwork() {
+function RoomShelf({ rooms, title }: { rooms: VisibleRoom[]; title: string }) {
+  if (rooms.length === 0) {
+    return null;
+  }
+
   return (
-    <div aria-hidden="true" className="signal-artwork">
-      <BrandMark className="signal-artwork-mark" />
-    </div>
+    <section className="home-shelf">
+      <h3 className="home-shelf-title">{title}</h3>
+      <div className="home-room-grid">
+        {rooms.map((room) => (
+          <RoomCard key={room.id} room={room} />
+        ))}
+      </div>
+    </section>
   );
 }

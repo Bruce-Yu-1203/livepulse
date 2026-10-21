@@ -3,8 +3,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { LiveRoomExperience } from '../../../components/live-room-experience';
-import { SiteHeader } from '../../../components/site-header';
-import { ApiRequestError, getRoom } from '../../../lib/api';
+import { AppShell } from '../../../components/app-shell';
+import { ApiRequestError, getRoom, listRooms } from '../../../lib/api';
 import { formatRoomDate, roomStatusLabel } from '../../../lib/presentation';
 
 export const dynamic = 'force-dynamic';
@@ -32,13 +32,18 @@ export default async function RoomPage({
   const { id } = await params;
 
   try {
-    const { room } = await getRoom(id);
+    const [{ room }, channels] = await Promise.all([
+      getRoom(id),
+      listRooms().then(
+        (page) => page.items,
+        () => [],
+      ),
+    ]);
     const isLive = room.status === 'LIVE';
 
     return (
-      <>
-        <SiteHeader />
-        <main className="mx-auto max-w-7xl px-5 py-10 sm:px-8 sm:py-16">
+      <AppShell activeRoomId={room.id} rooms={channels}>
+        <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 sm:py-10">
           <Link
             className="text-sm text-zinc-500 transition hover:text-white"
             href="/"
@@ -71,8 +76,8 @@ export default async function RoomPage({
               </p>
             </section>
           </div>
-        </main>
-      </>
+        </div>
+      </AppShell>
     );
   } catch (error) {
     if (error instanceof ApiRequestError && error.status === 404) {
