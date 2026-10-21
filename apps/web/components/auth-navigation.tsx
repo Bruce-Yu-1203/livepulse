@@ -24,7 +24,7 @@ export function AuthNavigation() {
   if (session.status === 'anonymous') {
     return (
       <Link
-        className="rounded-full bg-white px-4 py-2.5 font-semibold text-zinc-950 transition hover:bg-cyan-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+        className="site-signin rounded-lg px-4 py-2.5 font-bold transition"
         href="/auth"
       >
         Sign in

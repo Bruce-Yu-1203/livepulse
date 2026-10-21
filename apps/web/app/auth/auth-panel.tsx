@@ -151,7 +151,7 @@ export function AuthPanel() {
   }
 
   return (
-    <section className="w-full max-w-md rounded-[2rem] border border-white/10 bg-white/[0.045] p-6 shadow-2xl shadow-black/40 backdrop-blur-xl sm:p-8">
+    <section className="w-full max-w-md rounded-xl border border-white/10 bg-white/[0.045] p-6 shadow-2xl shadow-black/40 backdrop-blur-xl sm:p-8">
       <div className="grid grid-cols-2 rounded-full bg-black/30 p-1 text-sm">
         <ModeButton
           active={mode === 'login'}
@@ -171,13 +171,13 @@ export function AuthPanel() {
         </p>
         <h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-white">
           {mode === 'login'
-            ? 'Continue your live experience.'
-            : 'Create your LivePulse identity.'}
+            ? 'Welcome back to the room.'
+            : 'Come join the conversation.'}
         </h1>
         <p className="mt-3 text-sm leading-6 text-zinc-400">
           {mode === 'login'
-            ? 'Your session stays in secure, HTTP-only cookies.'
-            : 'New accounts begin as viewers. Host onboarding comes next.'}
+            ? 'Sign in to watch, chat, and pick up where you left off.'
+            : 'Create an account to join rooms and share your reactions.'}
         </p>
       </div>
 

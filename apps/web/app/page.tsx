@@ -1,3 +1,4 @@
+import type { ListRoomsResponse } from '@livepulse/contracts';
 import Link from 'next/link';
 
 import { HomeAccountAction } from '../components/home-account-action';
@@ -15,179 +16,189 @@ export default async function HomePage({
   searchParams: Promise<{ cursor?: string }>;
 }) {
   const { cursor } = await searchParams;
+  let page: Pick<ListRoomsResponse, 'items' | 'nextCursor'> = {
+    items: [],
+    nextCursor: null,
+  };
+  let roomsUnavailable = false;
 
   try {
-    const page = await listRooms(cursor);
-    const summary = summarizeRooms(page.items);
-    const featuredRoom =
-      page.items.find((room) => room.status === 'LIVE') ?? page.items[0];
-
-    return (
-      <>
-        <SiteHeader />
-        <main>
-          <section className="relative isolate overflow-hidden border-b border-white/8">
-            <div className="absolute left-1/2 top-[-26rem] -z-10 h-[48rem] w-[48rem] -translate-x-1/2 rounded-full border border-cyan-300/10 bg-cyan-300/[0.045] blur-3xl" />
-            <div className="mx-auto grid max-w-7xl gap-14 px-5 pb-20 pt-20 sm:px-8 sm:pb-28 sm:pt-28 lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-end">
-              <div className="max-w-4xl">
-                <p className="flex items-center gap-3 text-xs font-bold uppercase tracking-[0.24em] text-cyan-300">
-                  <span className="h-px w-8 bg-cyan-300/70" />
-                  Shared moments, happening now
-                </p>
-                <h1 className="mt-7 text-5xl font-semibold leading-[0.96] tracking-[-0.06em] text-white sm:text-7xl lg:text-[6rem] xl:text-[6.5rem]">
-                  Live rooms with a pulse.
-                </h1>
-                <p className="mt-7 max-w-2xl text-base leading-8 text-zinc-400 sm:text-lg">
-                  Step into live conversations, learn alongside a crowd, and
-                  share the moment with the room as it happens.
-                </p>
-                <div className="mt-10 flex flex-wrap gap-3">
-                  <a
-                    className="rounded-full bg-cyan-300 px-6 py-3 font-bold text-zinc-950 transition hover:bg-cyan-200"
-                    href="#rooms"
-                  >
-                    Explore rooms
-                  </a>
-                  <HomeAccountAction />
-                </div>
-              </div>
-
-              <aside className="rounded-[2rem] border border-white/10 bg-white/[0.045] p-5 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-6">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">
-                    Live signal
-                  </p>
-                  <span className="flex items-center gap-2 text-xs font-semibold text-rose-200">
-                    <span className="relative flex size-2">
-                      <span className="absolute inline-flex size-full animate-ping rounded-full bg-rose-400 opacity-60 motion-reduce:animate-none" />
-                      <span className="relative inline-flex size-2 rounded-full bg-rose-400" />
-                    </span>
-                    {summary.live} on air
-                  </span>
-                </div>
-
-                {featuredRoom ? (
-                  <Link
-                    className="group mt-5 block overflow-hidden rounded-2xl border border-white/8 bg-black/25"
-                    href={`/rooms/${featuredRoom.id}`}
-                  >
-                    <div className="relative aspect-[16/9] overflow-hidden bg-zinc-900">
-                      {featuredRoom.coverImageUrl ? (
-                        <img
-                          alt=""
-                          className="h-full w-full object-cover opacity-70 transition duration-500 group-hover:scale-105 group-hover:opacity-90"
-                          src={featuredRoom.coverImageUrl}
-                        />
-                      ) : (
-                        <div className="h-full bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.2),transparent_45%),linear-gradient(135deg,#18181b,#09090b)]" />
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                      <span className="absolute bottom-3 left-3 rounded-full bg-black/55 px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-white backdrop-blur">
-                        {featuredRoom.status === 'LIVE' ? 'Watch now' : 'Ended'}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-4 p-4">
-                      <p className="truncate font-semibold text-white">
-                        {featuredRoom.title}
-                      </p>
-                      <span className="text-cyan-300 transition group-hover:translate-x-1">
-                        →
-                      </span>
-                    </div>
-                  </Link>
-                ) : (
-                  <div className="mt-5 rounded-2xl border border-dashed border-white/10 px-4 py-10 text-center text-sm text-zinc-500">
-                    The next room is warming up.
-                  </div>
-                )}
-
-                <dl className="mt-5 grid grid-cols-2 divide-x divide-white/8 border-t border-white/8 pt-5">
-                  <div>
-                    <dt className="text-xs text-zinc-600">Ended rooms</dt>
-                    <dd className="mt-1 text-2xl font-semibold text-white">
-                      {summary.replays}
-                    </dd>
-                  </div>
-                  <div className="pl-5">
-                    <dt className="text-xs text-zinc-600">Room likes</dt>
-                    <dd className="mt-1 text-2xl font-semibold text-white">
-                      {formatLikeCount(summary.likes)}
-                    </dd>
-                  </div>
-                </dl>
-              </aside>
-            </div>
-          </section>
-
-          <section
-            className="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-24"
-            id="rooms"
-          >
-            <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">
-                  Discover
-                </p>
-                <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">
-                  Rooms for curious people
-                </h2>
-              </div>
-              <p className="max-w-sm text-sm leading-6 text-zinc-500">
-                Live broadcasts appear beside completed sessions, so the room
-                never disappears when the stream ends.
-              </p>
-            </div>
-
-            {page.items.length > 0 ? (
-              <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                {page.items.map((room) => (
-                  <RoomCard key={room.id} room={room} />
-                ))}
-              </div>
-            ) : (
-              <div className="mt-10 rounded-[2rem] border border-dashed border-white/12 bg-white/[0.025] px-6 py-20 text-center">
-                <p className="text-lg font-semibold text-white">
-                  The stage is quiet for a moment.
-                </p>
-                <p className="mt-2 text-sm text-zinc-500">
-                  Live and ended rooms will appear here as hosts publish them.
-                </p>
-              </div>
-            )}
-
-            {page.nextCursor ? (
-              <div className="mt-12 flex justify-center">
-                <Link
-                  className="rounded-full border border-white/12 px-6 py-3 text-sm font-semibold text-white transition hover:border-cyan-300/40 hover:text-cyan-200"
-                  href={{ pathname: '/', query: { cursor: page.nextCursor } }}
-                >
-                  View more rooms
-                </Link>
-              </div>
-            ) : null}
-          </section>
-        </main>
-      </>
-    );
+    page = await listRooms(cursor);
   } catch {
-    return (
-      <>
-        <SiteHeader />
-        <main className="mx-auto grid min-h-[70vh] max-w-3xl place-items-center px-5 py-20 text-center">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-rose-300">
-              Connection interrupted
-            </p>
-            <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-white">
-              Rooms are temporarily out of reach.
-            </h1>
-            <p className="mx-auto mt-4 max-w-xl leading-7 text-zinc-400">
-              Start the LivePulse API and refresh this page. The interface is
-              ready; it is waiting for the room service.
+    roomsUnavailable = true;
+  }
+
+  const summary = summarizeRooms(page.items);
+  const featuredRoom =
+    page.items.find((room) => room.status === 'LIVE') ?? page.items[0];
+
+  return (
+    <>
+      <SiteHeader />
+      <main className="home-page">
+        <section aria-labelledby="home-title" className="home-hero">
+          <div className="home-hero-inner">
+            <div className="home-intro">
+              <p className="home-kicker">
+                <span className="home-live-dot" /> The room is yours
+              </p>
+              <h1 id="home-title">
+                Be there.
+                <br />
+                <span>While it happens.</span>
+              </h1>
+              <p className="home-description">
+                Real voices, real reactions, all in the same moment. Find a room
+                to watch, talk, and be part of what happens next.
+              </p>
+              <div className="home-actions">
+                <a className="home-primary-action" href="#rooms">
+                  Explore rooms <span aria-hidden="true">↗</span>
+                </a>
+                <HomeAccountAction />
+              </div>
+            </div>
+
+            <div className="home-feature-wrap">
+              <div className="home-feature-topline">
+                <span>On the air</span>
+                <span>
+                  {roomsUnavailable
+                    ? 'Waiting for rooms'
+                    : `${String(summary.live).padStart(2, '0')} live now`}
+                </span>
+              </div>
+              {featuredRoom ? (
+                <Link
+                  aria-label={`Featured room: ${featuredRoom.title}`}
+                  className="home-feature"
+                  href={`/rooms/${featuredRoom.id}`}
+                >
+                  {featuredRoom.coverImageUrl ? (
+                    <img alt="" src={featuredRoom.coverImageUrl} />
+                  ) : (
+                    <SignalArtwork />
+                  )}
+                  <span className="home-feature-shade" />
+                  <span className="home-feature-badge">
+                    {featuredRoom.status === 'LIVE' ? 'Live now' : 'Replay'}
+                  </span>
+                  <span className="home-feature-caption">
+                    <strong>{featuredRoom.title}</strong>
+                    <span aria-hidden="true">↗</span>
+                  </span>
+                </Link>
+              ) : (
+                <div className="home-feature home-feature-empty">
+                  <SignalArtwork />
+                  <div className="home-feature-message">
+                    <span>LivePulse</span>
+                    <strong>Something good is coming on.</strong>
+                  </div>
+                </div>
+              )}
+              <div className="home-feature-bottomline">
+                <span>Watch together, from anywhere</span>
+                <span aria-hidden="true">✳</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section aria-label="Community activity" className="home-activity">
+          <div className="home-activity-inner">
+            <p>Made for being there together.</p>
+            <dl>
+              <div>
+                <dt>Live rooms</dt>
+                <dd>{roomsUnavailable ? '—' : summary.live}</dd>
+              </div>
+              <div>
+                <dt>Past sessions</dt>
+                <dd>{roomsUnavailable ? '—' : summary.replays}</dd>
+              </div>
+              <div>
+                <dt>Room likes</dt>
+                <dd>
+                  {roomsUnavailable ? '—' : formatLikeCount(summary.likes)}
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </section>
+
+        <section
+          aria-labelledby="rooms-title"
+          className="home-rooms"
+          id="rooms"
+        >
+          <div className="home-section-heading">
+            <div>
+              <p className="home-section-label">Find your next room</p>
+              <h2 id="rooms-title">What&apos;s happening</h2>
+            </div>
+            <p>
+              Join a live conversation or catch up with a session that already
+              ended.
             </p>
           </div>
-        </main>
-      </>
-    );
-  }
+
+          {roomsUnavailable ? (
+            <div className="home-room-notice" role="status">
+              <span aria-hidden="true" className="home-notice-mark">
+                !
+              </span>
+              <div>
+                <h3>Rooms are temporarily unavailable</h3>
+                <p>
+                  The room service isn&apos;t responding. Refresh this page in a
+                  little while.
+                </p>
+              </div>
+            </div>
+          ) : page.items.length > 0 ? (
+            <div className="home-room-grid">
+              {page.items.map((room) => (
+                <RoomCard key={room.id} room={room} />
+              ))}
+            </div>
+          ) : (
+            <div className="home-room-notice">
+              <span aria-hidden="true" className="home-notice-mark">
+                ✳
+              </span>
+              <div>
+                <h3>No rooms yet</h3>
+                <p>
+                  Live and past sessions will appear here when hosts publish
+                  them.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {page.nextCursor ? (
+            <div className="home-more">
+              <Link
+                href={{ pathname: '/', query: { cursor: page.nextCursor } }}
+              >
+                View more rooms
+              </Link>
+            </div>
+          ) : null}
+        </section>
+      </main>
+    </>
+  );
+}
+
+function SignalArtwork() {
+  return (
+    <div aria-hidden="true" className="signal-artwork">
+      <span className="signal-orbit signal-orbit-one" />
+      <span className="signal-orbit signal-orbit-two" />
+      <span className="signal-orbit signal-orbit-three" />
+      <span className="signal-core" />
+    </div>
+  );
 }

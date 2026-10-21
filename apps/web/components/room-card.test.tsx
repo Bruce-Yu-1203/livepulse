@@ -29,5 +29,19 @@ describe('RoomCard', () => {
     expect(html).toContain('24');
     expect(html).toContain('loading="lazy"');
     expect(html).toContain('dateTime="2026-10-09T15:30:00.000Z"');
+    expect(html).toContain('Enter room');
+    expect(html).toContain('24 likes');
+  });
+
+  it('shows replay status and artwork when a room has no cover', () => {
+    const html = renderToStaticMarkup(
+      createElement(RoomCard, {
+        room: { ...room, coverImageUrl: null, status: 'ENDED' },
+      }),
+    );
+
+    expect(html).toContain('Ended');
+    expect(html).toContain('room-card-placeholder');
+    expect(html).not.toContain('<img');
   });
 });

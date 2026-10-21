@@ -29,6 +29,7 @@ describe('AuthNavigation', () => {
 
     expect(markup).toContain('Sign in');
     expect(markup).toContain('href="/auth"');
+    expect(markup).toContain('site-signin');
   });
 
   it('replaces sign in with the account and role navigation after login', () => {

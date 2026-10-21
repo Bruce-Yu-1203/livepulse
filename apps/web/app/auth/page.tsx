@@ -4,46 +4,38 @@ import { AuthPanel } from './auth-panel';
 
 export default function AuthPage() {
   return (
-    <main className="relative isolate min-h-screen overflow-hidden px-5 py-8 sm:px-8">
-      <div className="absolute left-[-10rem] top-[-8rem] -z-10 h-[32rem] w-[32rem] rounded-full bg-cyan-400/12 blur-[100px]" />
-      <div className="absolute bottom-[-12rem] right-[-8rem] -z-10 h-[36rem] w-[36rem] rounded-full bg-violet-500/10 blur-[120px]" />
+    <main className="auth-page min-h-screen px-5 py-8 sm:px-8">
       <div className="mx-auto flex max-w-6xl items-center justify-between">
         <Link
-          className="text-sm text-zinc-400 transition hover:text-white"
+          className="text-sm text-zinc-400 transition hover:text-cyan-300"
           href="/"
         >
           ← Back to rooms
         </Link>
-        <span className="text-sm font-semibold text-white">LivePulse</span>
+        <span className="text-sm font-extrabold tracking-tight text-white">
+          LivePulse ✳
+        </span>
       </div>
       <div className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-6xl items-center gap-16 py-16 lg:grid-cols-[1fr_28rem]">
-        <section className="hidden lg:block">
-          <p className="text-sm font-bold uppercase tracking-[0.24em] text-cyan-300">
-            One identity, every room
-          </p>
-          <h2 className="mt-6 max-w-2xl text-6xl font-semibold leading-[0.98] tracking-[-0.055em] text-white">
-            Be present when the moment happens.
+        <section className="auth-intro hidden lg:block">
+          <p className="text-sm font-bold text-cyan-300">Come on in</p>
+          <h2 className="mt-6 max-w-2xl text-6xl font-extrabold leading-[0.98] tracking-[-0.07em] text-white">
+            Every good room starts with people showing up.
           </h2>
           <p className="mt-7 max-w-xl text-lg leading-8 text-zinc-400">
-            Join live conversations, meet the people in the moment, and keep one
-            secure session across the entire experience.
+            Create an account to join the conversation, share a reaction, and
+            make the moment yours.
           </p>
-          <div className="mt-12 grid max-w-xl grid-cols-3 gap-4">
-            {[
-              ['01', 'Secure sessions'],
-              ['02', 'Live rooms'],
-              ['03', 'Room history'],
-            ].map(([number, item]) => (
-              <div
-                className="rounded-2xl border border-white/8 bg-white/[0.03] p-4 text-sm text-zinc-300"
-                key={item}
-              >
-                <span className="mb-4 block text-xs font-bold tracking-[0.18em] text-cyan-300/60">
-                  {number}
-                </span>
-                {item}
-              </div>
-            ))}
+          <div aria-hidden="true" className="auth-signal mt-14">
+            <span />
+            <span />
+            <span />
+            <span />
+            <span />
+            <span />
+            <span />
+            <span />
+            <span />
           </div>
         </section>
         <AuthPanel />

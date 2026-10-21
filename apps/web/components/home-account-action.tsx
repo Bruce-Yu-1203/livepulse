@@ -8,8 +8,7 @@ import {
 } from '../lib/auth-session';
 import { useAuthSession } from './auth-session-provider';
 
-const actionClassName =
-  'rounded-full border border-white/12 px-6 py-3 font-semibold text-white transition hover:border-white/25 hover:bg-white/5';
+const actionClassName = 'home-secondary-action';
 
 export function HomeAccountAction() {
   const { session } = useAuthSession();

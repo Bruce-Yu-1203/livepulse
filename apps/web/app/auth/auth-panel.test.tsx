@@ -8,6 +8,9 @@ describe('AuthPanel', () => {
     const markup = renderToStaticMarkup(<AuthPanel />);
 
     expect(markup).toContain('Checking Google sign-in…');
+    expect(markup).toContain(
+      'Sign in to watch, chat, and pick up where you left off.',
+    );
     expect(markup).toContain('or use email');
     expect(markup).toContain('current-password');
     expect(markup).toContain('for="auth-password"');
