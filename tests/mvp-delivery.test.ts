@@ -82,6 +82,9 @@ describe('MVP delivery assets', () => {
     expect(dockerfile).toContain('USER node');
     expect(dockerfile).toContain('CMD ["node", "apps/api/dist/main.js"]');
     expect(dockerfile).not.toContain('@livepulse/web build');
+
+    const readme = await readFile(resolve(process.cwd(), 'README.md'), 'utf8');
+    expect(readme).toContain('Dockerfile path: /infra/railway/api.Dockerfile');
   });
 
   it('documents PostgreSQL as the only durable message store', async () => {

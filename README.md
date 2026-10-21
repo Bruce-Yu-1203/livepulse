@@ -62,7 +62,7 @@ the `staging` branch and keep the service root directory at the repository root.
 Configure these service settings:
 
 ```text
-Dockerfile path: infra/railway/api.Dockerfile
+Dockerfile path: /infra/railway/api.Dockerfile
 Pre-deploy command: pnpm --filter @livepulse/db exec prisma migrate deploy --config prisma7.config.ts
 Healthcheck path: /health/ready
 Replicas: 1
