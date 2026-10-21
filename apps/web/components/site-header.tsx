@@ -2,6 +2,7 @@ import Link from 'next/link';
 
 import { AuthNavigation } from './auth-navigation';
 import { BrandMark } from './brand-mark';
+import { SiteSearch } from './site-search';
 import { ThemeToggle } from './theme-toggle';
 
 export function SiteHeader({ searchQuery = '' }: { searchQuery?: string }) {
@@ -29,29 +30,7 @@ export function SiteHeader({ searchQuery = '' }: { searchQuery?: string }) {
           </nav>
         </div>
 
-        <form action="/" className="site-search" method="get" role="search">
-          <label className="sr-only" htmlFor="site-search">
-            Search rooms
-          </label>
-          <input
-            defaultValue={searchQuery}
-            id="site-search"
-            maxLength={80}
-            name="q"
-            placeholder="Search rooms"
-            type="search"
-          />
-          <button aria-label="Search" type="submit">
-            <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
-              <path
-                d="m20 20-4.2-4.2M18 11a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeWidth="2"
-              />
-            </svg>
-          </button>
-        </form>
+        <SiteSearch searchQuery={searchQuery} />
 
         <div className="flex shrink-0 items-center gap-2 text-sm">
           <ThemeToggle />
