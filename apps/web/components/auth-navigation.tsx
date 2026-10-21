@@ -1,16 +1,39 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useRef, useState } from 'react';
 
-import {
-  accountDestinationForRole,
-  accountInitial,
-  displayNameFromEmail,
-} from '../lib/auth-session';
+import { accountInitial, displayNameFromEmail } from '../lib/auth-session';
+import { AuthEntryLink } from './auth-dialog-provider';
 import { useAuthSession } from './auth-session-provider';
 
 export function AuthNavigation() {
   const { session, signOut, signingOut, signOutError } = useAuthSession();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    function closeOnOutsideClick(event: PointerEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setMenuOpen(false);
+        triggerRef.current?.focus();
+      }
+    }
+
+    document.addEventListener('pointerdown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [menuOpen]);
 
   if (session.status === 'loading') {
     return (
@@ -23,81 +46,105 @@ export function AuthNavigation() {
 
   if (session.status === 'anonymous') {
     return (
-      <Link
-        className="site-signin rounded-lg px-4 py-2.5 font-bold transition"
-        href="/auth"
-      >
+      <AuthEntryLink className="site-signin rounded-lg px-4 py-2.5 font-bold transition">
         Sign in
-      </Link>
+      </AuthEntryLink>
     );
   }
 
-  const destination = accountDestinationForRole(session.user.role);
   const displayName = displayNameFromEmail(session.user.email);
 
   return (
-    <div className="flex items-center gap-2">
-      {session.user.role === 'ADMIN' ? (
-        <Link
-          className="hidden rounded-full px-3 py-2 text-zinc-300 transition hover:bg-white/8 hover:text-white lg:inline-flex"
-          href="/admin"
-        >
-          Moderation
-        </Link>
-      ) : null}
-      {['ADMIN', 'HOST'].includes(session.user.role) ? (
-        <Link
-          className="hidden rounded-full px-3 py-2 text-zinc-300 transition hover:bg-white/8 hover:text-white md:inline-flex"
-          href="/studio"
-        >
-          Studio
-        </Link>
-      ) : null}
-      <Link
-        aria-label={`${destination.label} for ${session.user.email}`}
-        className="group flex h-10 items-center gap-2 rounded-full border border-white/10 bg-white/[0.055] p-1 pr-2.5 transition hover:border-cyan-300/30 hover:bg-white/10 sm:pr-4"
-        href={destination.href}
-      >
-        <span className="grid size-8 place-items-center rounded-full bg-gradient-to-br from-cyan-200 to-violet-300 text-xs font-black text-zinc-950 shadow-[0_0_20px_rgba(103,232,249,0.16)]">
-          {accountInitial(session.user.email)}
-        </span>
-        <span className="hidden max-w-28 truncate text-sm font-semibold text-white sm:inline">
-          {displayName}
-        </span>
-      </Link>
+    <div className="account-control" ref={menuRef}>
       <button
-        aria-label={signOutError ? 'Retry sign out' : 'Sign out'}
-        className={`grid size-10 place-items-center rounded-full border transition disabled:cursor-wait disabled:opacity-50 ${
-          signOutError
-            ? 'border-rose-300/30 bg-rose-300/10 text-rose-200'
-            : 'border-white/10 text-zinc-400 hover:border-white/20 hover:bg-white/8 hover:text-white'
-        }`}
-        disabled={signingOut}
-        onClick={() => void signOut()}
-        title={signOutError ?? 'Sign out'}
+        aria-controls={menuOpen ? 'account-menu' : undefined}
+        aria-expanded={menuOpen}
+        aria-haspopup="true"
+        aria-label={`Account menu for ${session.user.email}`}
+        className="account-trigger"
+        onClick={() => setMenuOpen((current) => !current)}
+        ref={triggerRef}
         type="button"
       >
-        {signingOut ? (
-          <span className="size-4 animate-spin rounded-full border-2 border-zinc-500 border-t-white motion-reduce:animate-none" />
-        ) : (
-          <SignOutIcon />
-        )}
+        <span aria-hidden="true" className="account-avatar">
+          {accountInitial(session.user.email)}
+        </span>
+        <span className="account-trigger-name">{displayName}</span>
+        <span aria-hidden="true" className="account-chevron">
+          ⌄
+        </span>
       </button>
-      {signOutError ? <span className="sr-only">{signOutError}</span> : null}
+
+      {menuOpen ? (
+        <div className="account-menu" id="account-menu">
+          <div className="account-menu-identity">
+            <span
+              aria-hidden="true"
+              className="account-avatar account-avatar-large"
+            >
+              {accountInitial(session.user.email)}
+            </span>
+            <div>
+              <strong>{displayName}</strong>
+              <span>{session.user.email}</span>
+            </div>
+          </div>
+          <div className="account-menu-links">
+            <Link href="/" onClick={() => setMenuOpen(false)}>
+              <AccountIcon name="rooms" /> Browse rooms
+            </Link>
+            {['ADMIN', 'HOST'].includes(session.user.role) ? (
+              <Link href="/studio" onClick={() => setMenuOpen(false)}>
+                <AccountIcon name="studio" /> Creator studio
+              </Link>
+            ) : null}
+            {session.user.role === 'ADMIN' ? (
+              <Link href="/admin" onClick={() => setMenuOpen(false)}>
+                <AccountIcon name="moderation" /> Moderation
+              </Link>
+            ) : null}
+          </div>
+          <div className="account-menu-footer">
+            <button
+              disabled={signingOut}
+              onClick={() => void signOut()}
+              type="button"
+            >
+              <AccountIcon name="signout" />
+              {signingOut ? 'Signing out…' : 'Sign out'}
+            </button>
+            {signOutError ? <p role="status">{signOutError}</p> : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function SignOutIcon() {
+function AccountIcon({
+  name,
+}: {
+  name: 'rooms' | 'studio' | 'moderation' | 'signout';
+}) {
+  const paths = {
+    rooms: 'M3 10.5 12 3l9 7.5M5 9v11h14V9M9 20v-7h6v7',
+    studio: 'M4 5h16v14H4zM8 9h8m-8 4h5',
+    moderation:
+      'M12 3 4 6v6c0 5 3.2 8 8 10 4.8-2 8-5 8-10V6l-8-3Zm-3 9 2 2 4-4',
+    signout: 'M10 4H5v16h5m4-4 4-4-4-4m4 4H9',
+  };
+
   return (
-    <svg aria-hidden="true" className="size-4" fill="none" viewBox="0 0 24 24">
-      <path
-        d="M14 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2v-2m-4-4h11m0 0-3-3m3 3-3 3"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.8"
-      />
+    <svg
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.7"
+      viewBox="0 0 24 24"
+    >
+      <path d={paths[name]} />
     </svg>
   );
 }

@@ -18,6 +18,14 @@ describe('AuthPanel', () => {
     expect(markup).toContain('Show password');
   });
 
+  it('can open directly in registration mode for the account dialog', () => {
+    const markup = renderToStaticMarkup(<AuthPanel initialMode="register" />);
+
+    expect(markup).toContain('Come join the conversation.');
+    expect(markup).toContain('autoComplete="new-password"');
+    expect(markup).toContain('data-active="true"');
+  });
+
   it('turns OAuth callback codes into useful feedback', () => {
     expect(oauthErrorMessage('access_denied')).toContain('cancelled');
     expect(oauthErrorMessage('account-not-linked')).toContain(

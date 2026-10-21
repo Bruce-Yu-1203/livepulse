@@ -6,6 +6,7 @@ import {
   accountDestinationForRole,
   displayNameFromEmail,
 } from '../lib/auth-session';
+import { AuthEntryLink } from './auth-dialog-provider';
 import { useAuthSession } from './auth-session-provider';
 
 const actionClassName = 'home-secondary-action';
@@ -24,9 +25,9 @@ export function HomeAccountAction() {
 
   if (session.status === 'anonymous') {
     return (
-      <Link className={actionClassName} href="/auth">
+      <AuthEntryLink className={actionClassName} mode="register">
         Join LivePulse
-      </Link>
+      </AuthEntryLink>
     );
   }
 

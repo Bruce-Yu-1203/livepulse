@@ -10,6 +10,7 @@ import {
   type ModerationReport,
 } from '@livepulse/contracts';
 import Link from 'next/link';
+import { AuthEntryLink } from '../../components/auth-dialog-provider';
 import { useEffect, useState } from 'react';
 
 import {
@@ -48,57 +49,65 @@ export function AdminDashboard() {
   useEffect(() => {
     let active = true;
 
-    void clientApiRequest('/api/v1/auth/me', CurrentUserResponseSchema)
-      .then(async ({ user }) => {
-        if (!active) {
-          return;
-        }
+    function loadDashboard() {
+      void clientApiRequest('/api/v1/auth/me', CurrentUserResponseSchema)
+        .then(async ({ user }) => {
+          if (!active) {
+            return;
+          }
 
-        if (user.role !== 'ADMIN') {
-          setState('forbidden');
-          return;
-        }
+          if (user.role !== 'ADMIN') {
+            setState('forbidden');
+            return;
+          }
 
-        const operationsRequest = clientApiRequest(
-          '/api/v1/operations/summary',
-          OperationsSummaryResponseSchema,
-        ).catch(() => undefined);
-        const [response, auditResponse, operationsResponse] = await Promise.all(
-          [
-            clientApiRequest('/api/v1/reports', ListReportsResponseSchema),
-            clientApiRequest('/api/v1/audit-logs', ListAuditLogsResponseSchema),
-            operationsRequest,
-          ],
-        );
-        if (active) {
-          setReports(response.items);
-          setNextCursor(response.nextCursor);
-          setAuditLogs(auditResponse.items);
-          setAuditNextCursor(auditResponse.nextCursor);
-          setOperations(operationsResponse);
+          const operationsRequest = clientApiRequest(
+            '/api/v1/operations/summary',
+            OperationsSummaryResponseSchema,
+          ).catch(() => undefined);
+          const [response, auditResponse, operationsResponse] =
+            await Promise.all([
+              clientApiRequest('/api/v1/reports', ListReportsResponseSchema),
+              clientApiRequest(
+                '/api/v1/audit-logs',
+                ListAuditLogsResponseSchema,
+              ),
+              operationsRequest,
+            ]);
+          if (active) {
+            setReports(response.items);
+            setNextCursor(response.nextCursor);
+            setAuditLogs(auditResponse.items);
+            setAuditNextCursor(auditResponse.nextCursor);
+            setOperations(operationsResponse);
+            setState('ready');
+          }
+        })
+        .catch((error: unknown) => {
+          if (!active) {
+            return;
+          }
+
+          if (error instanceof ClientApiError && error.status === 401) {
+            setState('signed-out');
+            return;
+          }
+
+          setNotice(
+            error instanceof Error
+              ? error.message
+              : 'The moderation queue could not load.',
+          );
           setState('ready');
-        }
-      })
-      .catch((error: unknown) => {
-        if (!active) {
-          return;
-        }
+        });
+    }
 
-        if (error instanceof ClientApiError && error.status === 401) {
-          setState('signed-out');
-          return;
-        }
-
-        setNotice(
-          error instanceof Error
-            ? error.message
-            : 'The moderation queue could not load.',
-        );
-        setState('ready');
-      });
+    loadDashboard();
+    window.addEventListener('livepulse:auth-changed', loadDashboard);
 
     return () => {
       active = false;
+      window.removeEventListener('livepulse:auth-changed', loadDashboard);
     };
   }, []);
 
@@ -575,7 +584,11 @@ function AdminMessage({
   return (
     <div className="rounded-[2rem] border border-white/8 bg-white/[0.035] px-6 py-16 text-center">
       <p className="text-xl font-semibold text-white">{title}</p>
-      {actionHref && actionLabel ? (
+      {actionHref === '/auth' && actionLabel ? (
+        <AuthEntryLink className="mt-6 inline-flex rounded-full bg-white px-5 py-2.5 text-sm font-bold text-zinc-950 transition hover:bg-cyan-200">
+          {actionLabel}
+        </AuthEntryLink>
+      ) : actionHref && actionLabel ? (
         <Link
           className="mt-6 inline-flex rounded-full bg-white px-5 py-2.5 text-sm font-bold text-zinc-950 transition hover:bg-cyan-200"
           href={actionHref}

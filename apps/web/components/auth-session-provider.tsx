@@ -20,6 +20,7 @@ import {
 
 interface AuthSessionContextValue {
   session: AuthSessionSnapshot;
+  refreshSession(): Promise<void>;
   signOut(): Promise<void>;
   signingOut: boolean;
   signOutError?: string;
@@ -94,8 +95,8 @@ export function AuthSessionProvider({
   }, []);
 
   const value = useMemo(
-    () => ({ session, signOut, signingOut, signOutError }),
-    [session, signOut, signingOut, signOutError],
+    () => ({ session, refreshSession, signOut, signingOut, signOutError }),
+    [session, refreshSession, signOut, signingOut, signOutError],
   );
 
   return (

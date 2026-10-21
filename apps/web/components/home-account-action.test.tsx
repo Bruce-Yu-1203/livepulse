@@ -15,7 +15,9 @@ function renderAction(session: AuthSessionSnapshot) {
 
 describe('HomeAccountAction', () => {
   it('invites anonymous visitors to sign in', () => {
-    expect(renderAction({ status: 'anonymous' })).toContain('Join LivePulse');
+    const markup = renderAction({ status: 'anonymous' });
+    expect(markup).toContain('Join LivePulse');
+    expect(markup).toContain('href="/auth"');
   });
 
   it('sends hosts to their studio instead of showing a sign-in action', () => {

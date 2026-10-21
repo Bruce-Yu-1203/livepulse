@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
 import { AuthSessionProvider } from '../components/auth-session-provider';
+import { AuthDialogProvider } from '../components/auth-dialog-provider';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -16,7 +17,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body>
-        <AuthSessionProvider>{children}</AuthSessionProvider>
+        <AuthSessionProvider>
+          <AuthDialogProvider>{children}</AuthDialogProvider>
+        </AuthSessionProvider>
       </body>
     </html>
   );

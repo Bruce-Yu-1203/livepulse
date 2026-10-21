@@ -4,7 +4,7 @@ import {
   MuteRoomUserResponseSchema,
   type VisibleRoom,
 } from '@livepulse/contracts';
-import Link from 'next/link';
+import { AuthEntryLink } from './auth-dialog-provider';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 
@@ -219,12 +219,9 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
               Chat closed when this broadcast ended.
             </p>
           ) : chat.authChecked && !chat.userId ? (
-            <Link
-              className="block rounded-2xl bg-white px-4 py-3 text-center text-sm font-bold text-zinc-950 transition hover:bg-cyan-200"
-              href="/auth"
-            >
+            <AuthEntryLink className="block rounded-2xl bg-white px-4 py-3 text-center text-sm font-bold text-zinc-950 transition hover:bg-cyan-200">
               Sign in to chat
-            </Link>
+            </AuthEntryLink>
           ) : (
             <form className="flex gap-2" onSubmit={submit}>
               <input

@@ -35,12 +35,20 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
   const [userId, setUserId] = useState<string>();
   const [userRole, setUserRole] = useState<UserRole>();
   const [authChecked, setAuthChecked] = useState(false);
+  const [authRevision, setAuthRevision] = useState(0);
   const [error, setError] = useState<string>();
   const [historyLoading, setHistoryLoading] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null | undefined>();
   const socketRef = useRef<Socket>(undefined);
   const pendingMessagesRef = useRef(new PendingMessageTracker());
   const historyLoadingRef = useRef(false);
+
+  useEffect(() => {
+    const refreshAfterSignIn = () => setAuthRevision((current) => current + 1);
+    window.addEventListener('livepulse:auth-changed', refreshAfterSignIn);
+    return () =>
+      window.removeEventListener('livepulse:auth-changed', refreshAfterSignIn);
+  }, []);
 
   const loadHistory = useCallback(
     async (cursor?: string) => {
@@ -86,6 +94,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
 
   useEffect(() => {
     let active = true;
+    setAuthChecked(false);
 
     void clientApiRequest('/api/v1/auth/me', CurrentUserResponseSchema)
       .then((response) => {
@@ -95,6 +104,10 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
         }
       })
       .catch((caught: unknown) => {
+        if (active) {
+          setUserId(undefined);
+          setUserRole(undefined);
+        }
         if (
           active &&
           !(caught instanceof ClientApiError && caught.status === 401)
@@ -111,7 +124,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [authRevision]);
 
   useEffect(() => {
     if (roomStatus !== 'LIVE') {
@@ -353,7 +366,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
       socket?.disconnect();
       socketRef.current = undefined;
     };
-  }, [loadHistory, roomId, roomStatus]);
+  }, [authRevision, loadHistory, roomId, roomStatus]);
 
   const sendMessage = useCallback(
     (text: string) => {

@@ -11,6 +11,7 @@ import {
 } from '@livepulse/contracts';
 import type { CurrentUserResponse, Room } from '@livepulse/contracts';
 import Link from 'next/link';
+import { AuthEntryLink } from '../../components/auth-dialog-provider';
 import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 
@@ -66,6 +67,10 @@ export function StudioDashboard() {
 
   useEffect(() => {
     void loadStudio();
+    const reloadAfterSignIn = () => void loadStudio();
+    window.addEventListener('livepulse:auth-changed', reloadAfterSignIn);
+    return () =>
+      window.removeEventListener('livepulse:auth-changed', reloadAfterSignIn);
   }, []);
 
   const selectedRoom = rooms.find((room) => room.id === selectedId);
@@ -563,7 +568,11 @@ function StudioMessage({
         <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-white">
           {title}
         </h1>
-        {actionHref && actionLabel ? (
+        {actionHref === '/auth' && actionLabel ? (
+          <AuthEntryLink className="mt-8 inline-flex rounded-full bg-white px-6 py-3 font-bold text-zinc-950 transition hover:bg-cyan-200">
+            {actionLabel}
+          </AuthEntryLink>
+        ) : actionHref && actionLabel ? (
           <Link
             className="mt-8 inline-flex rounded-full bg-white px-6 py-3 font-bold text-zinc-950 transition hover:bg-cyan-200"
             href={actionHref}

@@ -1,7 +1,7 @@
 'use client';
 
 import { RoomLikeResponseSchema } from '@livepulse/contracts';
-import Link from 'next/link';
+import { AuthEntryLink } from './auth-dialog-provider';
 import { useEffect, useState } from 'react';
 
 import { clientApiRequest, clientApiVoidRequest } from '../lib/client-api';
@@ -108,14 +108,13 @@ export function RoomLikeButton({
 
   if (authChecked && !userId) {
     return (
-      <Link
-        aria-label={`Sign in to like this room. ${label}`}
+      <AuthEntryLink
         className={`${classes} border-white/15 bg-black/65 text-white hover:border-rose-300/50 hover:text-rose-200`}
-        href="/auth"
+        label={`Sign in to like this room. ${label}`}
       >
         <span aria-hidden="true">♡</span>
         {label}
-      </Link>
+      </AuthEntryLink>
     );
   }
 

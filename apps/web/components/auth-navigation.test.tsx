@@ -32,14 +32,15 @@ describe('AuthNavigation', () => {
     expect(markup).toContain('site-signin');
   });
 
-  it('replaces sign in with the account and role navigation after login', () => {
+  it('replaces sign in with an account menu trigger after login', () => {
     const markup = renderNavigation(adminSession);
 
     expect(markup).not.toContain('Sign in');
     expect(markup).toContain('Bruce Yu');
-    expect(markup).toContain('Moderation');
-    expect(markup).toContain('Studio');
-    expect(markup).toContain('Sign out');
+    expect(markup).toContain('Account menu for bruce.yu@example.com');
+    expect(markup).toContain('aria-expanded="false"');
+    expect(markup).not.toContain('Creator studio');
+    expect(markup).not.toContain('Sign out');
   });
 
   it('uses a stable placeholder while the session is loading', () => {

@@ -251,7 +251,7 @@ async function registerAndSignInViewer(
   await form.getByRole('button', { name: 'Create account' }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(
-    page.getByRole('link', { name: `Home for ${email}` }),
+    page.getByRole('button', { name: `Account menu for ${email}` }),
   ).toBeVisible();
   await expect(page.getByRole('link', { name: 'Sign in' })).toBeHidden();
 }
@@ -283,9 +283,10 @@ async function signIn(
   await expect(page).toHaveURL(/\/studio$/);
   const accountDestination = email.startsWith('admin@')
     ? 'Moderation'
-    : 'Studio';
+    : 'Creator studio';
+  await page.getByRole('button', { name: `Account menu for ${email}` }).click();
   await expect(
-    page.getByRole('link', { name: `${accountDestination} for ${email}` }),
+    page.getByRole('link', { name: accountDestination }),
   ).toBeVisible();
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
 }
