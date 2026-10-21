@@ -3,30 +3,58 @@ import Link from 'next/link';
 import { AuthNavigation } from './auth-navigation';
 import { BrandMark } from './brand-mark';
 
-export function SiteHeader() {
+export function SiteHeader({ searchQuery = '' }: { searchQuery?: string }) {
   return (
     <header className="site-header sticky top-0 z-50">
-      <div className="mx-auto flex max-w-[82rem] items-center justify-between px-5 py-4 sm:px-8">
-        <Link
-          aria-label="LivePulse home"
-          className="flex items-center gap-3"
-          href="/"
-        >
-          <BrandMark className="site-brand-mark" />
-          <span className="site-brand-name text-xl text-white">livepulse</span>
-        </Link>
-        <nav
-          aria-label="Primary navigation"
-          className="flex items-center gap-2 text-sm"
-        >
+      <div className="site-header-inner">
+        <div className="flex shrink-0 items-center gap-4">
           <Link
-            className="site-nav-link hidden px-3 py-2 font-semibold sm:inline-flex"
+            aria-label="LivePulse home"
+            className="flex items-center gap-3"
             href="/"
           >
-            Discover
+            <BrandMark className="site-brand-mark" />
+            <span className="site-brand-name hidden text-xl text-white md:inline">
+              livepulse
+            </span>
           </Link>
+          <nav aria-label="Primary navigation" className="hidden sm:block">
+            <Link
+              className="site-nav-link inline-flex px-3 py-2 text-sm font-semibold"
+              href="/"
+            >
+              Discover
+            </Link>
+          </nav>
+        </div>
+
+        <form action="/" className="site-search" method="get" role="search">
+          <label className="sr-only" htmlFor="site-search">
+            Search rooms
+          </label>
+          <input
+            defaultValue={searchQuery}
+            id="site-search"
+            maxLength={80}
+            name="q"
+            placeholder="Search rooms"
+            type="search"
+          />
+          <button aria-label="Search" type="submit">
+            <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
+              <path
+                d="m20 20-4.2-4.2M18 11a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeWidth="2"
+              />
+            </svg>
+          </button>
+        </form>
+
+        <div className="flex shrink-0 items-center text-sm">
           <AuthNavigation />
-        </nav>
+        </div>
       </div>
     </header>
   );
