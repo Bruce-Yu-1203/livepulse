@@ -9,32 +9,72 @@ import {
   LoginResponseSchema,
   RegisterRequestSchema,
   RegisterResponseSchema,
+  RegistrationCompleteRequestSchema,
+  RegistrationEmailSchema,
+  RegistrationPasswordSchema,
+  RegistrationStartResponseSchema,
+  RegistrationUsernameSchema,
   SocialSignInResponseSchema,
 } from './auth.js';
 
 describe('RegisterRequestSchema', () => {
-  it('normalizes an email address while preserving the password', () => {
+  it('normalizes the email and username while preserving the password', () => {
     expect(
       RegisterRequestSchema.parse({
         email: '  Viewer@Example.COM ',
-        password: 'correct horse battery staple',
+        username: '  Viewer_123 ',
+        password: 'securepass123',
       }),
     ).toEqual({
       email: 'viewer@example.com',
-      password: 'correct horse battery staple',
+      username: 'viewer_123',
+      password: 'securepass123',
     });
   });
 
   it.each([
-    { email: 'not-an-email', password: 'long-enough-password' },
-    { email: 'viewer@example.com', password: 'short' },
+    { email: 'not-an-email', username: 'viewer1', password: 'securepass123' },
     {
       email: 'viewer@example.com',
-      password: 'long-enough-password',
+      username: 'abcd',
+      password: 'securepass123',
+    },
+    { email: 'viewer@example.com', username: 'viewer1', password: 'letters' },
+    { email: 'viewer@example.com', username: 'viewer1', password: '12345678' },
+    { email: 'viewer@example.com', username: 'viewer1', password: 'short1' },
+    {
+      email: 'viewer@example.com',
+      username: 'viewer1',
+      password: 'securepass123',
       role: 'ADMIN',
     },
   ])('rejects invalid or unknown registration input: %o', (input) => {
     expect(RegisterRequestSchema.safeParse(input).success).toBe(false);
+  });
+
+  it('defines each registration step', () => {
+    expect(RegistrationEmailSchema.safeParse('wrong-address').success).toBe(
+      false,
+    );
+    expect(RegistrationUsernameSchema.safeParse('A_good_name').success).toBe(
+      true,
+    );
+    expect(RegistrationPasswordSchema.safeParse('letters123').success).toBe(
+      true,
+    );
+    expect(
+      RegistrationCompleteRequestSchema.parse({
+        email: 'VIEWER@example.com',
+        code: '123456',
+      }),
+    ).toEqual({ email: 'viewer@example.com', code: '123456' });
+    expect(
+      RegistrationStartResponseSchema.parse({
+        expiresInSeconds: 600,
+        resendAfterSeconds: 60,
+        requestId: 'request-1',
+      }).resendAfterSeconds,
+    ).toBe(60);
   });
 });
 
@@ -123,6 +163,7 @@ describe('login and session contracts', () => {
           email: 'host@example.com',
           id: '295d5bd9-d9da-44b2-8f5d-8839f13a4437',
           role: 'HOST',
+          username: null,
         },
       }).user.role,
     ).toBe('HOST');

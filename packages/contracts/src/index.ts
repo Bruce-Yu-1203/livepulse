@@ -36,6 +36,12 @@ export {
   LoginResponseSchema,
   RegisterRequestSchema,
   RegisterResponseSchema,
+  RegistrationCompleteRequestSchema,
+  RegistrationCompleteResponseSchema,
+  RegistrationEmailSchema,
+  RegistrationPasswordSchema,
+  RegistrationStartResponseSchema,
+  RegistrationUsernameSchema,
   SocialSignInResponseSchema,
 } from './auth.js';
 export type {

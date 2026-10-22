@@ -44,6 +44,7 @@ enum ReportStatus {
 model User {
   id            String           @id @default(uuid()) @db.Uuid
   name          String           @db.VarChar(120)
+  username      String?          @unique @db.VarChar(30)
   email         String           @unique @db.VarChar(320)
   emailVerified Boolean          @default(false) @map("email_verified")
   image         String?          @db.VarChar(2048)
@@ -59,6 +60,19 @@ model User {
   messages      DanmakuMessage[]
 
   @@map("users")
+}
+
+model RegistrationChallenge {
+  email        String   @id @db.VarChar(320)
+  username     String   @db.VarChar(30)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  codeHash     String   @map("code_hash") @db.VarChar(64)
+  expiresAt    DateTime @map("expires_at") @db.Timestamptz(3)
+  lastSentAt   DateTime @map("last_sent_at") @db.Timestamptz(3)
+  attempts     Int      @default(0)
+
+  @@index([expiresAt])
+  @@map("registration_challenges")
 }
 
 model Room {

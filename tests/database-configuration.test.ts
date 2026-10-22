@@ -48,11 +48,18 @@ describe('database configuration', () => {
     const schema = await readFile(schemaPath, 'utf8');
 
     expect(schema).toMatch(/email\s+String\s+@unique/);
+    expect(schema).toMatch(/username\s+String\?\s+@unique/);
+    expect(schema).toContain('@@map("registration_challenges")');
     expect(schema).toMatch(/token\s+String\s+@unique/);
     expect(schema).toContain('@@map("auth_sessions")');
     expect(schema).toContain('@@map("auth_accounts")');
     expect(schema).not.toContain('RefreshSession');
-    expect(schema).not.toContain('passwordHash');
+    expect(
+      schema.slice(
+        schema.indexOf('model User {'),
+        schema.indexOf('model RegistrationChallenge {'),
+      ),
+    ).not.toContain('passwordHash');
     expect(schema).toMatch(
       /updatedAt\s+DateTime\s+@default\(now\(\)\)\s+@updatedAt/,
     );

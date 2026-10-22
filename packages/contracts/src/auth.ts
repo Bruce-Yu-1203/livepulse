@@ -2,18 +2,69 @@ import { z } from 'zod';
 
 import { UserRoleSchema } from './roles-and-rooms.js';
 
+export const RegistrationEmailSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .email()
+  .max(320);
+export const RegistrationUsernameSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(5)
+  .max(30)
+  .regex(
+    /^[a-z][a-z0-9_]*$/,
+    'Use letters, numbers, and underscores; start with a letter',
+  );
+export const RegistrationPasswordSchema = z
+  .string()
+  .min(8)
+  .max(128)
+  .regex(/[a-z]/i, 'Include a letter')
+  .regex(/[0-9]/, 'Include a number');
+
 export const RegisterRequestSchema = z
   .object({
-    email: z.string().trim().toLowerCase().email().max(320),
-    password: z.string().min(12).max(128),
+    email: RegistrationEmailSchema,
+    username: RegistrationUsernameSchema,
+    password: RegistrationPasswordSchema,
   })
   .strict();
 
 export type RegisterRequest = z.infer<typeof RegisterRequestSchema>;
 
-export const LoginRequestSchema = RegisterRequestSchema;
+export const LoginRequestSchema = z
+  .object({
+    email: RegistrationEmailSchema,
+    password: z.string().min(1).max(128),
+  })
+  .strict();
 
 export type LoginRequest = z.infer<typeof LoginRequestSchema>;
+
+export const RegistrationCompleteRequestSchema = z
+  .object({
+    email: RegistrationEmailSchema,
+    code: z.string().regex(/^\d{6}$/),
+  })
+  .strict();
+
+export const RegistrationStartResponseSchema = z
+  .object({
+    expiresInSeconds: z.number().int().positive(),
+    resendAfterSeconds: z.number().int().positive(),
+    requestId: z.string().min(1),
+  })
+  .strict();
+
+export const RegistrationCompleteResponseSchema = z
+  .object({
+    requestId: z.string().min(1),
+    userId: z.uuid(),
+  })
+  .strict();
 
 const PublicUserSchema = z
   .object({
@@ -21,6 +72,7 @@ const PublicUserSchema = z
     email: z.string().email().max(320),
     id: z.uuid(),
     role: UserRoleSchema,
+    username: RegistrationUsernameSchema.nullable(),
   })
   .strict();
 
@@ -94,6 +146,9 @@ export type SocialSignInResponse = z.infer<typeof SocialSignInResponseSchema>;
 export const ApiErrorCode = {
   CsrfValidationFailed: 'AUTH_CSRF_VALIDATION_FAILED',
   EmailAlreadyExists: 'AUTH_EMAIL_ALREADY_REGISTERED',
+  RegistrationCodeInvalid: 'AUTH_REGISTRATION_CODE_INVALID',
+  RegistrationRateLimited: 'AUTH_REGISTRATION_RATE_LIMITED',
+  UsernameAlreadyExists: 'AUTH_USERNAME_ALREADY_REGISTERED',
   Forbidden: 'AUTH_FORBIDDEN',
   InvalidCredentials: 'AUTH_INVALID_CREDENTIALS',
   InvalidSession: 'AUTH_INVALID_SESSION',
