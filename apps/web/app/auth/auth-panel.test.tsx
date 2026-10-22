@@ -15,6 +15,8 @@ describe('AuthPanel', () => {
     expect(markup).toContain('current-password');
     expect(markup).toMatch(/for="_R_[^"]+"/);
     expect(markup).toContain('Show password');
+    expect(markup).toContain('bg-sunken');
+    expect(markup).toContain('text-fg');
   });
 
   it('can open directly in registration mode for the account dialog', () => {
@@ -25,6 +27,7 @@ describe('AuthPanel', () => {
     expect(markup).not.toContain('new-password');
     expect(markup).toContain('Continue');
     expect(markup).toContain('data-active="true"');
+    expect(markup).toContain('bg-accent');
   });
 
   it('turns OAuth callback codes into useful feedback', () => {

@@ -60,15 +60,13 @@ export function MessageReportForm({
   }
 
   if (reported) {
-    return (
-      <p className="mt-2 text-xs font-medium text-emerald-300">Reported</p>
-    );
+    return <p className="mt-2 text-xs font-medium text-success">Reported</p>;
   }
 
   if (!expanded) {
     return (
       <button
-        className="mt-2 text-xs font-medium text-zinc-600 transition hover:text-amber-200"
+        className="mt-2 text-xs font-medium text-subtle transition hover:text-warning"
         onClick={() => setExpanded(true)}
         type="button"
       >
@@ -79,13 +77,13 @@ export function MessageReportForm({
 
   return (
     <form
-      className="mt-3 space-y-2 rounded-xl border border-amber-300/15 bg-amber-300/5 p-3"
+      className="mt-3 space-y-2 rounded-xl border border-warning/15 bg-warning/5 p-3"
       onSubmit={submit}
     >
-      <label className="block text-xs font-semibold text-zinc-300">
+      <label className="block text-xs font-semibold text-fg-soft">
         Reason
         <select
-          className="mt-1.5 w-full rounded-lg border border-white/10 bg-zinc-950 px-2.5 py-2 text-xs text-white outline-none focus:border-amber-300/50"
+          className="mt-1.5 w-full rounded-lg border border-fg/10 bg-sunken px-2.5 py-2 text-xs text-fg outline-none focus:border-warning/50"
           defaultValue="SPAM"
           disabled={pending}
           name="reason"
@@ -97,10 +95,10 @@ export function MessageReportForm({
           ))}
         </select>
       </label>
-      <label className="block text-xs font-semibold text-zinc-300">
-        Details <span className="font-normal text-zinc-600">(optional)</span>
+      <label className="block text-xs font-semibold text-fg-soft">
+        Details <span className="font-normal text-subtle">(optional)</span>
         <textarea
-          className="mt-1.5 min-h-16 w-full resize-y rounded-lg border border-white/10 bg-zinc-950 px-2.5 py-2 text-xs text-white outline-none placeholder:text-zinc-700 focus:border-amber-300/50"
+          className="mt-1.5 min-h-16 w-full resize-y rounded-lg border border-fg/10 bg-sunken px-2.5 py-2 text-xs text-fg outline-none placeholder:text-subtle focus:border-warning/50"
           disabled={pending}
           maxLength={500}
           name="details"
@@ -109,14 +107,14 @@ export function MessageReportForm({
       </label>
       <div className="flex items-center gap-2">
         <button
-          className="rounded-lg bg-amber-200 px-3 py-1.5 text-xs font-bold text-zinc-950 transition hover:bg-amber-100 disabled:cursor-wait disabled:opacity-50"
+          className="rounded-lg bg-warning px-3 py-1.5 text-xs font-bold text-on-accent transition hover:bg-warning-hover disabled:cursor-wait disabled:opacity-50"
           disabled={pending}
           type="submit"
         >
           {pending ? 'Submitting…' : 'Submit report'}
         </button>
         <button
-          className="px-2 py-1.5 text-xs font-semibold text-zinc-500 transition hover:text-white disabled:opacity-50"
+          className="px-2 py-1.5 text-xs font-semibold text-muted transition hover:text-fg disabled:opacity-50"
           disabled={pending}
           onClick={() => {
             setExpanded(false);
@@ -128,7 +126,7 @@ export function MessageReportForm({
         </button>
       </div>
       {error ? (
-        <p className="text-xs leading-5 text-rose-300" role="status">
+        <p className="text-xs leading-5 text-danger" role="status">
           {error}
         </p>
       ) : null}

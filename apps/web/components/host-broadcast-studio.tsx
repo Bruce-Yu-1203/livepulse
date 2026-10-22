@@ -450,23 +450,21 @@ export function HostBroadcastStudio({
   );
 
   return (
-    <section className="border-b border-white/8 p-6 sm:p-8">
+    <section className="border-b border-fg/8 p-6 sm:p-8">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-300">
-            Broadcast setup
-          </p>
-          <p className="mt-2 text-sm text-zinc-400">
+          <p className="text-xs font-bold text-accent">Broadcast setup</p>
+          <p className="mt-2 text-sm text-muted">
             Prepare and verify your local preview before viewers can see it.
           </p>
         </div>
-        <span className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-semibold text-zinc-300">
+        <span className="rounded-full border border-fg/10 px-3 py-1.5 text-xs font-semibold text-fg-soft">
           {hostConnectionLabel(connection, previewReady)}
         </span>
       </div>
 
-      <div className="grid overflow-hidden rounded-3xl border border-white/10 bg-black xl:grid-cols-[minmax(0,1fr)_19rem]">
-        <div className="relative aspect-video min-h-64 bg-zinc-950">
+      <div className="grid overflow-hidden rounded-3xl border border-fg/10 bg-surface xl:grid-cols-[minmax(0,1fr)_19rem]">
+        <div className="relative aspect-video min-h-64 bg-stage">
           {mainTrack ? (
             <LiveKitVideo
               className="h-full w-full object-contain"
@@ -479,13 +477,13 @@ export function HostBroadcastStudio({
                 <p className="text-sm font-semibold text-white">
                   Select a source to start the local preview
                 </p>
-                <p className="mt-2 max-w-sm text-xs leading-5 text-zinc-500">
+                <p className="mt-2 max-w-sm text-xs leading-5 text-white/60">
                   Nothing is sent to viewers until you confirm this preview and
                   start the broadcast.
                 </p>
                 {screenEnabled ? (
                   <button
-                    className="mt-5 rounded-full bg-white px-5 py-2.5 text-sm font-bold text-zinc-950 transition hover:bg-cyan-200 disabled:opacity-50"
+                    className="mt-5 rounded-full bg-white px-5 py-2.5 text-sm font-bold text-black transition hover:bg-accent hover:text-on-accent disabled:opacity-50"
                     disabled={captureTarget !== undefined || pending}
                     onClick={() => void chooseScreen()}
                     type="button"
@@ -511,13 +509,13 @@ export function HostBroadcastStudio({
           ) : null}
 
           {previewReady && !connected ? (
-            <span className="absolute bottom-4 left-4 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1.5 text-xs font-semibold text-emerald-200 backdrop-blur">
+            <span className="absolute bottom-4 left-4 rounded-full border border-success/20 bg-success/10 px-3 py-1.5 text-xs font-semibold text-success backdrop-blur">
               Local preview · not live
             </span>
           ) : null}
         </div>
 
-        <div className="space-y-5 border-t border-white/10 bg-[#101116] p-5 xl:border-l xl:border-t-0">
+        <div className="space-y-5 border-t border-fg/10 bg-surface p-5 xl:border-l xl:border-t-0">
           <SourceToggle
             checked={screenEnabled}
             label="Share screen"
@@ -527,7 +525,7 @@ export function HostBroadcastStudio({
           />
           {screenEnabled ? (
             <button
-              className="w-full rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-zinc-300 transition hover:border-cyan-300/40 hover:text-cyan-200 disabled:opacity-50"
+              className="w-full rounded-xl border border-fg/10 px-3 py-2 text-xs font-semibold text-fg-soft transition hover:border-accent/40 hover:text-accent disabled:opacity-50"
               disabled={captureTarget !== undefined || pending}
               onClick={() => void chooseScreen()}
               type="button"
@@ -565,7 +563,7 @@ export function HostBroadcastStudio({
           />
 
           <button
-            className="w-full rounded-2xl border border-white/10 px-4 py-2.5 text-xs font-semibold text-zinc-300 transition hover:border-cyan-300/40 hover:text-cyan-200 disabled:opacity-50"
+            className="w-full rounded-2xl border border-fg/10 px-4 py-2.5 text-xs font-semibold text-fg-soft transition hover:border-accent/40 hover:text-accent disabled:opacity-50"
             disabled={pending || captureTarget !== undefined}
             onClick={() => void loadDevices(true)}
             type="button"
@@ -575,7 +573,7 @@ export function HostBroadcastStudio({
 
           {connected ? (
             <button
-              className="w-full rounded-2xl bg-rose-500 px-4 py-3 text-sm font-bold text-white transition hover:bg-rose-400 disabled:cursor-wait disabled:opacity-50"
+              className="w-full rounded-2xl bg-danger px-4 py-3 text-sm font-bold text-on-accent transition hover:bg-danger-hover disabled:cursor-wait disabled:opacity-50"
               disabled={disabled || pending}
               onClick={() => void endBroadcast()}
               type="button"
@@ -585,7 +583,7 @@ export function HostBroadcastStudio({
           ) : (
             <div className="space-y-2">
               <button
-                className="w-full rounded-2xl bg-cyan-300 px-4 py-3 text-sm font-bold text-zinc-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
+                className="w-full rounded-2xl bg-accent px-4 py-3 text-sm font-bold text-on-accent transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
                 disabled={
                   disabled ||
                   pending ||
@@ -603,13 +601,13 @@ export function HostBroadcastStudio({
                     : 'Start live broadcast'}
               </button>
               {!previewReady ? (
-                <p className="text-center text-[0.7rem] leading-5 text-zinc-500">
+                <p className="text-center text-[0.7rem] leading-5 text-muted">
                   Prepare a screen or camera preview first.
                 </p>
               ) : null}
               {room.status === 'LIVE' ? (
                 <button
-                  className="w-full rounded-2xl border border-rose-300/25 bg-rose-300/10 px-4 py-3 text-sm font-bold text-rose-100 transition hover:bg-rose-300/15 disabled:cursor-wait disabled:opacity-50"
+                  className="w-full rounded-2xl border border-danger/25 bg-danger/10 px-4 py-3 text-sm font-bold text-danger transition hover:bg-danger/15 disabled:cursor-wait disabled:opacity-50"
                   disabled={disabled || pending}
                   onClick={() => void endBroadcast()}
                   type="button"
@@ -624,7 +622,7 @@ export function HostBroadcastStudio({
 
       {error ? (
         <p
-          className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-200"
+          className="mt-4 rounded-2xl border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger"
           role="status"
         >
           {error}
@@ -644,11 +642,11 @@ function SourceToggle({
   onChange(checked: boolean): void;
 }) {
   return (
-    <label className="flex items-center justify-between gap-4 text-sm font-medium text-zinc-200">
+    <label className="flex items-center justify-between gap-4 text-sm font-medium text-fg-soft">
       {label}
       <input
         checked={checked}
-        className="h-4 w-4 accent-cyan-300"
+        className="h-4 w-4 accent-accent"
         onChange={(event) => onChange(event.currentTarget.checked)}
         type="checkbox"
       />
@@ -672,10 +670,10 @@ function DeviceSelect({
   value: string;
 }) {
   return (
-    <label className="block text-xs font-semibold text-zinc-400">
+    <label className="block text-xs font-semibold text-muted">
       {label}
       <select
-        className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white outline-none disabled:opacity-40"
+        className="mt-2 w-full rounded-xl border border-fg/10 bg-sunken px-3 py-2.5 text-sm text-fg outline-none disabled:opacity-40"
         disabled={disabled}
         onChange={(event) => onChange(event.currentTarget.value)}
         value={value}

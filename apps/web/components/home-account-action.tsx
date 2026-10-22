@@ -18,7 +18,7 @@ export function HomeAccountAction() {
     return (
       <span
         aria-label="Preparing account action"
-        className="h-12 w-36 animate-pulse rounded-full bg-white/8 motion-reduce:animate-none"
+        className="h-12 w-36 animate-pulse rounded-full bg-fg/8 motion-reduce:animate-none"
       />
     );
   }

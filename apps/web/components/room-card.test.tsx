@@ -29,7 +29,8 @@ describe('RoomCard', () => {
     expect(html).toContain('24');
     expect(html).toContain('loading="lazy"');
     expect(html).toContain('dateTime="2026-10-09T15:30:00.000Z"');
-    expect(html).toContain('Enter room');
+    expect(html).toContain('room-card-avatar');
+    expect(html).toContain('room-card-live');
     expect(html).toContain('24 likes');
   });
 

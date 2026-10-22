@@ -11,6 +11,7 @@
   "scripts": {
     "build": "pnpm --recursive --if-present build",
     "db:migrate": "pnpm --filter @livepulse/db db:migrate",
+    "db:seed:rooms": "pnpm --filter @livepulse/db build && node packages/db/prisma/seed-rooms.mjs",
     "db:seed": "pnpm --filter @livepulse/db build && node packages/db/prisma/seed.mjs",
     "db:stop": "docker compose -f infra/compose/compose.yml stop postgres redis",
     "db:up": "docker compose -f infra/compose/compose.yml up -d --wait postgres redis",

@@ -24,10 +24,17 @@ const emptyTracks: ViewerTracks = { audio: [] };
 
 export function LiveBroadcastPlayer({
   coverImageUrl,
+  paused = false,
+  reloadKey = 0,
   roomId,
+  volume = 1,
 }: {
   coverImageUrl: string | null;
+  paused?: boolean;
+  // Changing this reconnects to the broadcast, which jumps back to live.
+  reloadKey?: number;
   roomId: string;
+  volume?: number;
 }) {
   const liveKitRoom = useRef<Room | undefined>(undefined);
   const [connection, setConnection] = useState<ConnectionState>(
@@ -102,7 +109,7 @@ export function LiveBroadcastPlayer({
       liveKitRoom.current = undefined;
       void room.disconnect();
     };
-  }, [roomId]);
+  }, [roomId, reloadKey]);
 
   const mainTrack = tracks.screen ?? tracks.camera;
   const cameraOverlay = tracks.screen ? tracks.camera : undefined;
@@ -119,10 +126,11 @@ export function LiveBroadcastPlayer({
   }
 
   return (
-    <div className="relative aspect-video min-h-64 overflow-hidden bg-zinc-950">
+    <div className="relative aspect-video min-h-64 overflow-hidden bg-stage">
       {mainTrack ? (
         <LiveKitVideo
           className="h-full w-full object-contain"
+          paused={paused}
           track={mainTrack}
         />
       ) : (
@@ -136,11 +144,11 @@ export function LiveBroadcastPlayer({
         >
           <div className="grid h-full place-items-center bg-black/70 px-6 text-center">
             <div>
-              <span className="mx-auto block h-3 w-3 animate-pulse rounded-full bg-rose-400" />
+              <span className="mx-auto block h-3 w-3 animate-pulse rounded-full bg-danger" />
               <p className="mt-4 text-sm font-semibold text-white">
                 Waiting for the host video…
               </p>
-              <p className="mt-2 text-xs text-zinc-400">
+              <p className="mt-2 text-xs text-white/60">
                 {error ?? connectionLabel(connection)}
               </p>
             </div>
@@ -152,29 +160,29 @@ export function LiveBroadcastPlayer({
         <div className="absolute right-4 top-4 z-10 aspect-video w-[28%] min-w-28 max-w-72 overflow-hidden rounded-2xl border border-white/20 bg-black shadow-2xl shadow-black/60">
           <LiveKitVideo
             className="h-full w-full object-cover"
+            paused={paused}
             track={cameraOverlay}
           />
         </div>
       ) : null}
 
       {tracks.audio.map((track) => (
-        <LiveKitAudio key={track.sid} track={track} />
+        <LiveKitAudio key={track.sid} track={track} volume={volume} />
       ))}
 
-      <div className="absolute bottom-4 right-4 z-20 flex items-center gap-2">
-        {audioBlocked ? (
-          <button
-            className="rounded-full bg-white px-3 py-2 text-xs font-bold text-zinc-950"
-            onClick={() => void enableAudio()}
-            type="button"
-          >
-            Enable sound
-          </button>
-        ) : null}
-        <span className="rounded-full border border-white/15 bg-black/65 px-3 py-2 text-xs font-semibold text-white backdrop-blur">
-          {connectionLabel(connection)}
-        </span>
-      </div>
+      <span className="stage-overlay stage-status">
+        {connectionLabel(connection)}
+      </span>
+
+      {audioBlocked ? (
+        <button
+          className="stage-enable-sound"
+          onClick={() => void enableAudio()}
+          type="button"
+        >
+          Enable sound
+        </button>
+      ) : null}
     </div>
   );
 }

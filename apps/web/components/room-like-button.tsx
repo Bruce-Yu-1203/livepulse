@@ -109,7 +109,7 @@ export function RoomLikeButton({
   if (authChecked && !userId) {
     return (
       <AuthEntryLink
-        className={`${classes} border-white/15 bg-black/65 text-white hover:border-rose-300/50 hover:text-rose-200`}
+        className={`${classes} border-white/15 bg-black/65 text-white hover:border-danger/50 hover:text-danger`}
         label={`Sign in to like this room. ${label}`}
       >
         <span aria-hidden="true">♡</span>
@@ -125,8 +125,8 @@ export function RoomLikeButton({
         aria-pressed={state.liked}
         className={`${classes} ${
           state.liked
-            ? 'border-rose-300/50 bg-rose-400/20 text-rose-100'
-            : 'border-white/15 bg-black/65 text-white hover:border-rose-300/50 hover:text-rose-200'
+            ? 'border-danger bg-danger text-on-accent'
+            : 'border-white/15 bg-black/65 text-white hover:border-danger/50 hover:text-danger'
         } disabled:cursor-wait disabled:opacity-60`}
         disabled={!ready || pending}
         onClick={toggle}
@@ -136,7 +136,7 @@ export function RoomLikeButton({
         {pending ? 'Saving…' : label}
       </button>
       {error ? (
-        <p className="mt-2 max-w-56 text-xs text-rose-200" role="status">
+        <p className="mt-2 max-w-56 text-xs text-danger" role="status">
           {error}
         </p>
       ) : null}

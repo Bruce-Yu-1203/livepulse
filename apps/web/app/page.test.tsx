@@ -21,8 +21,10 @@ const room: VisibleRoom = {
   version: 1,
 };
 
-async function renderHome(cursor?: string) {
-  const page = await HomePage({ searchParams: Promise.resolve({ cursor }) });
+async function renderHome(cursor?: string, q?: string) {
+  const page = await HomePage({
+    searchParams: Promise.resolve({ cursor, q }),
+  });
   return renderToStaticMarkup(
     <AuthSessionProvider initialSession={{ status: 'anonymous' }}>
       {page}
@@ -42,12 +44,15 @@ describe('HomePage', () => {
 
     const html = await renderHome();
 
-    expect(html).toContain('Be there.');
     expect(html).toContain('class="site-brand-mark"');
-    expect(html).toContain('fill="#FF4961"');
+    expect(html).toContain('fill="#F0384F"');
+    expect(html).toContain('role="search"');
+    expect(html).toContain('aria-label="Live channels"');
+    expect(html).toContain('aria-roledescription="carousel"');
     expect(html).toContain('Featured room: The Making Room');
     expect(html).toContain('Open The Making Room');
-    expect(html).toContain('1 live now');
+    expect(html).toContain('Live on LivePulse');
+    expect(html).not.toContain('Recently ended');
     expect(html).not.toContain('Rooms are temporarily unavailable');
   });
 
@@ -56,11 +61,9 @@ describe('HomePage', () => {
 
     const html = await renderHome();
 
-    expect(html).toContain('Explore rooms');
     expect(html).toContain('Join LivePulse');
     expect(html).toContain('Rooms are temporarily unavailable');
-    expect(html).toContain('Waiting for rooms');
-    expect(html).not.toContain('00 live now');
+    expect(html).not.toContain('aria-roledescription="carousel"');
     expect(html).not.toContain('No rooms yet');
   });
 
@@ -75,5 +78,29 @@ describe('HomePage', () => {
 
     expect(html).toContain('No rooms yet');
     expect(html).not.toContain('Rooms are temporarily unavailable');
+  });
+
+  it('filters the loaded rooms by the search query', async () => {
+    vi.mocked(listRooms).mockResolvedValue({
+      items: [
+        room,
+        {
+          ...room,
+          description: 'Street food and late-night music.',
+          id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+          status: 'ENDED',
+          title: 'Night Market',
+        },
+      ],
+      nextCursor: null,
+      requestId: 'test-search',
+    });
+
+    const html = await renderHome(undefined, 'making');
+
+    expect(html).toContain('Open The Making Room');
+    expect(html).not.toContain('Open Night Market');
+    expect(html).toContain('Clear search');
+    expect(html).not.toContain('aria-roledescription="carousel"');
   });
 });

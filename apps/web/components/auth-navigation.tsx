@@ -39,7 +39,7 @@ export function AuthNavigation() {
     return (
       <span
         aria-label="Checking your session"
-        className="h-10 w-24 animate-pulse rounded-full bg-white/8 motion-reduce:animate-none"
+        className="h-10 w-24 animate-pulse rounded-full bg-fg/8 motion-reduce:animate-none"
       />
     );
   }
