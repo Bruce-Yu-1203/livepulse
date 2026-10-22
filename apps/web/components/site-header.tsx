@@ -12,7 +12,7 @@ export function SiteHeader({ searchQuery = '' }: { searchQuery?: string }) {
         <div className="flex shrink-0 items-center gap-4">
           <Link
             aria-label="LivePulse home"
-            className="flex items-center gap-3"
+            className="site-brand flex items-center gap-3"
             href="/"
           >
             <BrandMark className="site-brand-mark" />

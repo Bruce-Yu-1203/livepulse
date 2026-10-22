@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import { AuthSessionProvider } from './auth-session-provider';
-import { LiveChannelsNav } from './live-channels-nav';
+import { LiveChannelsNav, readRailCollapsed } from './live-channels-nav';
 
 function room(overrides: Partial<VisibleRoom>): VisibleRoom {
   return {
@@ -59,5 +59,19 @@ describe('LiveChannelsNav', () => {
     expect(renderNav([])).toContain(
       'Rooms appear here when hosts publish them.',
     );
+  });
+
+  it('starts expanded with a collapse control', () => {
+    const markup = renderNav([room({})]);
+
+    expect(markup).toContain('aria-label="Collapse live channels"');
+    expect(markup).toContain('aria-expanded="true"');
+    expect(markup).not.toContain('channel-rail-collapsed');
+  });
+
+  it('only treats an explicit saved choice as collapsed', () => {
+    expect(readRailCollapsed('true')).toBe(true);
+    expect(readRailCollapsed('false')).toBe(false);
+    expect(readRailCollapsed(null)).toBe(false);
   });
 });
