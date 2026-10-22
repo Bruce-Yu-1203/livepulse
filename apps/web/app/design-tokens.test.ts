@@ -78,4 +78,15 @@ describe('design tokens', () => {
 
     expect(offenders).toEqual([]);
   });
+
+  it('animates the logo signal on hover and respects reduced motion', () => {
+    expect(css).toContain('.site-brand:hover .brand-mark-core');
+    expect(css).toContain('@keyframes signal-arc');
+    const reduced = css.slice(css.lastIndexOf('prefers-reduced-motion'));
+    expect(reduced).toContain('.site-brand:hover .brand-mark-outer');
+  });
+
+  it('styles a collapsed channel rail', () => {
+    expect(block('.channel-rail-collapsed')).toContain('width: 3.75rem');
+  });
 });

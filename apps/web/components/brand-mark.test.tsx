@@ -17,4 +17,12 @@ describe('BrandMark', () => {
     expect(icon).toContain('M17 12C3 26 3 54 17 68');
     expect(icon).toContain('fill="#F0384F"');
   });
+
+  it('names each signal part so the logo can animate on hover', () => {
+    const mark = renderToStaticMarkup(<BrandMark />);
+
+    expect(mark).toContain('brand-mark-outer');
+    expect(mark).toContain('brand-mark-inner');
+    expect(mark).toContain('brand-mark-core');
+  });
 });

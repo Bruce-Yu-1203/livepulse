@@ -193,6 +193,65 @@
   opacity: 0.45;
 }
 
+/* Hovering the logo sends a signal: the core pings, then each arc lights up
+   in turn from the centre outwards. */
+.site-brand-mark path,
+.site-brand-mark circle {
+  transform-box: view-box;
+  transform-origin: 40px 40px;
+}
+
+.site-brand:hover .brand-mark-core {
+  animation: signal-core 900ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.site-brand:hover .brand-mark-inner {
+  animation: signal-arc 900ms 120ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.site-brand:hover .brand-mark-outer {
+  animation: signal-arc-outer 900ms 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes signal-core {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  30% {
+    transform: scale(1.35);
+  }
+}
+
+@keyframes signal-arc {
+  0%,
+  100% {
+    color: var(--lp-fg);
+    transform: scale(1);
+  }
+
+  35% {
+    color: var(--lp-live);
+    transform: scale(1.08);
+  }
+}
+
+@keyframes signal-arc-outer {
+  0%,
+  100% {
+    opacity: 0.45;
+    color: var(--lp-fg);
+    transform: scale(1);
+  }
+
+  35% {
+    opacity: 1;
+    color: var(--lp-live);
+    transform: scale(1.1);
+  }
+}
+
 .site-brand-name {
   font-family: var(--lp-display);
   font-weight: 800;
@@ -1078,12 +1137,71 @@ body:has(.auth-modal[open]) {
   }
 }
 
+.channel-rail {
+  transition: width 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.channel-rail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 0.5rem 0.4rem 0.9rem;
+}
+
 .channel-rail-title {
-  padding: 1.1rem 0.9rem 0.5rem;
+  overflow: hidden;
   color: var(--lp-muted);
   font-family: var(--lp-sans);
   font-size: 0.82rem;
   font-weight: 700;
+  white-space: nowrap;
+}
+
+.channel-rail-toggle {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  place-items: center;
+  border-radius: 0.5rem;
+  color: var(--lp-muted);
+  cursor: pointer;
+}
+
+.channel-rail-toggle:hover {
+  background: var(--lp-raised);
+  color: var(--lp-fg);
+}
+
+.channel-rail-toggle svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+/* Collapsed: a slim column of channel avatars. */
+.channel-rail-collapsed {
+  width: 3.75rem;
+}
+
+.channel-rail-collapsed .channel-rail-header {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.channel-rail-collapsed .channel-rail-title,
+.channel-rail-collapsed .channel-text,
+.channel-rail-collapsed .channel-meta,
+.channel-rail-collapsed .channel-empty {
+  display: none;
+}
+
+.channel-rail-collapsed ul {
+  padding-inline: 0.35rem;
+}
+
+.channel-rail-collapsed .channel-link {
+  justify-content: center;
+  padding-inline: 0;
 }
 
 .channel-rail ul {
@@ -1388,6 +1506,7 @@ body:has(.auth-modal[open]) {
   }
 
   body,
+  .channel-rail,
   .room-card-image,
   .theme-toggle svg {
     transition: none;
@@ -1400,6 +1519,9 @@ body:has(.auth-modal[open]) {
 
   .featured-slide,
   .account-menu,
+  .site-brand:hover .brand-mark-core,
+  .site-brand:hover .brand-mark-inner,
+  .site-brand:hover .brand-mark-outer,
   .room-card-status::before {
     animation: none;
   }

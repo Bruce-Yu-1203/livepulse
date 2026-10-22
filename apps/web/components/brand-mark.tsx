@@ -16,11 +16,18 @@ export function BrandMark({ className }: { className?: string }) {
       />
       <path
         d="M27 21c-10 10-10 28 0 38m26-38c10 10 10 28 0 38"
+        className="brand-mark-inner"
         stroke="currentColor"
         strokeLinecap="round"
         strokeWidth="7"
       />
-      <circle cx="40" cy="40" fill="#F0384F" r="10" />
+      <circle
+        className="brand-mark-core"
+        cx="40"
+        cy="40"
+        fill="#F0384F"
+        r="10"
+      />
     </svg>
   );
 }
