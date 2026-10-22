@@ -126,6 +126,50 @@ export type ListOwnedRoomsResponse = z.infer<
   typeof ListOwnedRoomsResponseSchema
 >;
 
+export const ListBroadcastHistoryQuerySchema = z
+  .object({
+    cursor: z.string().min(1).max(512).optional(),
+    from: z.iso.datetime({ offset: true }).optional(),
+    limit: z.coerce.number().int().min(1).max(50).default(10),
+    q: z
+      .string()
+      .transform((value) => value.trim().replace(/\s+/gu, ' '))
+      .pipe(z.string().max(80))
+      .optional(),
+    to: z.iso.datetime({ offset: true }).optional(),
+  })
+  .strict()
+  .refine(({ from, to }) => !from || !to || new Date(from) < new Date(to), {
+    message: 'The history date range is invalid',
+  });
+
+export type ListBroadcastHistoryQuery = z.infer<
+  typeof ListBroadcastHistoryQuerySchema
+>;
+
+export const ListBroadcastHistoryResponseSchema = z
+  .object({
+    items: z.array(RoomSchema.extend({ status: z.literal('ENDED') })),
+    nextCursor: z.string().min(1).nullable(),
+    requestId: z.string().min(1),
+  })
+  .strict();
+
+export type ListBroadcastHistoryResponse = z.infer<
+  typeof ListBroadcastHistoryResponseSchema
+>;
+
+export const CurrentBroadcastResponseSchema = z
+  .object({
+    requestId: z.string().min(1),
+    room: RoomSchema.extend({ status: z.literal('LIVE') }).nullable(),
+  })
+  .strict();
+
+export type CurrentBroadcastResponse = z.infer<
+  typeof CurrentBroadcastResponseSchema
+>;
+
 export const UpdateRoomRequestSchema = z
   .object({
     coverImageUrl: CoverImageSchema.nullable().optional(),

@@ -47,6 +47,13 @@ export class RoomVersionConflictError extends Error {
   }
 }
 
+export class RoomAlreadyLiveError extends Error {
+  public constructor() {
+    super('End your current broadcast before starting another one');
+    this.name = 'RoomAlreadyLiveError';
+  }
+}
+
 export class RoomMuteSelfError extends Error {
   public constructor() {
     super('A moderator cannot mute their own account');

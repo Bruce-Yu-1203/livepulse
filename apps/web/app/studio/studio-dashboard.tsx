@@ -4,31 +4,49 @@ import {
   ApiErrorCode,
   CreateRoomRequestSchema,
   CreateRoomResponseSchema,
+  CurrentBroadcastResponseSchema,
   CurrentUserResponseSchema,
-  ListOwnedRoomsResponseSchema,
-  UpdateRoomRequestSchema,
+  ListBroadcastHistoryResponseSchema,
   UpdateRoomResponseSchema,
 } from '@livepulse/contracts';
 import type { CurrentUserResponse, Room } from '@livepulse/contracts';
 import Link from 'next/link';
-import { AuthEntryLink } from '../../components/auth-dialog-provider';
 import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 
+import { AuthEntryLink } from '../../components/auth-dialog-provider';
 import { HostBroadcastStudio } from '../../components/host-broadcast-studio';
-import { ClientApiError, clientApiRequest } from '../../lib/client-api';
-import { replaceRoom } from '../../lib/studio';
+import {
+  ClientApiError,
+  clientApiRequest,
+  clientApiVoidRequest,
+} from '../../lib/client-api';
+import { buildBroadcastHistorySearch } from '../../lib/studio-history';
 
 type StudioState = 'forbidden' | 'loading' | 'ready' | 'signed-out';
+type StudioView = 'broadcast' | 'history';
 type Notice = { kind: 'error' | 'success'; message: string } | undefined;
 
 export function StudioDashboard() {
   const [state, setState] = useState<StudioState>('loading');
   const [user, setUser] = useState<CurrentUserResponse['user']>();
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [selectedId, setSelectedId] = useState<string>();
+  const [view, setView] = useState<StudioView>('broadcast');
+  const [activeRoom, setActiveRoom] = useState<Room>();
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
   const [pending, setPending] = useState(false);
   const [notice, setNotice] = useState<Notice>();
+  const [history, setHistory] = useState<Room[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [pageCursors, setPageCursors] = useState<(string | undefined)[]>([
+    undefined,
+  ]);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [searchTitle, setSearchTitle] = useState('');
+  const [searchDate, setSearchDate] = useState('');
+  const [appliedTitle, setAppliedTitle] = useState('');
+  const [appliedDate, setAppliedDate] = useState('');
 
   async function loadStudio() {
     try {
@@ -36,31 +54,25 @@ export function StudioDashboard() {
         '/api/v1/auth/me',
         CurrentUserResponseSchema,
       );
-
       if (!['ADMIN', 'HOST'].includes(current.user.role)) {
         setState('forbidden');
         return;
       }
-
-      const owned = await clientApiRequest(
-        '/api/v1/rooms/mine',
-        ListOwnedRoomsResponseSchema,
+      const response = await clientApiRequest(
+        '/api/v1/rooms/mine/current',
+        CurrentBroadcastResponseSchema,
       );
       setUser(current.user);
-      setRooms(owned.items);
-      setSelectedId((currentId) => currentId ?? owned.items[0]?.id);
+      setActiveRoom(response.room ?? undefined);
+      setTitle(response.room?.title ?? '');
+      setDescription(response.room?.description ?? '');
       setState('ready');
     } catch (error) {
       if (error instanceof ClientApiError && error.status === 401) {
         setState('signed-out');
         return;
       }
-
-      setNotice({
-        kind: 'error',
-        message:
-          error instanceof Error ? error.message : 'The studio could not load.',
-      });
+      showError(error, 'The studio could not load.');
       setState('ready');
     }
   }
@@ -73,29 +85,45 @@ export function StudioDashboard() {
       window.removeEventListener('livepulse:auth-changed', reloadAfterSignIn);
   }, []);
 
-  const selectedRoom = rooms.find((room) => room.id === selectedId);
-
-  async function createRoom(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formElement = event.currentTarget;
-    setPending(true);
-    setNotice(undefined);
-
-    const form = new FormData(formElement);
-    const parsed = CreateRoomRequestSchema.safeParse({
-      description: form.get('description'),
-      title: form.get('title'),
-    });
-
-    if (!parsed.success) {
-      setNotice({
-        kind: 'error',
-        message: 'Add a title and description before creating the room.',
-      });
-      setPending(false);
+  useEffect(() => {
+    if (view !== 'history' || state !== 'ready') {
       return;
     }
+    let cancelled = false;
+    const cursor = pageCursors[pageIndex];
+    const search = buildBroadcastHistorySearch({
+      cursor,
+      date: appliedDate,
+      title: appliedTitle,
+    });
+    setHistoryLoading(true);
+    void clientApiRequest(
+      `/api/v1/rooms/mine/history?${search}`,
+      ListBroadcastHistoryResponseSchema,
+    )
+      .then((page) => {
+        if (cancelled) return;
+        setHistory(page.items);
+        setNextCursor(page.nextCursor);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) showError(error, 'Broadcast history could not load.');
+      })
+      .finally(() => {
+        if (!cancelled) setHistoryLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [view, state, pageIndex, pageCursors, appliedTitle, appliedDate]);
 
+  async function prepareBroadcast(): Promise<Room> {
+    const parsed = CreateRoomRequestSchema.safeParse({ title, description });
+    if (!parsed.success) {
+      throw new Error('Add a title and description before going live.');
+    }
+    setPending(true);
+    setNotice(undefined);
     try {
       const response = await clientApiRequest(
         '/api/v1/rooms',
@@ -106,132 +134,112 @@ export function StudioDashboard() {
           method: 'POST',
         },
       );
-      setRooms((current) => [response.room, ...current]);
-      setSelectedId(response.room.id);
-      setNotice({ kind: 'success', message: 'Draft room created.' });
-      formElement.reset();
-    } catch (error) {
-      showMutationError(error);
+      return response.room;
     } finally {
       setPending(false);
     }
   }
 
-  async function saveRoom(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (!selectedRoom) {
-      return;
-    }
-
-    const form = new FormData(event.currentTarget);
-    const parsed = UpdateRoomRequestSchema.safeParse({
-      description: form.get('description'),
-      expectedVersion: selectedRoom.version,
-      title: form.get('title'),
+  async function abortBroadcast(room: Room): Promise<void> {
+    await clientApiVoidRequest(`/api/v1/rooms/${room.id}`, {
+      method: 'DELETE',
     });
-
-    if (!parsed.success) {
-      setNotice({
-        kind: 'error',
-        message: 'Add a title and description before saving the room.',
-      });
-      return;
-    }
-
-    await updateRoom(selectedRoom, parsed.data, 'Room details saved.');
-  }
-
-  async function transitionRoom(
-    room: Room,
-    status: 'ENDED' | 'LIVE',
-  ): Promise<boolean> {
-    const updated = await updateRoom(
-      room,
-      { expectedVersion: room.version, status },
-      status === 'LIVE'
-        ? 'The room is live and visible to viewers.'
-        : 'The broadcast ended and the room is now archived.',
-    );
-
-    return updated !== undefined;
   }
 
   async function markBroadcastReady(
     room: Room,
     generatedCover?: string,
   ): Promise<boolean> {
-    if (room.status === 'LIVE' && !generatedCover) {
+    if (room.status === 'LIVE') {
       return true;
     }
-
-    const updated = await updateRoom(
-      room,
-      {
-        ...(generatedCover ? { coverImageUrl: generatedCover } : {}),
-        expectedVersion: room.version,
-        ...(room.status === 'DRAFT' ? { status: 'LIVE' as const } : {}),
-      },
-      room.status === 'DRAFT'
-        ? 'The room is live and visible to viewers.'
-        : 'The broadcast preview was refreshed.',
-    );
-
-    return updated !== undefined;
-  }
-
-  async function updateRoom(
-    room: Room,
-    input: unknown,
-    successMessage: string,
-  ): Promise<Room | undefined> {
     setPending(true);
     setNotice(undefined);
-
     try {
       const response = await clientApiRequest(
         `/api/v1/rooms/${room.id}`,
         UpdateRoomResponseSchema,
         {
-          body: JSON.stringify(input),
+          body: JSON.stringify({
+            ...(generatedCover ? { coverImageUrl: generatedCover } : {}),
+            expectedVersion: room.version,
+            status: 'LIVE',
+          }),
           headers: { 'content-type': 'application/json' },
           method: 'PATCH',
         },
       );
-      setRooms((current) => replaceRoom(current, response.room));
-      setNotice({ kind: 'success', message: successMessage });
-      return response.room;
+      setActiveRoom(response.room);
+      setNotice({ kind: 'success', message: 'Your broadcast is live.' });
+      return true;
     } catch (error) {
-      showMutationError(error);
+      showError(error, 'The broadcast could not start.');
+      await loadStudio();
+      throw error;
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function endBroadcast(room: Room): Promise<boolean> {
+    setPending(true);
+    setNotice(undefined);
+    try {
+      const response = await clientApiRequest(
+        `/api/v1/rooms/${room.id}`,
+        UpdateRoomResponseSchema,
+        {
+          body: JSON.stringify({
+            expectedVersion: room.version,
+            status: 'ENDED',
+          }),
+          headers: { 'content-type': 'application/json' },
+          method: 'PATCH',
+        },
+      );
+      if (response.room.status !== 'ENDED') return false;
+      setActiveRoom(undefined);
+      setTitle('');
+      setDescription('');
+      setPageCursors([undefined]);
+      setPageIndex(0);
+      setNotice({
+        kind: 'success',
+        message: 'Broadcast ended and saved to history.',
+      });
+      return true;
+    } catch (error) {
+      showError(error, 'The broadcast could not be ended.');
       if (
         error instanceof ClientApiError &&
         error.code === ApiErrorCode.RoomVersionConflict
       ) {
         await loadStudio();
       }
-      return undefined;
+      return false;
     } finally {
       setPending(false);
     }
   }
 
-  function showMutationError(error: unknown) {
+  function showError(error: unknown, fallback: string) {
     setNotice({
       kind: 'error',
-      message:
-        error instanceof ClientApiError &&
-        error.code === ApiErrorCode.RoomVersionConflict
-          ? 'This room changed elsewhere. The newest version has been loaded.'
-          : error instanceof Error
-            ? error.message
-            : 'The room could not be updated.',
+      message: error instanceof Error ? error.message : fallback,
     });
   }
 
-  if (state === 'loading') {
-    return <StudioMessage eyebrow="Studio" title="Preparing your rooms…" />;
+  function searchHistory(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPageCursors([undefined]);
+    setPageIndex(0);
+    setAppliedTitle(searchTitle.trim());
+    setAppliedDate(searchDate);
   }
 
+  if (state === 'loading') {
+    return <StudioMessage eyebrow="Studio" title="Preparing your studio…" />;
+  }
   if (state === 'signed-out') {
     return (
       <StudioMessage
@@ -242,7 +250,6 @@ export function StudioDashboard() {
       />
     );
   }
-
   if (state === 'forbidden') {
     return (
       <StudioMessage
@@ -263,8 +270,7 @@ export function StudioDashboard() {
             Shape the next live moment.
           </h1>
           <p className="mt-4 max-w-2xl leading-7 text-muted">
-            Draft the room, refine its story, then move it live when the stage
-            is ready.
+            Set your stage, check your preview, and go live when you are ready.
           </p>
         </div>
         {user ? (
@@ -288,253 +294,249 @@ export function StudioDashboard() {
         </p>
       ) : null}
 
-      <div className="mt-10 grid gap-8 xl:grid-cols-[22rem_1fr]">
-        <aside className="space-y-8">
-          <section className="rounded-[2rem] border border-fg/8 bg-fg/[0.035] p-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-fg">Your rooms</h2>
-              <span className="rounded-full bg-fg/7 px-2.5 py-1 text-xs text-muted">
-                {rooms.length}
-              </span>
-            </div>
-            <div className="mt-5 space-y-2">
-              {rooms.length > 0 ? (
-                rooms.map((room) => (
-                  <button
-                    className={`w-full rounded-2xl border p-4 text-left transition ${
-                      selectedId === room.id
-                        ? 'border-accent/35 bg-accent/8'
-                        : 'border-fg/7 bg-sunken hover:border-fg/15'
-                    }`}
+      <div className="mt-10 grid gap-8 xl:grid-cols-[16rem_minmax(0,1fr)]">
+        <aside className="self-start rounded-[2rem] border border-fg/8 bg-fg/[0.035] p-4">
+          <p className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-muted">
+            Studio
+          </p>
+          <nav aria-label="Studio" className="space-y-2">
+            {(
+              [
+                ['broadcast', 'Go live'],
+                ['history', 'Broadcast history'],
+              ] as const
+            ).map(([destination, label]) => (
+              <button
+                aria-current={view === destination ? 'page' : undefined}
+                className={`w-full rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition ${
+                  view === destination
+                    ? 'border-accent/35 bg-accent/8 text-accent'
+                    : 'border-transparent text-fg-soft hover:border-fg/10 hover:bg-sunken'
+                }`}
+                key={destination}
+                onClick={() => {
+                  setView(destination);
+                  setNotice(undefined);
+                }}
+                type="button"
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+          {activeRoom ? (
+            <p className="mt-5 rounded-2xl border border-success/20 bg-success/10 px-4 py-3 text-xs leading-5 text-success">
+              Live now · {activeRoom.title}
+            </p>
+          ) : null}
+        </aside>
+
+        <section
+          className={`overflow-hidden rounded-[2rem] border border-fg/8 bg-fg/[0.035] ${view === 'broadcast' ? '' : 'hidden'}`}
+        >
+          <div className="border-b border-fg/8 bg-sunken p-6 sm:p-8">
+            <p className="text-xs font-bold text-accent">
+              {activeRoom ? 'On air' : 'Go live'}
+            </p>
+            <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-fg">
+              {activeRoom ? activeRoom.title : 'Prepare your broadcast'}
+            </h2>
+            <p className="mt-2 text-sm text-muted">
+              {activeRoom
+                ? 'Your broadcast is live. If your connection drops, use Reconnect broadcast.'
+                : 'Add the details, select your devices, and confirm the preview.'}
+            </p>
+          </div>
+          <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-2">
+            <StudioField
+              disabled={Boolean(activeRoom) || pending}
+              label="Room title"
+              onChange={setTitle}
+              placeholder="Design critique"
+              value={title}
+            />
+            <StudioTextArea
+              disabled={Boolean(activeRoom) || pending}
+              label="Description"
+              onChange={setDescription}
+              placeholder="What will the audience experience?"
+              value={description}
+            />
+          </div>
+          <HostBroadcastStudio
+            disabled={pending}
+            onAbort={abortBroadcast}
+            onEnd={endBroadcast}
+            onGoLive={markBroadcastReady}
+            onPrepare={prepareBroadcast}
+            room={activeRoom}
+          />
+        </section>
+        {view === 'history' ? (
+          <section className="rounded-[2rem] border border-fg/8 bg-fg/[0.035] p-6 sm:p-8">
+            <p className="text-xs font-bold text-accent">Archive</p>
+            <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-fg">
+              Broadcast history
+            </h2>
+            <p className="mt-2 text-sm text-muted">
+              Ended broadcasts appear here. A history entry does not imply that
+              a recording is available.
+            </p>
+            <form
+              aria-label="Search broadcast history"
+              className="mt-8 grid gap-3 sm:grid-cols-[minmax(0,1fr)_11rem_auto]"
+              onSubmit={searchHistory}
+            >
+              <label className="text-sm font-medium text-fg-soft">
+                Search title
+                <input
+                  className="mt-2 w-full rounded-2xl border border-fg/10 bg-sunken px-4 py-3 text-fg outline-none focus:border-accent/50"
+                  maxLength={80}
+                  onChange={(event) => setSearchTitle(event.target.value)}
+                  placeholder="Room title"
+                  type="search"
+                  value={searchTitle}
+                />
+              </label>
+              <label className="text-sm font-medium text-fg-soft">
+                Broadcast date
+                <input
+                  className="mt-2 w-full rounded-2xl border border-fg/10 bg-sunken px-4 py-3 text-fg outline-none focus:border-accent/50"
+                  onChange={(event) => setSearchDate(event.target.value)}
+                  type="date"
+                  value={searchDate}
+                />
+              </label>
+              <button
+                className="self-end rounded-2xl bg-fg px-5 py-3 text-sm font-bold text-canvas transition hover:bg-accent hover:text-on-accent"
+                type="submit"
+              >
+                Search
+              </button>
+            </form>
+            <div aria-busy={historyLoading} className="mt-8 space-y-3">
+              {historyLoading ? (
+                <p className="rounded-2xl border border-fg/8 p-6 text-sm text-muted">
+                  Loading history…
+                </p>
+              ) : history.length ? (
+                history.map((room) => (
+                  <article
+                    className="rounded-2xl border border-fg/8 bg-sunken p-5"
                     key={room.id}
-                    onClick={() => {
-                      setSelectedId(room.id);
-                      setNotice(undefined);
-                    }}
-                    type="button"
                   >
-                    <span className="block truncate font-medium text-fg">
-                      {room.title}
-                    </span>
-                    <span className="mt-2 flex items-center justify-between text-xs">
-                      <span className={statusColor(room.status)}>
-                        {room.status}
-                      </span>
-                      <span className="text-subtle">v{room.version}</span>
-                    </span>
-                  </button>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <h3 className="text-lg font-semibold text-fg">
+                        {room.title}
+                      </h3>
+                      <time
+                        className="text-xs text-muted"
+                        dateTime={room.createdAt}
+                      >
+                        {new Date(room.createdAt).toLocaleString()}
+                      </time>
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-muted">
+                      {room.description}
+                    </p>
+                    <p className="mt-3 text-xs text-subtle">
+                      Ended {new Date(room.updatedAt).toLocaleString()}
+                    </p>
+                  </article>
                 ))
               ) : (
-                <p className="rounded-2xl border border-dashed border-fg/10 px-4 py-8 text-center text-sm leading-6 text-muted">
-                  No rooms yet. Create your first draft below.
+                <p className="rounded-2xl border border-dashed border-fg/10 px-6 py-10 text-center text-sm text-muted">
+                  No ended broadcasts match these filters.
                 </p>
               )}
             </div>
-          </section>
-
-          <CreateRoomForm disabled={pending} onSubmit={createRoom} />
-        </aside>
-
-        <section>
-          {selectedRoom ? (
-            <RoomEditor
-              disabled={pending}
-              key={selectedRoom.id}
-              onEnd={() => transitionRoom(selectedRoom, 'ENDED')}
-              onGoLive={(generatedCover) =>
-                markBroadcastReady(selectedRoom, generatedCover)
-              }
-              onSubmit={saveRoom}
-              room={selectedRoom}
-            />
-          ) : (
-            <div className="grid min-h-[34rem] place-items-center rounded-[2rem] border border-dashed border-fg/10 bg-fg/[0.02] p-8 text-center">
-              <div>
-                <p className="text-lg font-semibold text-fg">
-                  Your next room starts as a draft.
-                </p>
-                <p className="mt-2 text-sm text-muted">
-                  Use the creation form to prepare the stage.
-                </p>
-              </div>
+            <div className="mt-6 flex items-center justify-between">
+              <button
+                className="rounded-full border border-fg/15 px-5 py-2.5 text-sm font-semibold text-fg disabled:opacity-40"
+                disabled={pageIndex === 0 || historyLoading}
+                onClick={() => setPageIndex((current) => current - 1)}
+                type="button"
+              >
+                Previous
+              </button>
+              <span className="text-xs text-muted">Page {pageIndex + 1}</span>
+              <button
+                className="rounded-full border border-fg/15 px-5 py-2.5 text-sm font-semibold text-fg disabled:opacity-40"
+                disabled={!nextCursor || historyLoading}
+                onClick={() => {
+                  if (!nextCursor) return;
+                  setPageCursors((current) => [
+                    ...current.slice(0, pageIndex + 1),
+                    nextCursor,
+                  ]);
+                  setPageIndex((current) => current + 1);
+                }}
+                type="button"
+              >
+                Next
+              </button>
             </div>
-          )}
-        </section>
+          </section>
+        ) : null}
       </div>
-    </div>
-  );
-}
-
-function CreateRoomForm({
-  disabled,
-  onSubmit,
-}: {
-  disabled: boolean;
-  onSubmit(event: FormEvent<HTMLFormElement>): void;
-}) {
-  return (
-    <form
-      className="rounded-[2rem] border border-fg/8 bg-fg/[0.035] p-5"
-      onSubmit={onSubmit}
-    >
-      <p className="text-xs font-bold text-accent">New draft</p>
-      <h2 className="mt-2 text-lg font-semibold text-fg">Create a room</h2>
-      <div className="mt-5 space-y-4">
-        <StudioField label="Title" name="title" placeholder="Design critique" />
-        <StudioTextArea
-          label="Description"
-          name="description"
-          placeholder="What will the audience experience?"
-        />
-      </div>
-      <button
-        className="mt-5 w-full rounded-2xl bg-fg px-4 py-3 text-sm font-bold text-canvas transition hover:bg-accent disabled:cursor-wait disabled:opacity-50 hover:text-on-accent"
-        disabled={disabled}
-        type="submit"
-      >
-        Create draft
-      </button>
-    </form>
-  );
-}
-
-function RoomEditor({
-  disabled,
-  onEnd,
-  onGoLive,
-  onSubmit,
-  room,
-}: {
-  disabled: boolean;
-  onEnd(): Promise<boolean>;
-  onGoLive(generatedCover?: string): Promise<boolean>;
-  onSubmit(event: FormEvent<HTMLFormElement>): void;
-  room: Room;
-}) {
-  const immutable = room.status === 'ENDED';
-
-  return (
-    <div className="overflow-hidden rounded-[2rem] border border-fg/8 bg-fg/[0.035]">
-      <div className="border-b border-fg/8 bg-sunken p-6 sm:p-8">
-        <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
-          <div>
-            <p className={`text-xs font-bold ${statusColor(room.status)}`}>
-              {room.status}
-            </p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-fg">
-              {room.title}
-            </h2>
-            <p className="mt-2 text-sm text-muted">
-              Version {room.version} · Room {room.id.slice(0, 8)}
-            </p>
-          </div>
-          {immutable ? (
-            <span className="rounded-full border border-fg/10 px-4 py-2 text-xs font-semibold text-muted">
-              Broadcast ended
-            </span>
-          ) : null}
-        </div>
-      </div>
-
-      {!immutable ? (
-        <HostBroadcastStudio
-          disabled={disabled}
-          onEnd={onEnd}
-          onGoLive={onGoLive}
-          room={room}
-        />
-      ) : null}
-
-      <form className="p-6 sm:p-8" onSubmit={onSubmit}>
-        <div className="grid gap-6 lg:grid-cols-2">
-          <StudioField
-            defaultValue={room.title}
-            disabled={immutable}
-            label="Title"
-            name="title"
-          />
-          <StudioTextArea
-            defaultValue={room.description}
-            disabled={immutable}
-            label="Description"
-            name="description"
-          />
-        </div>
-        <div className="mt-8 flex flex-col justify-between gap-4 border-t border-fg/8 pt-6 sm:flex-row sm:items-center">
-          <p className="max-w-xl text-sm leading-6 text-muted">
-            {immutable
-              ? 'Ended rooms are preserved as immutable broadcast records.'
-              : 'Saving checks the server version first, protecting newer edits from being overwritten.'}
-          </p>
-          {!immutable ? (
-            <button
-              className="rounded-full border border-fg/15 px-5 py-3 text-sm font-semibold text-fg transition hover:border-accent/40 hover:text-accent disabled:cursor-wait disabled:opacity-50"
-              disabled={disabled}
-              type="submit"
-            >
-              Save changes
-            </button>
-          ) : null}
-        </div>
-      </form>
     </div>
   );
 }
 
 function StudioField({
-  defaultValue,
-  disabled = false,
+  disabled,
   label,
-  name,
+  onChange,
   placeholder,
-  type = 'text',
+  value,
 }: {
-  defaultValue?: string;
-  disabled?: boolean;
+  disabled: boolean;
   label: string;
-  name: string;
-  placeholder?: string;
-  type?: 'text' | 'url';
+  onChange(value: string): void;
+  placeholder: string;
+  value: string;
 }) {
   return (
     <label className="block text-sm font-medium text-fg-soft">
       {label}
       <input
         className="mt-2 w-full rounded-2xl border border-fg/10 bg-sunken px-4 py-3 text-fg outline-none transition placeholder:text-subtle focus:border-accent/50 focus:ring-4 focus:ring-accent/10 disabled:cursor-not-allowed disabled:text-muted"
-        defaultValue={defaultValue}
         disabled={disabled}
-        name={name}
+        maxLength={120}
+        onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         required
-        type={type}
+        type="text"
+        value={value}
       />
     </label>
   );
 }
 
 function StudioTextArea({
-  defaultValue,
-  disabled = false,
+  disabled,
   label,
-  name,
+  onChange,
   placeholder,
+  value,
 }: {
-  defaultValue?: string;
-  disabled?: boolean;
+  disabled: boolean;
   label: string;
-  name: string;
-  placeholder?: string;
+  onChange(value: string): void;
+  placeholder: string;
+  value: string;
 }) {
   return (
     <label className="block text-sm font-medium text-fg-soft">
       {label}
       <textarea
         className="mt-2 min-h-32 w-full resize-y rounded-2xl border border-fg/10 bg-sunken px-4 py-3 text-fg outline-none transition placeholder:text-subtle focus:border-accent/50 focus:ring-4 focus:ring-accent/10 disabled:cursor-not-allowed disabled:text-muted"
-        defaultValue={defaultValue}
         disabled={disabled}
-        name={name}
+        maxLength={2000}
+        onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         required
+        value={value}
       />
     </label>
   );
@@ -573,16 +575,4 @@ function StudioMessage({
       </div>
     </section>
   );
-}
-
-function statusColor(status: Room['status']): string {
-  if (status === 'LIVE') {
-    return 'text-success';
-  }
-
-  if (status === 'ENDED') {
-    return 'text-muted';
-  }
-
-  return 'text-warning';
 }

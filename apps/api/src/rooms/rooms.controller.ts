@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpException,
   HttpStatus,
@@ -15,6 +16,7 @@ import {
 import {
   ApiErrorCode,
   CreateRoomRequestSchema,
+  ListBroadcastHistoryQuerySchema,
   GetRoomParamsSchema,
   ListRoomsQuerySchema,
   UpdateRoomRequestSchema,
@@ -22,8 +24,10 @@ import {
 import type {
   BroadcastConnectionResponse,
   CreateRoomResponse,
+  CurrentBroadcastResponse,
   GetRoomResponse,
   ListOwnedRoomsResponse,
+  ListBroadcastHistoryResponse,
   ListRoomsResponse,
   UpdateRoomResponse,
 } from '@livepulse/contracts';
@@ -41,6 +45,7 @@ import {
 import { BroadcastService } from '../broadcast/broadcast.service.js';
 import {
   InvalidRoomCursorError,
+  RoomAlreadyLiveError,
   InvalidRoomTransitionError,
   RoomDatabaseUnavailableError,
   RoomForbiddenError,
@@ -93,6 +98,57 @@ export class RoomsController {
 
       return {
         items: rooms.map((room) => this.serializeRoom(room)),
+        requestId: request.id,
+      };
+    } catch (error) {
+      this.throwRoomError(error);
+    }
+  }
+
+  @AllowedRoles('HOST', 'ADMIN')
+  @Get('mine/current')
+  @UseGuards(SessionGuard, RolesGuard)
+  public async current(
+    @Req() request: AuthenticatedRequest,
+  ): Promise<CurrentBroadcastResponse> {
+    try {
+      const room = await this.rooms.findCurrent(request.auth.userId);
+      return {
+        requestId: request.id,
+        room:
+          room && room.status === 'LIVE'
+            ? { ...this.serializeRoom(room), status: 'LIVE' }
+            : null,
+      };
+    } catch (error) {
+      this.throwRoomError(error);
+    }
+  }
+
+  @AllowedRoles('HOST', 'ADMIN')
+  @Get('mine/history')
+  @UseGuards(SessionGuard, RolesGuard)
+  public async history(
+    @Query() query: unknown,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<ListBroadcastHistoryResponse> {
+    const parsed = ListBroadcastHistoryQuerySchema.safeParse(query);
+    if (!parsed.success) {
+      this.throwValidationError('The broadcast-history query is invalid');
+    }
+    try {
+      const page = await this.rooms.listHistory(
+        request.auth.userId,
+        parsed.data,
+      );
+      return {
+        items: page.items
+          .filter((room) => room.status === 'ENDED')
+          .map((room) => ({
+            ...this.serializeRoom(room),
+            status: 'ENDED' as const,
+          })),
+        nextCursor: page.nextCursor,
         requestId: request.id,
       };
     } catch (error) {
@@ -208,6 +264,24 @@ export class RoomsController {
   }
 
   @AllowedRoles('HOST', 'ADMIN')
+  @Delete(':id')
+  @UseGuards(SessionGuard, CsrfGuard, RolesGuard)
+  public async deleteDraft(
+    @Param('id') id: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<void> {
+    const parsed = GetRoomParamsSchema.safeParse({ id });
+    if (!parsed.success) {
+      this.throwValidationError('The room identifier is invalid');
+    }
+    try {
+      await this.rooms.deleteDraft(request.auth, parsed.data.id);
+    } catch (error) {
+      this.throwRoomError(error);
+    }
+  }
+
+  @AllowedRoles('HOST', 'ADMIN')
   @Patch(':id')
   @UseGuards(SessionGuard, CsrfGuard, RolesGuard)
   public async update(
@@ -287,6 +361,13 @@ export class RoomsController {
           code: ApiErrorCode.RoomInvalidTransition,
           message: error.message,
         },
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    if (error instanceof RoomAlreadyLiveError) {
+      throw new HttpException(
+        { code: ApiErrorCode.RoomInvalidTransition, message: error.message },
         HttpStatus.CONFLICT,
       );
     }

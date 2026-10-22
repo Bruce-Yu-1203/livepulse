@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type {
   CreateRoomRequest,
+  ListBroadcastHistoryQuery,
   ListRoomsQuery,
   UpdateRoomRequest,
 } from '@livepulse/contracts';
@@ -80,6 +81,37 @@ export class RoomsService {
     return this.rooms.listOwned(hostId);
   }
 
+  public findCurrent(hostId: string) {
+    return this.rooms.findCurrent(hostId);
+  }
+
+  public async listHistory(hostId: string, query: ListBroadcastHistoryQuery) {
+    const cursor = query.cursor
+      ? this.cursorCodec.decode(query.cursor)
+      : undefined;
+    const records = await this.rooms.listHistory({
+      cursor,
+      from: query.from ? new Date(query.from) : undefined,
+      hostId,
+      query: query.q,
+      take: query.limit + 1,
+      to: query.to ? new Date(query.to) : undefined,
+    });
+    const hasNextPage = records.length > query.limit;
+    const items = hasNextPage ? records.slice(0, query.limit) : records;
+    const lastItem = items.at(-1);
+    return {
+      items,
+      nextCursor:
+        hasNextPage && lastItem
+          ? this.cursorCodec.encode({
+              createdAt: lastItem.createdAt,
+              id: lastItem.id,
+            })
+          : null,
+    };
+  }
+
   public async getManageable(
     actor: { role: 'ADMIN' | 'HOST' | 'VIEWER'; userId: string },
     id: string,
@@ -98,6 +130,19 @@ export class RoomsService {
     }
 
     return room;
+  }
+
+  public async deleteDraft(
+    actor: { role: 'ADMIN' | 'HOST' | 'VIEWER'; userId: string },
+    id: string,
+  ): Promise<void> {
+    const room = await this.getManageable(actor, id);
+    if (room.status !== 'DRAFT') {
+      throw new InvalidRoomTransitionError();
+    }
+    if (!(await this.rooms.deleteDraft(id, room.version))) {
+      throw new RoomVersionConflictError();
+    }
   }
 
   public async update(

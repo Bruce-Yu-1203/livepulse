@@ -14,6 +14,9 @@ import type { RoomLifecyclePublisher } from '../room-lifecycle/room-lifecycle.ev
 describe('RoomsService', () => {
   it('uses the authenticated user as host and creates a draft', async () => {
     const rooms: RoomsRepository = {
+      deleteDraft: vi.fn(),
+      findCurrent: vi.fn(),
+      listHistory: vi.fn(),
       create: vi.fn().mockResolvedValue({
         coverImageUrl: 'https://cdn.example.com/cover.jpg',
         createdAt: new Date('2026-10-09T14:30:00.000Z'),
@@ -65,6 +68,9 @@ describe('RoomsService', () => {
     ];
     const rooms: RoomsRepository = {
       create: vi.fn(),
+      deleteDraft: vi.fn(),
+      findCurrent: vi.fn(),
+      listHistory: vi.fn(),
       findById: vi.fn(),
       findVisibleById: vi.fn(),
       listOwned: vi.fn(),
@@ -95,6 +101,9 @@ describe('RoomsService', () => {
   it('rejects an invalid cursor before querying the repository', async () => {
     const rooms: RoomsRepository = {
       create: vi.fn(),
+      deleteDraft: vi.fn(),
+      findCurrent: vi.fn(),
+      listHistory: vi.fn(),
       findById: vi.fn(),
       findVisibleById: vi.fn(),
       listOwned: vi.fn(),
@@ -116,6 +125,9 @@ describe('RoomsService', () => {
     );
     const rooms: RoomsRepository = {
       create: vi.fn(),
+      deleteDraft: vi.fn(),
+      findCurrent: vi.fn(),
+      listHistory: vi.fn(),
       findById: vi.fn(),
       findVisibleById: vi
         .fn()
@@ -140,6 +152,60 @@ describe('RoomsService', () => {
 
     await expect(service.listOwned(room.hostId)).resolves.toEqual([room]);
     expect(rooms.listOwned).toHaveBeenCalledWith(room.hostId);
+  });
+
+  it('paginates ended broadcasts for the authenticated host', async () => {
+    const first = {
+      ...visibleRoom(
+        '99d30467-ed47-43b8-96b0-d36ab2ee60e0',
+        '2026-10-09T15:30:00.000Z',
+      ),
+      status: 'ENDED' as const,
+    };
+    const second = {
+      ...visibleRoom(
+        '60d4405f-8c2a-4306-ac4d-b8d85c83c875',
+        '2026-10-09T15:29:00.000Z',
+      ),
+      status: 'ENDED' as const,
+    };
+    const rooms = repository({
+      listHistory: vi.fn().mockResolvedValue([first, second]),
+    });
+    const service = new RoomsService(rooms, roomLifecycle());
+    const page = await service.listHistory(first.hostId, {
+      from: '2026-10-09T00:00:00.000Z',
+      limit: 1,
+      q: 'Live',
+      to: '2026-10-10T00:00:00.000Z',
+    });
+    expect(rooms.listHistory).toHaveBeenCalledWith({
+      cursor: undefined,
+      from: new Date('2026-10-09T00:00:00.000Z'),
+      hostId: first.hostId,
+      query: 'Live',
+      take: 2,
+      to: new Date('2026-10-10T00:00:00.000Z'),
+    });
+    expect(page.items).toEqual([first]);
+    expect(page.nextCursor).toEqual(expect.any(String));
+  });
+
+  it('only deletes an owned draft', async () => {
+    const draft = draftRoom();
+    const rooms = repository({
+      deleteDraft: vi.fn().mockResolvedValue(true),
+      findById: vi.fn().mockResolvedValue(draft),
+    });
+    const service = new RoomsService(rooms, roomLifecycle());
+    await service.deleteDraft({ role: 'HOST', userId: draft.hostId }, draft.id);
+    expect(rooms.deleteDraft).toHaveBeenCalledWith(draft.id, draft.version);
+    await expect(
+      service.deleteDraft(
+        { role: 'HOST', userId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' },
+        draft.id,
+      ),
+    ).rejects.toBeInstanceOf(RoomForbiddenError);
   });
 
   it('returns a manageable room only to its host or an administrator', async () => {
@@ -294,6 +360,9 @@ function draftRoom() {
 function repository(overrides: Partial<RoomsRepository> = {}): RoomsRepository {
   return {
     create: vi.fn(),
+    deleteDraft: vi.fn(),
+    findCurrent: vi.fn(),
+    listHistory: vi.fn(),
     findById: vi.fn(),
     findVisibleById: vi.fn(),
     listOwned: vi.fn(),

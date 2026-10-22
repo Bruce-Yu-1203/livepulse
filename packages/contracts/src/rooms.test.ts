@@ -3,9 +3,12 @@ import { describe, expect, it } from 'vitest';
 import {
   CreateRoomRequestSchema,
   CreateRoomResponseSchema,
+  CurrentBroadcastResponseSchema,
   GetRoomParamsSchema,
   GetRoomResponseSchema,
   ListOwnedRoomsResponseSchema,
+  ListBroadcastHistoryQuerySchema,
+  ListBroadcastHistoryResponseSchema,
   ListRoomsQuerySchema,
   ListRoomsResponseSchema,
   RoomLikeResponseSchema,
@@ -162,6 +165,44 @@ describe('host room management', () => {
     updatedAt: '2026-10-09T14:30:00.000Z',
     version: 1,
   };
+
+  it('validates broadcast history filters and hides drafts from history', () => {
+    expect(
+      ListBroadcastHistoryQuerySchema.parse({ q: '  Team   Sync  ' }),
+    ).toEqual({
+      limit: 10,
+      q: 'Team Sync',
+    });
+    expect(
+      ListBroadcastHistoryQuerySchema.safeParse({ limit: '51' }).success,
+    ).toBe(false);
+    expect(
+      ListBroadcastHistoryQuerySchema.safeParse({
+        from: '2026-10-23T00:00:00.000Z',
+        to: '2026-10-22T00:00:00.000Z',
+      }).success,
+    ).toBe(false);
+    expect(
+      ListBroadcastHistoryResponseSchema.safeParse({
+        items: [room],
+        nextCursor: null,
+        requestId: 'history-1',
+      }).success,
+    ).toBe(false);
+    expect(
+      ListBroadcastHistoryResponseSchema.parse({
+        items: [{ ...room, status: 'ENDED' }],
+        nextCursor: null,
+        requestId: 'history-2',
+      }).items,
+    ).toHaveLength(1);
+    expect(
+      CurrentBroadcastResponseSchema.parse({
+        requestId: 'current-1',
+        room: null,
+      }),
+    ).toEqual({ requestId: 'current-1', room: null });
+  });
 
   it('accepts owned rooms and versioned updates', () => {
     expect(

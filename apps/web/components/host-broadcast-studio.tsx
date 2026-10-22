@@ -32,14 +32,18 @@ type CaptureTarget = 'camera' | 'screen' | undefined;
 
 export function HostBroadcastStudio({
   disabled,
+  onAbort,
   onEnd,
   onGoLive,
+  onPrepare,
   room,
 }: {
   disabled: boolean;
-  onEnd(): Promise<boolean>;
-  onGoLive(generatedCover?: string): Promise<boolean>;
-  room: RoomRecord;
+  onAbort(room: RoomRecord): Promise<void>;
+  onEnd(room: RoomRecord): Promise<boolean>;
+  onGoLive(room: RoomRecord, generatedCover?: string): Promise<boolean>;
+  onPrepare(): Promise<RoomRecord>;
+  room?: RoomRecord;
 }) {
   const liveKitRoom = useRef<Room | undefined>(undefined);
   const cameraTrack = useRef<LocalVideoTrack | undefined>(undefined);
@@ -132,10 +136,10 @@ export function HostBroadcastStudio({
   }, [loadDevices, stopLocalMedia]);
 
   useEffect(() => {
-    if (room.status === 'ENDED') {
+    if (room?.status === 'ENDED') {
       void disconnect();
     }
-  }, [disconnect, room.status]);
+  }, [disconnect, room?.status]);
 
   async function chooseScreen() {
     setCaptureTarget('screen');
@@ -322,13 +326,19 @@ export function HostBroadcastStudio({
     setError(undefined);
     let connectingRoom: Room | undefined;
     let mediaWasPublished = false;
+    let preparedRoom: RoomRecord | undefined;
+    let activated = false;
 
     try {
-      const generatedCover = room.coverImageUrl
+      if (liveKitRoom.current?.state === ConnectionState.Disconnected) {
+        await disconnect(false);
+      }
+      const generatedCover = room?.coverImageUrl
         ? undefined
         : await captureVideoFrame(mainTrack).catch(() => undefined);
+      preparedRoom = room ?? (await onPrepare());
       const credentials = await clientApiRequest(
-        `/api/v1/rooms/${room.id}/broadcast/host-token`,
+        `/api/v1/rooms/${preparedRoom.id}/broadcast/host-token`,
         BroadcastConnectionResponseSchema,
         { method: 'POST' },
       );
@@ -366,9 +376,10 @@ export function HostBroadcastStudio({
 
       await loadDevices(false);
 
-      if (!(await onGoLive(generatedCover))) {
+      if (!(await onGoLive(preparedRoom, generatedCover))) {
         throw new Error('The room could not be moved live.');
       }
+      activated = true;
     } catch (caught) {
       liveKitRoom.current = undefined;
       await connectingRoom?.disconnect();
@@ -378,6 +389,9 @@ export function HostBroadcastStudio({
       }
 
       setConnection(ConnectionState.Disconnected);
+      if (preparedRoom && !room && !activated) {
+        await onAbort(preparedRoom).catch(() => undefined);
+      }
       setError(mediaErrorMessage(caught));
     } finally {
       setPending(false);
@@ -389,7 +403,7 @@ export function HostBroadcastStudio({
     setError(undefined);
 
     try {
-      if (await onEnd()) {
+      if (room && (await onEnd(room))) {
         await disconnect();
       }
     } finally {
@@ -439,6 +453,10 @@ export function HostBroadcastStudio({
   }
 
   const connected = connection === ConnectionState.Connected;
+  const reconnecting =
+    connection === ConnectionState.Connecting ||
+    connection === ConnectionState.Reconnecting ||
+    connection === ConnectionState.SignalReconnecting;
   const mainTrack = previewTracks.screen ?? previewTracks.camera;
   const cameraOverlay = previewTracks.screen ? previewTracks.camera : undefined;
   const previewReady = broadcastPreviewReady(
@@ -587,25 +605,28 @@ export function HostBroadcastStudio({
                 disabled={
                   disabled ||
                   pending ||
+                  reconnecting ||
                   captureTarget !== undefined ||
                   !previewReady ||
-                  room.status === 'ENDED'
+                  room?.status === 'ENDED'
                 }
                 onClick={() => void startBroadcast()}
                 type="button"
               >
                 {pending
                   ? 'Starting…'
-                  : room.status === 'LIVE'
-                    ? 'Reconnect broadcast'
-                    : 'Start live broadcast'}
+                  : reconnecting
+                    ? 'Reconnecting…'
+                    : room?.status === 'LIVE'
+                      ? 'Reconnect broadcast'
+                      : 'Start live broadcast'}
               </button>
               {!previewReady ? (
                 <p className="text-center text-[0.7rem] leading-5 text-muted">
                   Prepare a screen or camera preview first.
                 </p>
               ) : null}
-              {room.status === 'LIVE' ? (
+              {room?.status === 'LIVE' ? (
                 <button
                   className="w-full rounded-2xl border border-danger/25 bg-danger/10 px-4 py-3 text-sm font-bold text-danger transition hover:bg-danger/15 disabled:cursor-wait disabled:opacity-50"
                   disabled={disabled || pending}
@@ -753,7 +774,10 @@ function hostConnectionLabel(
     return 'Connecting';
   }
 
-  if (connection === ConnectionState.Reconnecting) {
+  if (
+    connection === ConnectionState.Reconnecting ||
+    connection === ConnectionState.SignalReconnecting
+  ) {
     return 'Reconnecting';
   }
 

@@ -5,8 +5,10 @@ import {
   ApiErrorCode,
   ApiErrorResponseSchema,
   CreateRoomResponseSchema,
+  CurrentBroadcastResponseSchema,
   GetRoomResponseSchema,
   ListOwnedRoomsResponseSchema,
+  ListBroadcastHistoryResponseSchema,
   ListRoomsResponseSchema,
   MuteRoomUserResponseSchema,
   RoomLikeResponseSchema,
@@ -195,18 +197,145 @@ describe('POST /api/v1/rooms', () => {
     );
   });
 
-  it('keeps host-management routes unavailable to viewers', async () => {
-    const headers = await authenticatedHeaders('viewer@example.com');
-    const response = await app.getHttpAdapter().getInstance().inject({
+  it('keeps only one live broadcast per host and lists ended history in pages', async () => {
+    const headers = await authenticatedHeaders('host@example.com');
+    const first = CreateRoomResponseSchema.parse(
+      (await createRoom(headers, roomInput)).json(),
+    ).room;
+    const second = CreateRoomResponseSchema.parse(
+      (
+        await createRoom(headers, { ...roomInput, title: 'Second show' })
+      ).json(),
+    ).room;
+    const live = await updateRoom(headers, first.id, {
+      expectedVersion: 1,
+      status: 'LIVE',
+    });
+    expect(live.statusCode).toBe(200);
+    const blocked = await updateRoom(headers, second.id, {
+      expectedVersion: 1,
+      status: 'LIVE',
+    });
+    expect(blocked.statusCode).toBe(409);
+    const current = await app.getHttpAdapter().getInstance().inject({
       headers,
       method: 'GET',
-      url: '/api/v1/rooms/mine',
+      url: '/api/v1/rooms/mine/current',
+    });
+    expect(CurrentBroadcastResponseSchema.parse(current.json()).room?.id).toBe(
+      first.id,
+    );
+    await updateRoom(headers, first.id, {
+      expectedVersion: 2,
+      status: 'ENDED',
+    });
+    const nextLive = await updateRoom(headers, second.id, {
+      expectedVersion: 1,
+      status: 'LIVE',
+    });
+    expect(nextLive.statusCode).toBe(200);
+    await updateRoom(headers, second.id, {
+      expectedVersion: 2,
+      status: 'ENDED',
     });
 
-    expect(response.statusCode).toBe(403);
-    expect(ApiErrorResponseSchema.parse(response.json()).code).toBe(
-      ApiErrorCode.Forbidden,
-    );
+    const firstPage = await app.getHttpAdapter().getInstance().inject({
+      headers,
+      method: 'GET',
+      url: '/api/v1/rooms/mine/history?limit=1&q=show',
+    });
+    const page = ListBroadcastHistoryResponseSchema.parse(firstPage.json());
+    expect(page.items.map((room) => room.id)).toEqual([second.id]);
+    expect(page.nextCursor).toBeNull();
+    const all = await app.getHttpAdapter().getInstance().inject({
+      headers,
+      method: 'GET',
+      url: '/api/v1/rooms/mine/history?limit=1',
+    });
+    const allPage = ListBroadcastHistoryResponseSchema.parse(all.json());
+    expect(allPage.items).toHaveLength(1);
+    expect(allPage.nextCursor).toEqual(expect.any(String));
+    const secondPage = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers,
+        method: 'GET',
+        url: `/api/v1/rooms/mine/history?limit=1&cursor=${encodeURIComponent(allPage.nextCursor ?? '')}`,
+      });
+    const older = ListBroadcastHistoryResponseSchema.parse(secondPage.json());
+    expect(older.items).toHaveLength(1);
+    expect(older.items[0]?.id).not.toBe(allPage.items[0]?.id);
+    expect(older.nextCursor).toBeNull();
+
+    const outsideDate = await app.getHttpAdapter().getInstance().inject({
+      headers,
+      method: 'GET',
+      url: '/api/v1/rooms/mine/history?from=2100-01-01T00%3A00%3A00.000Z',
+    });
+    expect(
+      ListBroadcastHistoryResponseSchema.parse(outsideDate.json()).items,
+    ).toEqual([]);
+  });
+
+  it('deletes only a draft owned by the host', async () => {
+    const headers = await authenticatedHeaders('host@example.com');
+    const created = CreateRoomResponseSchema.parse(
+      (await createRoom(headers, roomInput)).json(),
+    ).room;
+    const deleted = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers,
+        method: 'DELETE',
+        url: `/api/v1/rooms/${created.id}`,
+      });
+    expect(deleted.statusCode).toBe(200);
+    await expect(
+      database.room.findUnique({ where: { id: created.id } }),
+    ).resolves.toBeNull();
+  });
+
+  it('serializes simultaneous attempts to start two broadcasts', async () => {
+    const headers = await authenticatedHeaders('host@example.com');
+    const first = CreateRoomResponseSchema.parse(
+      (await createRoom(headers, roomInput)).json(),
+    ).room;
+    const second = CreateRoomResponseSchema.parse(
+      (
+        await createRoom(headers, { ...roomInput, title: 'Parallel show' })
+      ).json(),
+    ).room;
+    const responses = await Promise.all([
+      updateRoom(headers, first.id, { expectedVersion: 1, status: 'LIVE' }),
+      updateRoom(headers, second.id, { expectedVersion: 1, status: 'LIVE' }),
+    ]);
+    expect(responses.map((response) => response.statusCode).sort()).toEqual([
+      200, 409,
+    ]);
+    await expect(
+      database.room.count({ where: { hostId: first.hostId, status: 'LIVE' } }),
+    ).resolves.toBe(1);
+  });
+
+  it('keeps host-management routes unavailable to viewers', async () => {
+    const headers = await authenticatedHeaders('viewer@example.com');
+    for (const url of [
+      '/api/v1/rooms/mine',
+      '/api/v1/rooms/mine/current',
+      '/api/v1/rooms/mine/history',
+    ]) {
+      const response = await app.getHttpAdapter().getInstance().inject({
+        headers,
+        method: 'GET',
+        url,
+      });
+      expect(response.statusCode).toBe(403);
+      expect(ApiErrorResponseSchema.parse(response.json()).code).toBe(
+        ApiErrorCode.Forbidden,
+      );
+    }
   });
 
   it('paginates visible rooms without exposing drafts or duplicating ties', async () => {

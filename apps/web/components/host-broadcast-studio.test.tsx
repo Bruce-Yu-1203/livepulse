@@ -9,9 +9,10 @@ describe('HostBroadcastStudio', () => {
     const markup = renderToStaticMarkup(
       <HostBroadcastStudio
         disabled={false}
+        onAbort={vi.fn().mockResolvedValue(undefined)}
         onEnd={vi.fn().mockResolvedValue(true)}
         onGoLive={vi.fn().mockResolvedValue(true)}
-        room={draftRoom()}
+        onPrepare={vi.fn().mockResolvedValue(draftRoom())}
       />,
     );
 
@@ -23,6 +24,21 @@ describe('HostBroadcastStudio', () => {
     expect(markup).toContain('Choose a screen');
     expect(markup).toContain('Prepare a screen or camera preview first.');
     expect(markup).toContain('Start live broadcast');
+  });
+
+  it('offers reconnection and ending for a live broadcast', () => {
+    const markup = renderToStaticMarkup(
+      <HostBroadcastStudio
+        disabled={false}
+        onAbort={vi.fn().mockResolvedValue(undefined)}
+        onEnd={vi.fn().mockResolvedValue(true)}
+        onGoLive={vi.fn().mockResolvedValue(true)}
+        onPrepare={vi.fn().mockResolvedValue(draftRoom())}
+        room={{ ...draftRoom(), status: 'LIVE' }}
+      />,
+    );
+    expect(markup).toContain('Reconnect broadcast');
+    expect(markup).toContain('End broadcast');
   });
 });
 

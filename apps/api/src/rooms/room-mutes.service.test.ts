@@ -161,6 +161,9 @@ function roomRepository(
     findVisibleById: vi.fn(),
     listOwned: vi.fn(),
     listVisible: vi.fn(),
+    deleteDraft: vi.fn(),
+    findCurrent: vi.fn(),
+    listHistory: vi.fn(),
     update: vi.fn(),
     ...overrides,
   };

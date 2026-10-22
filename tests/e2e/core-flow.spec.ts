@@ -137,14 +137,24 @@ test('viewer, host, and administrator complete the core live-room flow', async (
 
     const hostStudioPage = await hostContext.newPage();
     await hostStudioPage.goto('/studio');
-    await hostStudioPage
-      .getByRole('button')
-      .filter({ hasText: roomTitle })
-      .click();
+    await expect(
+      hostStudioPage.getByRole('heading', { name: roomTitle }),
+    ).toBeVisible();
     await hostStudioPage.getByRole('button', { name: 'End broadcast' }).click();
     await expect(hostStudioPage.getByRole('status')).toHaveText(
-      'The broadcast ended and the room is now archived.',
+      'Broadcast ended and saved to history.',
     );
+    await hostStudioPage
+      .getByRole('button', { name: 'Broadcast history' })
+      .click();
+    await hostStudioPage.getByLabel('Search title').fill(roomTitle);
+    await hostStudioPage
+      .getByRole('form', { name: 'Search broadcast history' })
+      .getByRole('button', { name: 'Search' })
+      .click();
+    await expect(
+      hostStudioPage.getByRole('heading', { name: roomTitle }),
+    ).toBeVisible();
     await Promise.all([
       expect(
         viewerPage
@@ -190,32 +200,47 @@ test('viewer, host, and administrator complete the core live-room flow', async (
 
 async function createLiveRoom(page: Page, roomTitle: string): Promise<void> {
   await expect(page).toHaveURL(/\/studio$/);
-  const createForm = page.locator('form').filter({
-    has: page.getByRole('heading', { name: 'Create a room' }),
-  });
-  await createForm.getByLabel('Title').fill(roomTitle);
-  await createForm
-    .getByLabel('Description')
-    .fill('A browser-tested room for the complete MVP interaction flow.');
-  await createForm.getByRole('button', { name: 'Create draft' }).click();
-  await expect(page.getByRole('status')).toHaveText('Draft room created.');
-
-  // The core application flow runs without external LiveKit credentials. The
-  // dedicated broadcast UI and token permissions are covered by unit tests;
-  // this transition keeps the isolated browser suite focused on room, chat,
-  // moderation, and ended-room behavior.
+  // The isolated browser stack has no LiveKit credentials. Create the room
+  // through the API so this test can cover chat, moderation, and history.
   await page.evaluate(async (title) => {
     const roomsResponse = await fetch('/api/v1/rooms/mine', {
       credentials: 'include',
     });
     const rooms = (await roomsResponse.json()) as {
-      items: Array<{ id: string; title: string; version: number }>;
+      items: Array<{
+        id: string;
+        status: string;
+        title: string;
+        version: number;
+      }>;
     };
-    const room = rooms.items.find((item) => item.title === title);
-
-    if (!room) {
-      throw new Error('The E2E room was not found');
+    for (const active of rooms.items.filter((room) => room.status === 'LIVE')) {
+      const ended = await fetch(`/api/v1/rooms/${active.id}`, {
+        body: JSON.stringify({
+          expectedVersion: active.version,
+          status: 'ENDED',
+        }),
+        credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        method: 'PATCH',
+      });
+      if (!ended.ok) throw new Error('The seeded broadcast could not end');
     }
+
+    const created = await fetch('/api/v1/rooms', {
+      body: JSON.stringify({
+        description:
+          'A browser-tested room for the complete MVP interaction flow.',
+        title,
+      }),
+      credentials: 'include',
+      headers: { 'content-type': 'application/json' },
+      method: 'POST',
+    });
+    if (!created.ok) throw new Error('The E2E room could not be created');
+    const { room } = (await created.json()) as {
+      room: { id: string; version: number };
+    };
 
     const updateResponse = await fetch(`/api/v1/rooms/${room.id}`, {
       body: JSON.stringify({

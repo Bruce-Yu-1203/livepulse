@@ -8,6 +8,7 @@ import { Prisma } from '@livepulse/db';
 
 import { DatabaseService } from '../database/database.service.js';
 import {
+  RoomAlreadyLiveError,
   RoomDatabaseUnavailableError,
   RoomHostNotFoundError,
 } from './rooms.errors.js';
@@ -38,9 +39,19 @@ export interface CreateRoomRecord extends CreateRoomRequest {
 
 export interface RoomsRepository {
   create(input: CreateRoomRecord): Promise<CreatedRoom>;
+  deleteDraft(id: string, expectedVersion: number): Promise<boolean>;
   findById(id: string): Promise<RoomRecord | undefined>;
   findVisibleById(id: string): Promise<VisibleRoomRecord | undefined>;
   listOwned(hostId: string): Promise<RoomRecord[]>;
+  findCurrent(hostId: string): Promise<RoomRecord | undefined>;
+  listHistory(input: {
+    cursor: RoomCursor | undefined;
+    from: Date | undefined;
+    hostId: string;
+    query: string | undefined;
+    take: number;
+    to: Date | undefined;
+  }): Promise<RoomRecord[]>;
   listVisible(input: {
     cursor: RoomCursor | undefined;
     query: string | undefined;
@@ -93,6 +104,20 @@ export class PrismaRoomsRepository implements RoomsRepository {
       }
 
       throw error;
+    }
+  }
+
+  public async deleteDraft(
+    id: string,
+    expectedVersion: number,
+  ): Promise<boolean> {
+    try {
+      const result = await this.database.client.room.deleteMany({
+        where: { id, status: 'DRAFT', version: expectedVersion },
+      });
+      return result.count === 1;
+    } catch (error) {
+      throwRoomDatabaseError(error);
     }
   }
 
@@ -156,6 +181,68 @@ export class PrismaRoomsRepository implements RoomsRepository {
     }
   }
 
+  public async findCurrent(hostId: string): Promise<RoomRecord | undefined> {
+    try {
+      const room = await this.database.client.room.findFirst({
+        include: { _count: { select: { likes: true } } },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        where: { hostId, status: 'LIVE' },
+      });
+      return room ? withLikeCount(room) : undefined;
+    } catch (error) {
+      throwRoomDatabaseError(error);
+    }
+  }
+
+  public async listHistory(input: {
+    cursor: RoomCursor | undefined;
+    from: Date | undefined;
+    hostId: string;
+    query: string | undefined;
+    take: number;
+    to: Date | undefined;
+  }): Promise<RoomRecord[]> {
+    try {
+      const query = input.query ? escapeLikePattern(input.query) : undefined;
+      const rooms = await this.database.client.room.findMany({
+        include: { _count: { select: { likes: true } } },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: input.take,
+        where: {
+          hostId: input.hostId,
+          status: 'ENDED',
+          ...(query ? { title: { contains: query, mode: 'insensitive' } } : {}),
+          ...(input.from || input.to
+            ? {
+                createdAt: {
+                  ...(input.from ? { gte: input.from } : {}),
+                  ...(input.to ? { lt: input.to } : {}),
+                },
+              }
+            : {}),
+          ...(input.cursor
+            ? {
+                AND: [
+                  {
+                    OR: [
+                      { createdAt: { lt: input.cursor.createdAt } },
+                      {
+                        createdAt: input.cursor.createdAt,
+                        id: { lt: input.cursor.id },
+                      },
+                    ],
+                  },
+                ],
+              }
+            : {}),
+        },
+      });
+      return rooms.map(withLikeCount);
+    } catch (error) {
+      throwRoomDatabaseError(error);
+    }
+  }
+
   public async findById(id: string): Promise<RoomRecord | undefined> {
     try {
       const room = await this.database.client.room.findUnique({
@@ -198,30 +285,57 @@ export class PrismaRoomsRepository implements RoomsRepository {
     id: string;
   }): Promise<RoomRecord | undefined> {
     try {
-      const room = await this.database.client.room.update({
-        data: {
-          ...(input.changes.coverImageUrl === undefined
-            ? {}
-            : { coverImageUrl: input.changes.coverImageUrl }),
-          ...(input.changes.description === undefined
-            ? {}
-            : { description: input.changes.description }),
-          ...(input.changes.status === undefined
-            ? {}
-            : { status: input.changes.status }),
-          ...(input.changes.title === undefined
-            ? {}
-            : { title: input.changes.title }),
-          version: { increment: 1 },
-        },
-        include: { _count: { select: { likes: true } } },
-        where: {
-          id: input.id,
-          version: input.expectedVersion,
-        },
-      });
+      const updateRoom = (client: Prisma.TransactionClient) =>
+        client.room.update({
+          data: {
+            ...(input.changes.coverImageUrl === undefined
+              ? {}
+              : { coverImageUrl: input.changes.coverImageUrl }),
+            ...(input.changes.description === undefined
+              ? {}
+              : { description: input.changes.description }),
+            ...(input.changes.status === undefined
+              ? {}
+              : { status: input.changes.status }),
+            ...(input.changes.title === undefined
+              ? {}
+              : { title: input.changes.title }),
+            version: { increment: 1 },
+          },
+          include: { _count: { select: { likes: true } } },
+          where: {
+            id: input.id,
+            version: input.expectedVersion,
+          },
+        });
 
-      return withLikeCount(room);
+      const room =
+        input.changes.status === 'LIVE'
+          ? await this.database.client.$transaction(async (client) => {
+              const current = await client.room.findUnique({
+                select: { hostId: true },
+                where: { id: input.id },
+              });
+              if (!current) {
+                return undefined;
+              }
+              await client.$queryRaw`SELECT id FROM users WHERE id = ${current.hostId}::uuid FOR UPDATE`;
+              const active = await client.room.findFirst({
+                select: { id: true },
+                where: {
+                  hostId: current.hostId,
+                  id: { not: input.id },
+                  status: 'LIVE',
+                },
+              });
+              if (active) {
+                throw new RoomAlreadyLiveError();
+              }
+              return updateRoom(client);
+            })
+          : await updateRoom(this.database.client);
+
+      return room ? withLikeCount(room) : undefined;
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
