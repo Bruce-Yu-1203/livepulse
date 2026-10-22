@@ -66,6 +66,13 @@ export const RegistrationCompleteResponseSchema = z
   })
   .strict();
 
+export type RegistrationStartResponse = z.infer<
+  typeof RegistrationStartResponseSchema
+>;
+export type RegistrationCompleteResponse = z.infer<
+  typeof RegistrationCompleteResponseSchema
+>;
+
 const PublicUserSchema = z
   .object({
     createdAt: z.iso.datetime(),

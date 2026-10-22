@@ -2,135 +2,286 @@ import 'reflect-metadata';
 
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import {
-  AuthProvidersResponseSchema,
-  RegisterResponseSchema,
-  SocialSignInResponseSchema,
+  CurrentUserResponseSchema,
+  LoginResponseSchema,
+  RegistrationCompleteResponseSchema,
+  RegistrationStartResponseSchema,
 } from '@livepulse/contracts';
 import { createDatabaseClient } from '@livepulse/db';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import { ScryptPasswordHasher } from '../src/auth/password-hasher.js';
 import { createApp } from '../src/create-app.js';
 import { sessionCookie } from './auth-test-helpers.js';
 
 const databaseUrl = process.env.DATABASE_URL;
-const originalGoogleClientId = process.env.GOOGLE_CLIENT_ID;
-const originalGoogleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+const originalKey = process.env.RESEND_API_KEY;
+const originalFrom = process.env.RESEND_FROM_EMAIL;
 
-if (!databaseUrl) {
-  throw new Error('DATABASE_URL is required for registration database tests');
-}
-
+if (!databaseUrl)
+  throw new Error('DATABASE_URL is required for registration tests');
 const database = createDatabaseClient(databaseUrl);
 
-describe('POST /api/v1/auth/sign-up/email', () => {
+describe('verified email registration', () => {
   let app: NestFastifyApplication;
+  const sentCodes: string[] = [];
 
   beforeAll(async () => {
-    process.env.GOOGLE_CLIENT_ID = 'test-google-client-id';
-    process.env.GOOGLE_CLIENT_SECRET = 'test-google-client-secret';
+    process.env.RESEND_API_KEY = 're_integration_test';
+    process.env.RESEND_FROM_EMAIL = 'LivePulse <verify@example.com>';
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      if (String(input) !== 'https://api.resend.com/emails') {
+        throw new Error(`Unexpected fetch: ${String(input)}`);
+      }
+      const body = JSON.parse(String(init?.body)) as { text: string };
+      const code = body.text.match(/\b\d{6}\b/)?.[0];
+      if (!code) throw new Error('Verification email had no code');
+      sentCodes.push(code);
+      return new Response(JSON.stringify({ id: 'test-email' }), {
+        status: 200,
+      });
+    });
     app = await createApp({ logger: false });
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
   });
 
   beforeEach(async () => {
+    sentCodes.length = 0;
     await database.session.deleteMany();
+    await database.registrationChallenge.deleteMany();
     await database.user.deleteMany();
   });
 
   afterAll(async () => {
     await app.close();
     await database.$disconnect();
-    restoreEnvironment('GOOGLE_CLIENT_ID', originalGoogleClientId);
-    restoreEnvironment('GOOGLE_CLIENT_SECRET', originalGoogleClientSecret);
+    vi.restoreAllMocks();
+    if (originalKey === undefined) delete process.env.RESEND_API_KEY;
+    else process.env.RESEND_API_KEY = originalKey;
+    if (originalFrom === undefined) delete process.env.RESEND_FROM_EMAIL;
+    else process.env.RESEND_FROM_EMAIL = originalFrom;
   });
 
-  it('advertises Google and starts an OAuth authorization flow', async () => {
-    const providersResponse = await app
-      .getHttpAdapter()
-      .getInstance()
-      .inject({ method: 'GET', url: '/api/v1/auth/providers' });
-
-    expect(providersResponse.statusCode).toBe(200);
-    expect(AuthProvidersResponseSchema.parse(providersResponse.json())).toEqual(
-      { providers: ['google'] },
-    );
-
-    const signInResponse = await app
-      .getHttpAdapter()
-      .getInstance()
-      .inject({
-        headers: { origin: 'http://localhost:3000' },
-        method: 'POST',
-        payload: {
-          callbackURL: 'http://localhost:3000',
-          disableRedirect: true,
-          errorCallbackURL: 'http://localhost:3000/auth',
-          provider: 'google',
-        },
-        url: '/api/v1/auth/sign-in/social',
-      });
-
-    expect(signInResponse.statusCode).toBe(200);
-    const signIn = SocialSignInResponseSchema.parse(signInResponse.json());
-    const authorizationUrl = new URL(signIn.url);
-    expect(signIn.redirect).toBe(false);
-    expect(authorizationUrl.hostname).toBe('accounts.google.com');
-    expect(authorizationUrl.searchParams.get('client_id')).toBe(
-      'test-google-client-id',
-    );
-    expect(authorizationUrl.searchParams.get('redirect_uri')).toBe(
-      'http://localhost:3001/api/v1/auth/callback/google',
-    );
-    const setCookie = signInResponse.headers['set-cookie'];
-    expect(
-      Array.isArray(setCookie) ? setCookie.join('; ') : setCookie,
-    ).toContain('SameSite=Lax');
-  });
-
-  it('creates a signed-in viewer and credential account', async () => {
-    const password = 'correct horse battery staple';
-    const response = await register({
-      email: 'viewer@example.com',
-      name: 'Viewer',
+  it('creates a verified user only after the code, then supports auto sign-in', async () => {
+    const password = 'securepass123';
+    const start = await post('/api/v1/auth/registration/start', {
+      email: 'Viewer@Example.com',
+      username: 'Viewer_123',
       password,
-      role: 'ADMIN',
     });
+    expect(start.statusCode).toBe(201);
+    expect(RegistrationStartResponseSchema.parse(start.json())).toMatchObject({
+      expiresInSeconds: 600,
+      resendAfterSeconds: 60,
+    });
+    expect(start.headers['set-cookie']).toBeUndefined();
+    await expect(database.user.count()).resolves.toBe(0);
+    expect(sentCodes).toHaveLength(1);
 
-    expect(response.statusCode).toBe(200);
-    const body = RegisterResponseSchema.parse(response.json());
-    expect(body.user).toMatchObject({
+    const complete = await post('/api/v1/auth/registration/complete', {
       email: 'viewer@example.com',
-      name: 'Viewer',
-      role: 'VIEWER',
+      code: sentCodes[0],
     });
-    expect(sessionCookie(response)).toContain('HttpOnly');
-
+    expect(complete.statusCode).toBe(201);
+    const { userId } = RegistrationCompleteResponseSchema.parse(
+      complete.json(),
+    );
+    expect(
+      await database.user.findUniqueOrThrow({ where: { id: userId } }),
+    ).toMatchObject({
+      email: 'viewer@example.com',
+      emailVerified: true,
+      name: 'viewer_123',
+      role: 'VIEWER',
+      username: 'viewer_123',
+    });
     const account = await database.account.findFirstOrThrow({
-      where: { userId: body.user.id },
+      where: { userId },
     });
     expect(account.providerId).toBe('credential');
-    expect(account.password).not.toBe(password);
     await expect(
       new ScryptPasswordHasher().verify(password, account.password ?? ''),
     ).resolves.toBe(true);
-    await expect(database.session.count()).resolves.toBe(1);
+    await expect(database.registrationChallenge.count()).resolves.toBe(0);
+
+    const login = await post('/api/v1/auth/sign-in/email', {
+      email: 'viewer@example.com',
+      password,
+    });
+    expect(login.statusCode).toBe(200);
+    expect(LoginResponseSchema.parse(login.json()).user.id).toBe(userId);
+    const cookie = sessionCookie(login);
+    expect(cookie).toContain('HttpOnly');
+    const me = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: { cookie: cookie.split(';')[0] },
+        method: 'GET',
+        url: '/api/v1/auth/me',
+      });
+    expect(CurrentUserResponseSchema.parse(me.json()).user.username).toBe(
+      'viewer_123',
+    );
   });
 
-  it('rejects invalid input without creating a user', async () => {
-    const response = await register({
-      email: 'not-an-email',
-      name: '',
-      password: 'short',
+  it('rejects invalid fields and duplicate usernames', async () => {
+    for (const input of [
+      { email: 'invalid', username: 'viewer_one', password: 'securepass123' },
+      { email: 'one@example.com', username: 'four', password: 'securepass123' },
+      {
+        email: 'one@example.com',
+        username: 'viewer_one',
+        password: 'abcdefgh',
+      },
+      {
+        email: 'one@example.com',
+        username: 'viewer_one',
+        password: '12345678',
+      },
+    ]) {
+      expect(
+        (await post('/api/v1/auth/registration/start', input)).statusCode,
+      ).toBe(400);
+    }
+    await post('/api/v1/auth/registration/start', {
+      email: 'one@example.com',
+      username: 'Viewer_One',
+      password: 'securepass123',
     });
+    await post('/api/v1/auth/registration/complete', {
+      email: 'one@example.com',
+      code: sentCodes[0],
+    });
+    const duplicate = await post('/api/v1/auth/registration/start', {
+      email: 'two@example.com',
+      username: 'viewer_ONE',
+      password: 'securepass123',
+    });
+    expect(duplicate.statusCode).toBe(409);
+    expect(duplicate.json()).toMatchObject({
+      code: 'AUTH_USERNAME_ALREADY_REGISTERED',
+    });
+  });
 
-    expect(response.statusCode).toBe(400);
+  it('limits resend to one per email per 60 seconds and rejects repeated wrong codes', async () => {
+    const input = {
+      email: 'viewer@example.com',
+      username: 'viewer_one',
+      password: 'securepass123',
+    };
+    expect(
+      (await post('/api/v1/auth/registration/start', input)).statusCode,
+    ).toBe(201);
+    const retry = await post('/api/v1/auth/registration/start', input);
+    expect(retry.statusCode).toBe(429);
+    expect(retry.json()).toMatchObject({
+      code: 'AUTH_REGISTRATION_RATE_LIMITED',
+      retryAfterMs: 60_000,
+    });
+    expect(sentCodes).toHaveLength(1);
+    const originalCode = sentCodes[0];
+    await database.registrationChallenge.update({
+      where: { email: input.email },
+      data: { lastSentAt: new Date(Date.now() - 61_000) },
+    });
+    expect(
+      (await post('/api/v1/auth/registration/start', input)).statusCode,
+    ).toBe(201);
+    expect(sentCodes).toHaveLength(2);
+    if (originalCode !== sentCodes[1]) {
+      expect(
+        (
+          await post('/api/v1/auth/registration/complete', {
+            email: input.email,
+            code: originalCode,
+          })
+        ).statusCode,
+      ).toBe(400);
+    }
+    const wrongCode = sentCodes[1] === '999999' ? '888888' : '999999';
+    for (
+      let attempt = 0;
+      attempt < (originalCode === sentCodes[1] ? 5 : 4);
+      attempt += 1
+    ) {
+      expect(
+        (
+          await post('/api/v1/auth/registration/complete', {
+            email: input.email,
+            code: wrongCode,
+          })
+        ).statusCode,
+      ).toBe(400);
+    }
+    expect(
+      (
+        await post('/api/v1/auth/registration/complete', {
+          email: input.email,
+          code: sentCodes[1],
+        })
+      ).statusCode,
+    ).toBe(400);
     await expect(database.user.count()).resolves.toBe(0);
   });
 
-  it('rejects an untrusted origin', async () => {
-    const response = await app
+  it('keeps the username unique when two pending accounts choose it', async () => {
+    const password = 'securepass123';
+    expect(
+      (
+        await post('/api/v1/auth/registration/start', {
+          email: 'one@example.com',
+          username: 'shared_name',
+          password,
+        })
+      ).statusCode,
+    ).toBe(201);
+    expect(
+      (
+        await post('/api/v1/auth/registration/start', {
+          email: 'two@example.com',
+          username: 'shared_name',
+          password,
+        })
+      ).statusCode,
+    ).toBe(201);
+
+    const first = await post('/api/v1/auth/registration/complete', {
+      email: 'one@example.com',
+      code: sentCodes[0],
+    });
+    const second = await post('/api/v1/auth/registration/complete', {
+      email: 'two@example.com',
+      code: sentCodes[1],
+    });
+    expect(first.statusCode).toBe(201);
+    expect(second.statusCode).toBe(409);
+    expect(second.json()).toMatchObject({
+      code: 'AUTH_USERNAME_ALREADY_REGISTERED',
+    });
+    await expect(database.user.count()).resolves.toBe(1);
+  });
+
+  it('blocks the old direct sign-up path and foreign origins', async () => {
+    expect(
+      (
+        await post('/api/v1/auth/sign-up/email', {
+          email: 'viewer@example.com',
+          name: 'Viewer',
+          password: 'securepass123',
+        })
+      ).statusCode,
+    ).toBe(400);
+    const foreign = await app
       .getHttpAdapter()
       .getInstance()
       .inject({
@@ -138,33 +289,24 @@ describe('POST /api/v1/auth/sign-up/email', () => {
         method: 'POST',
         payload: {
           email: 'viewer@example.com',
-          name: 'Viewer',
-          password: 'correct horse battery staple',
+          username: 'viewer_one',
+          password: 'securepass123',
         },
-        url: '/api/v1/auth/sign-up/email',
+        url: '/api/v1/auth/registration/start',
       });
-
-    expect(response.statusCode).toBe(403);
+    expect(foreign.statusCode).toBe(403);
     await expect(database.user.count()).resolves.toBe(0);
   });
 
-  function register(body: Record<string, unknown>) {
+  function post(url: string, payload: Record<string, unknown>) {
     return app
       .getHttpAdapter()
       .getInstance()
       .inject({
         headers: { origin: 'http://localhost:3000' },
         method: 'POST',
-        payload: body,
-        url: '/api/v1/auth/sign-up/email',
+        payload,
+        url,
       });
   }
 });
-
-function restoreEnvironment(name: string, value: string | undefined): void {
-  if (value === undefined) {
-    delete process.env[name];
-  } else {
-    process.env[name] = value;
-  }
-}

@@ -52,6 +52,8 @@ export type {
   LoginResponse,
   RegisterRequest,
   RegisterResponse,
+  RegistrationCompleteResponse,
+  RegistrationStartResponse,
   SocialSignInResponse,
 } from './auth.js';
 

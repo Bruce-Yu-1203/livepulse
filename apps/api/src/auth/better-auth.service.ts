@@ -23,6 +23,7 @@ export class BetterAuthService {
   public readonly auth: LivePulseAuth;
   public readonly apiOrigin: string;
   public readonly enabledSocialProviders: readonly EnabledSocialProvider[];
+  public readonly registrationSecret: string;
   public readonly trustedWebOrigin: string;
 
   public constructor(database: DatabaseService) {
@@ -37,6 +38,7 @@ export class BetterAuthService {
     });
 
     this.apiOrigin = config.apiOrigin;
+    this.registrationSecret = config.authSecret;
     this.enabledSocialProviders = config.google ? ['google'] : [];
     this.trustedWebOrigin = config.webOrigin;
     this.auth = createLivePulseAuth(database.client, config);
@@ -113,8 +115,9 @@ function createLivePulseAuth(
     }),
     emailAndPassword: {
       enabled: true,
+      disableSignUp: true,
       maxPasswordLength: 128,
-      minPasswordLength: 12,
+      minPasswordLength: 8,
       password: {
         hash: (password) => passwordHasher.hash(password),
         verify: ({ hash, password }) => passwordHasher.verify(password, hash),

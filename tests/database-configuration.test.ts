@@ -22,6 +22,8 @@ describe('database configuration', () => {
     expect(example).toContain('AUTH_COOKIE_DOMAIN=');
     expect(example).toContain('GOOGLE_CLIENT_ID=');
     expect(example).toContain('GOOGLE_CLIENT_SECRET=');
+    expect(example).toContain('RESEND_API_KEY=');
+    expect(example).toContain('RESEND_FROM_EMAIL=');
     expect(example).toContain('LIVEKIT_URL=wss://');
     expect(example).toContain('LIVEKIT_API_KEY=');
     expect(example).toContain('LIVEKIT_API_SECRET=');
@@ -35,6 +37,8 @@ describe('database configuration', () => {
     expect(compose).toContain(
       'GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}',
     );
+    expect(compose).toContain('RESEND_API_KEY: ${RESEND_API_KEY:-}');
+    expect(compose).toContain('RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-}');
     expect(compose).toContain('LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-}');
     expect(compose).toContain('LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}');
     expect(compose).toContain('LIVEKIT_URL: ${LIVEKIT_URL:-}');

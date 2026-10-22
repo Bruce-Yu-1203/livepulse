@@ -42,6 +42,7 @@ export class AuthController {
         email: true,
         id: true,
         role: true,
+        username: true,
       },
       where: { id: request.auth.userId },
     });
