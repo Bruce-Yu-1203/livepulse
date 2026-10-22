@@ -28,6 +28,7 @@ describe('HomeAccountAction', () => {
         email: 'host@example.com',
         id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
         role: 'HOST',
+        username: 'host_live',
       },
     });
 

@@ -13,8 +13,7 @@ describe('AuthPanel', () => {
     );
     expect(markup).toContain('or use email');
     expect(markup).toContain('current-password');
-    expect(markup).toContain('for="auth-password"');
-    expect(markup).toContain('id="auth-password"');
+    expect(markup).toMatch(/for="_R_[^"]+"/);
     expect(markup).toContain('Show password');
   });
 
@@ -22,7 +21,9 @@ describe('AuthPanel', () => {
     const markup = renderToStaticMarkup(<AuthPanel initialMode="register" />);
 
     expect(markup).toContain('Come join the conversation.');
-    expect(markup).toContain('autoComplete="new-password"');
+    expect(markup).toContain('Start with the email address');
+    expect(markup).not.toContain('new-password');
+    expect(markup).toContain('Continue');
     expect(markup).toContain('data-active="true"');
   });
 

@@ -21,7 +21,7 @@ test('viewer, host, and administrator complete the core live-room flow', async (
     await signIn(hostPage, 'host@livepulse.local', demoPassword);
     await createLiveRoom(hostPage, roomTitle);
 
-    await registerAndSignInViewer(viewerPage, suffix);
+    await signInViewer(viewerPage);
     await viewerPage.goto('/');
     await viewerPage.getByRole('link', { name: `Open ${roomTitle}` }).click();
     await expect(viewerPage).toHaveURL(/\/rooms\/[0-9a-f-]+$/);
@@ -237,18 +237,13 @@ async function createLiveRoom(page: Page, roomTitle: string): Promise<void> {
   ).toBeVisible();
 }
 
-async function registerAndSignInViewer(
-  page: Page,
-  suffix: string,
-): Promise<void> {
-  const email = `viewer-${suffix}@example.com`;
-  const password = `Viewer-${randomUUID()}!`;
+async function signInViewer(page: Page): Promise<void> {
+  const email = 'viewer@livepulse.local';
   await page.goto('/auth');
-  await page.getByRole('button', { name: 'Create account' }).click();
   const form = page.locator('form');
   await form.getByLabel('Email').fill(email);
-  await form.getByLabel('Password', { exact: true }).fill(password);
-  await form.getByRole('button', { name: 'Create account' }).click();
+  await form.getByLabel('Password', { exact: true }).fill(demoPassword);
+  await form.getByRole('button', { name: 'Sign in' }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(
     page.getByRole('button', { name: `Account menu for ${email}` }),

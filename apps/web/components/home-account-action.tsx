@@ -34,7 +34,8 @@ export function HomeAccountAction() {
   if (session.user.role === 'VIEWER' || session.user.role === 'GUEST') {
     return (
       <a className={actionClassName} href="#rooms">
-        Browse as {displayNameFromEmail(session.user.email)}
+        Browse as{' '}
+        {session.user.username ?? displayNameFromEmail(session.user.email)}
       </a>
     );
   }

@@ -107,6 +107,25 @@ Open [http://localhost:3000](http://localhost:3000). The seeded users are:
 
 All three accounts use the `DEMO_PASSWORD` value supplied during seeding. These are local demonstration identities, not production credentials.
 
+### Enable email registration
+
+Create a Resend API key and verify the sender domain, then set these server-only
+values before starting the API:
+
+```bash
+export RESEND_API_KEY='your-resend-api-key'
+export RESEND_FROM_EMAIL='LivePulse <verify@your-verified-domain.example>'
+```
+
+Registration asks for an email, then a unique username and password, then a
+six-digit email code. Usernames use 5–30 lowercase letters, numbers, or
+underscores and start with a letter. Passwords require at least eight characters
+with letters and numbers. Codes expire after ten minutes and can be resent once
+every 60 seconds. Verification creates the account and signs the user in. The
+seeded demo accounts can still sign in without Resend; new email registration
+requires both Resend values. Add the same variables to the Railway API service
+for production registration.
+
 ### Enable Google sign-in
 
 Create an OAuth 2.0 **Web application** client in Google Cloud, configure its

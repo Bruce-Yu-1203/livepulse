@@ -12,6 +12,7 @@ const adminSession: AuthSessionSnapshot = {
     email: 'bruce.yu@example.com',
     id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     role: 'ADMIN',
+    username: null,
   },
 };
 
@@ -47,5 +48,13 @@ describe('AuthNavigation', () => {
     expect(renderNavigation({ status: 'loading' })).toContain(
       'Checking your session',
     );
+  });
+
+  it('shows a registered username in the account trigger', () => {
+    const markup = renderNavigation({
+      status: 'authenticated',
+      user: { ...adminSession.user, username: 'bruce_live' },
+    });
+    expect(markup).toContain('bruce_live');
   });
 });

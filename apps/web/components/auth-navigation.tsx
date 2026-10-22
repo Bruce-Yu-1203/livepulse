@@ -52,7 +52,8 @@ export function AuthNavigation() {
     );
   }
 
-  const displayName = displayNameFromEmail(session.user.email);
+  const displayName =
+    session.user.username ?? displayNameFromEmail(session.user.email);
 
   return (
     <div className="account-control" ref={menuRef}>
@@ -67,7 +68,8 @@ export function AuthNavigation() {
         type="button"
       >
         <span aria-hidden="true" className="account-avatar">
-          {accountInitial(session.user.email)}
+          {displayName.charAt(0).toUpperCase() ||
+            accountInitial(session.user.email)}
         </span>
         <span className="account-trigger-name">{displayName}</span>
         <span aria-hidden="true" className="account-chevron">
@@ -82,7 +84,8 @@ export function AuthNavigation() {
               aria-hidden="true"
               className="account-avatar account-avatar-large"
             >
-              {accountInitial(session.user.email)}
+              {displayName.charAt(0).toUpperCase() ||
+                accountInitial(session.user.email)}
             </span>
             <div>
               <strong>{displayName}</strong>

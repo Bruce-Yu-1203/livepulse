@@ -14,6 +14,7 @@ const sessionUser = {
   email: viewer.email,
   id: viewer.id,
   role: viewer.role,
+  username: null,
 };
 
 test('sign-in and registration open over the current page', async ({
@@ -48,6 +49,7 @@ test('sign-in and registration open over the current page', async ({
   });
   await expect(dialog).toBeVisible();
   await expect(page).toHaveURL('/');
+  await expect(dialog).toHaveCSS('overflow-y', 'hidden');
 
   await dialog.getByRole('button', { name: 'Create account' }).first().click();
   await expect(
@@ -78,6 +80,149 @@ test('sign-in and registration open over the current page', async ({
     0,
   );
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+});
+
+test('registration validates fields, verifies email, and signs in', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 667 });
+  let signedIn = false;
+  let startCount = 0;
+  let completeCount = 0;
+  await page.route('**/api/v1/auth/me', (route) =>
+    route.fulfill({
+      status: signedIn ? 200 : 401,
+      json: signedIn
+        ? {
+            requestId: 'auth-check',
+            user: {
+              ...sessionUser,
+              email: 'new@example.com',
+              username: 'newviewer',
+            },
+          }
+        : { message: 'Sign in required' },
+    }),
+  );
+  await page.route('**/api/v1/auth/providers', (route) =>
+    route.fulfill({ json: { providers: [] } }),
+  );
+  await page.route('**/api/v1/auth/registration/start', (route) => {
+    startCount += 1;
+    if (startCount === 1) {
+      return route.fulfill({
+        status: 409,
+        json: {
+          code: 'AUTH_USERNAME_ALREADY_REGISTERED',
+          message: 'This username is already taken.',
+          requestId: 'duplicate-username',
+        },
+      });
+    }
+    return route.fulfill({
+      json: {
+        expiresInSeconds: 600,
+        resendAfterSeconds: 60,
+        requestId: 'code-sent',
+      },
+    });
+  });
+  await page.route('**/api/v1/auth/registration/complete', (route) => {
+    completeCount += 1;
+    if (completeCount === 1) {
+      return route.fulfill({
+        status: 400,
+        json: {
+          code: 'AUTH_REGISTRATION_CODE_INVALID',
+          message: 'Invalid code.',
+          requestId: 'invalid-code',
+        },
+      });
+    }
+    return route.fulfill({
+      json: {
+        requestId: 'registration-complete',
+        userId: viewer.id,
+      },
+    });
+  });
+  await page.route('**/api/v1/auth/sign-in/email', (route) => {
+    signedIn = true;
+    return route.fulfill({
+      json: {
+        redirect: false,
+        token: 'test-token',
+        user: { ...viewer, email: 'new@example.com' },
+      },
+    });
+  });
+
+  await page.goto('/');
+  await page.getByRole('link', { name: 'Join LivePulse' }).click();
+  const dialog = page.getByRole('dialog', {
+    name: 'Sign in or create an account',
+  });
+  await expect(dialog).toHaveCSS('overflow-y', 'hidden');
+  await dialog.getByLabel('Email').fill('invalid-email');
+  await dialog.getByRole('button', { name: 'Continue' }).click();
+  await expect(dialog.getByText('Enter a valid email address.')).toBeVisible();
+  await dialog.getByLabel('Email').fill('new@example.com');
+  await dialog.getByRole('button', { name: 'Continue' }).click();
+  await expect(
+    dialog.getByRole('button', { name: 'Send verification code' }),
+  ).toBeInViewport();
+
+  await dialog.getByLabel('Username').fill('abcd');
+  await dialog.getByLabel('Password', { exact: true }).fill('letters');
+  await dialog.getByRole('button', { name: 'Send verification code' }).click();
+  await expect(dialog.getByText(/Use 5–30 letters/)).toBeVisible();
+  await expect(
+    dialog.getByText(/at least 8 characters with both letters and numbers/),
+  ).toBeVisible();
+  await dialog.getByLabel('Username').fill('takenuser');
+  await dialog.getByLabel('Password', { exact: true }).fill('Letters123');
+  await dialog.getByRole('button', { name: 'Show password' }).click();
+  await expect(dialog.getByLabel('Password', { exact: true })).toHaveAttribute(
+    'type',
+    'text',
+  );
+  await dialog.getByRole('button', { name: 'Send verification code' }).click();
+  await expect(
+    dialog.getByText('This username is already taken. Choose another.'),
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole('button', { name: 'Send verification code' }),
+  ).toBeEnabled();
+  await dialog.getByLabel('Username').fill('newviewer');
+  await dialog.getByRole('button', { name: 'Send verification code' }).click();
+  await expect(dialog.getByLabel('Email verification code')).toBeVisible();
+  await expect(
+    dialog.getByRole('button', { name: 'Verify and create account' }),
+  ).toBeInViewport();
+  await expect(
+    dialog.getByRole('button', { name: /Resend code in 60s/ }),
+  ).toBeDisabled();
+  await dialog.getByLabel('Email verification code').fill('111111');
+  await dialog
+    .getByRole('button', { name: 'Verify and create account' })
+    .click();
+  await expect(
+    dialog.getByText(/That code is incorrect or expired/),
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole('button', { name: 'Verify and create account' }),
+  ).toBeEnabled();
+  await dialog.getByLabel('Email verification code').fill('123456');
+  await dialog
+    .getByRole('button', { name: 'Verify and create account' })
+    .click();
+
+  await expect(dialog).toBeHidden();
+  await expect(
+    page.getByRole('button', { name: 'Account menu for new@example.com' }),
+  ).toBeVisible();
+  expect(startCount).toBe(2);
+  expect(completeCount).toBe(2);
 });
 
 test('account menu shows role links and closes with Escape', async ({

@@ -244,10 +244,10 @@ textarea:focus-visible {
 
 .auth-modal {
   width: min(32rem, calc(100vw - 2rem));
-  max-height: min(90vh, 48rem);
+  max-height: calc(100dvh - 2rem);
   margin: auto;
   padding: 0;
-  overflow: auto;
+  overflow: hidden;
   border: 0;
   border-radius: 1rem;
   background: transparent;
@@ -274,8 +274,8 @@ body:has(.auth-modal[open]) {
   top: 0.85rem;
   right: 1rem;
   display: grid;
-  width: 2rem;
-  height: 2rem;
+  width: 2.5rem;
+  height: 2.5rem;
   place-items: center;
   border-radius: 0.4rem;
   color: #514555;
@@ -367,6 +367,57 @@ body:has(.auth-modal[open]) {
 
 .auth-modal .auth-submit:hover:enabled {
   background: #ff7184;
+}
+
+.auth-email-summary,
+.auth-verification-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.8rem;
+  color: #aeb2bb;
+}
+
+.auth-email-summary button,
+.auth-verification-actions button {
+  flex: none;
+  color: #ff7184;
+  font-weight: 700;
+}
+
+.auth-verification-actions button:disabled {
+  color: #777981;
+  cursor: not-allowed;
+}
+
+.auth-modal .auth-email-summary,
+.auth-modal .auth-verification-actions {
+  color: #635668;
+}
+
+.auth-modal .auth-field-error,
+.auth-modal .auth-error {
+  color: #a72740;
+}
+
+@media (max-height: 680px) {
+  .auth-modal .auth-panel {
+    padding-block: 2.75rem 1rem;
+  }
+
+  .auth-modal .auth-heading {
+    margin-top: 1rem;
+  }
+
+  .auth-modal .auth-title {
+    margin-top: 0.4rem;
+    font-size: 1.5rem;
+  }
+
+  .auth-modal .auth-description {
+    margin-top: 0.4rem;
+  }
 }
 
 .home-page {
