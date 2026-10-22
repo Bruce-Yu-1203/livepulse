@@ -6,24 +6,26 @@ import {
 } from '@livepulse/contracts';
 import { AuthEntryLink } from './auth-dialog-provider';
 import type { FormEvent } from 'react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { clientApiRequest } from '../lib/client-api';
-import {
-  danmakuDensities,
-  danmakuLayout,
-  type DanmakuDensity,
-} from '../lib/danmaku';
+import { danmakuLayout, type DanmakuDensity } from '../lib/danmaku';
 import {
   type ChatMessage,
   roomChatIsClosed,
   roomPresenceLabel,
 } from '../lib/room-chat';
+import {
+  CHAT_COLLAPSED_KEY,
+  clampVolume,
+  effectiveVolume,
+} from '../lib/player-controls';
 import { canModerateRoom } from '../lib/room-moderation';
 import { useRoomChat } from '../lib/use-room-chat';
 import { MessageReportForm } from './message-report-form';
 import { RoomLikeButton } from './room-like-button';
 import { LiveBroadcastPlayer } from './live-broadcast-player';
+import { PlaybackControls, StageIcon, ViewingControls } from './stage-controls';
 
 export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
   const chat = useRoomChat(room.id, room.status);
@@ -33,6 +35,49 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
   const [mutedUserIds, setMutedUserIds] = useState<Set<string>>(new Set());
   const [mutingUserId, setMutingUserId] = useState<string>();
   const [moderationError, setModerationError] = useState<string>();
+  const [paused, setPaused] = useState(false);
+  const [volume, setVolume] = useState(1);
+  const [muted, setMuted] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [chatCollapsed, setChatCollapsed] = useState(false);
+  const stageRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try {
+      setChatCollapsed(localStorage.getItem(CHAT_COLLAPSED_KEY) === 'true');
+    } catch {
+      // Storage unavailable: keep the chat open.
+    }
+
+    const syncFullscreen = () =>
+      setFullscreen(document.fullscreenElement === stageRef.current);
+    document.addEventListener('fullscreenchange', syncFullscreen);
+    return () =>
+      document.removeEventListener('fullscreenchange', syncFullscreen);
+  }, []);
+
+  function setChatOpen(open: boolean) {
+    setChatCollapsed(!open);
+    try {
+      localStorage.setItem(CHAT_COLLAPSED_KEY, String(!open));
+    } catch {
+      // The chat still toggles for this visit.
+    }
+  }
+
+  function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      void document.exitFullscreen();
+    } else {
+      void stageRef.current?.requestFullscreen().catch(() => undefined);
+    }
+  }
+
+  function refreshLive() {
+    setPaused(false);
+    setReloadKey((key) => key + 1);
+  }
   const canModerate = canModerateRoom(
     chat.userRole,
     chat.userId,
@@ -73,12 +118,22 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
   }
 
   return (
-    <div className="mt-7 grid overflow-hidden rounded-[2rem] border border-fg/10 bg-surface shadow-2xl shadow-black/20 lg:grid-cols-[minmax(0,1fr)_23rem]">
-      <div className="relative isolate overflow-hidden bg-stage">
+    <div
+      className={`mt-7 grid overflow-hidden rounded-[2rem] border border-fg/10 bg-surface shadow-2xl shadow-black/20 ${
+        chatCollapsed ? '' : 'lg:grid-cols-[minmax(0,1fr)_23rem]'
+      }`}
+    >
+      <div
+        className="room-stage relative isolate overflow-hidden bg-stage"
+        ref={stageRef}
+      >
         {room.status === 'LIVE' ? (
           <LiveBroadcastPlayer
             coverImageUrl={room.coverImageUrl}
+            paused={paused}
+            reloadKey={reloadKey}
             roomId={room.id}
+            volume={effectiveVolume(volume, muted, paused)}
           />
         ) : (
           <div className="relative aspect-video min-h-64 overflow-hidden bg-stage">
@@ -104,7 +159,7 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
         {danmakuVisible ? (
           <DanmakuLayer density={danmakuDensity} messages={chat.messages} />
         ) : null}
-        <div className="absolute bottom-4 left-4 z-20">
+        <div className="stage-overlay absolute left-4 top-14 z-20">
           <RoomLikeButton
             authChecked={chat.authChecked}
             initialLikeCount={room.likeCount}
@@ -112,41 +167,67 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
             userId={chat.userId}
           />
         </div>
-        <div className="absolute right-4 top-4 z-20 flex items-center gap-2">
-          <label className="rounded-full border border-white/15 bg-black/65 px-3 py-2 text-xs font-semibold text-white backdrop-blur">
-            <span className="sr-only">Danmaku density</span>
-            <select
-              aria-label="Danmaku density"
-              className="bg-transparent capitalize outline-none disabled:opacity-50"
-              disabled={!danmakuVisible}
-              onChange={(event) =>
-                setDanmakuDensity(event.currentTarget.value as DanmakuDensity)
-              }
-              value={danmakuDensity}
-            >
-              {danmakuDensities.map((density) => (
-                <option
-                  className="bg-surface text-fg"
-                  key={density}
-                  value={density}
-                >
-                  {density} density
-                </option>
-              ))}
-            </select>
-          </label>
+        {chatCollapsed ? (
           <button
-            aria-pressed={danmakuVisible}
-            className="rounded-full border border-white/15 bg-black/65 px-3 py-2 text-xs font-semibold text-white backdrop-blur transition hover:bg-black/80"
-            onClick={() => setDanmakuVisible((visible) => !visible)}
+            aria-label="Expand chat"
+            className="stage-overlay stage-button stage-chat-expand"
+            onClick={() => setChatOpen(true)}
+            title="Expand chat"
             type="button"
           >
-            Danmaku {danmakuVisible ? 'on' : 'off'}
+            <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
+              <path
+                d="M20 4v16M15 12H4m4-4-4 4 4 4"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+              />
+            </svg>
           </button>
+        ) : null}
+        <div className="stage-overlay stage-controls">
+          {room.status === 'LIVE' ? (
+            <PlaybackControls
+              muted={muted}
+              onRefresh={refreshLive}
+              onToggleMute={() => setMuted((value) => !value)}
+              onTogglePause={() => setPaused((value) => !value)}
+              onVolume={(value) => {
+                setVolume(clampVolume(value));
+                setMuted(value === 0);
+              }}
+              paused={paused}
+              volume={volume}
+            />
+          ) : (
+            <span />
+          )}
+          <ViewingControls
+            danmakuDensity={danmakuDensity}
+            danmakuVisible={danmakuVisible}
+            fullscreen={fullscreen}
+            onDanmakuDensity={setDanmakuDensity}
+            onToggleDanmaku={() => setDanmakuVisible((visible) => !visible)}
+            onToggleFullscreen={toggleFullscreen}
+          />
         </div>
+        {paused ? (
+          <button
+            aria-label="Resume"
+            className="stage-paused"
+            onClick={() => setPaused(false)}
+            type="button"
+          >
+            <StageIcon name="play" />
+          </button>
+        ) : null}
       </div>
 
-      <aside className="flex min-h-[30rem] flex-col border-t border-fg/10 bg-surface lg:border-l lg:border-t-0">
+      <aside
+        className="flex min-h-[30rem] flex-col border-t border-fg/10 bg-surface lg:border-l lg:border-t-0"
+        hidden={chatCollapsed}
+      >
         <div className="flex items-center justify-between border-b border-fg/8 px-5 py-4">
           <div>
             <p className="text-sm font-semibold text-fg">Live chat</p>
@@ -160,7 +241,7 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
                 : ''}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <button
               className="rounded-full border border-fg/10 px-2.5 py-1 text-[0.65rem] font-semibold text-muted transition hover:border-accent/40 hover:text-accent disabled:cursor-wait disabled:opacity-50"
               disabled={chat.historyLoading}
@@ -173,12 +254,34 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
               aria-label={connectionLabel(chat.connection)}
               className={`h-2.5 w-2.5 rounded-full ${connectionColor(chat.connection)}`}
             />
+            <button
+              aria-label="Collapse chat"
+              className="grid h-8 w-8 place-items-center rounded-lg text-muted transition hover:bg-raised hover:text-fg"
+              onClick={() => setChatOpen(false)}
+              title="Collapse chat"
+              type="button"
+            >
+              <svg
+                aria-hidden="true"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  d="M20 4v16M4 12h11m-4-4 4 4-4 4"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                />
+              </svg>
+            </button>
           </div>
         </div>
 
         <div
           aria-live="polite"
-          className="flex-1 space-y-4 overflow-y-auto px-5 py-5 lg:max-h-[31rem]"
+          className="flex-1 space-y-1 overflow-y-auto px-3 py-4 lg:max-h-[31rem]"
         >
           {chat.canLoadEarlier ? (
             <button
@@ -280,7 +383,9 @@ function ChatMessageRow({
   roomId: string;
 }) {
   return (
-    <div className={message.status === 'failed' ? 'opacity-50' : undefined}>
+    <div
+      className={`chat-message ${message.status === 'failed' ? 'opacity-50' : ''}`}
+    >
       <div className="flex items-center gap-2 text-xs">
         <span className="font-bold text-accent">
           {message.authorId === currentUserId

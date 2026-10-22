@@ -82,8 +82,20 @@ describe('design tokens', () => {
   it('animates the logo signal on hover and respects reduced motion', () => {
     expect(css).toContain('.site-brand:hover .brand-mark-core');
     expect(css).toContain('@keyframes signal-arc');
-    const reduced = css.slice(css.lastIndexOf('prefers-reduced-motion'));
-    expect(reduced).toContain('.site-brand:hover .brand-mark-outer');
+    const reducedBlocks = css.split('prefers-reduced-motion').slice(1);
+    expect(
+      reducedBlocks.some((block) =>
+        block.includes('.site-brand:hover .brand-mark-outer'),
+      ),
+    ).toBe(true);
+  });
+
+  it('hides stage controls until hover and keeps them for touch and keyboard', () => {
+    expect(block('.stage-overlay')).toContain('opacity: 0');
+    expect(css).toContain('.room-stage:hover .stage-overlay');
+    expect(css).toContain('.room-stage:focus-within .stage-overlay');
+    expect(css).toContain('@media (hover: none)');
+    expect(css).toContain('.chat-message:hover');
   });
 
   it('styles a collapsed channel rail', () => {
