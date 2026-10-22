@@ -67,10 +67,11 @@ export function AuthNavigation() {
         ref={triggerRef}
         type="button"
       >
-        <span aria-hidden="true" className="account-avatar">
-          {displayName.charAt(0).toUpperCase() ||
-            accountInitial(session.user.email)}
-        </span>
+        <AccountAvatar
+          email={session.user.email}
+          name={displayName}
+          url={session.user.avatarUrl}
+        />
         <span className="account-trigger-name">{displayName}</span>
         <span aria-hidden="true" className="account-chevron">
           ⌄
@@ -80,13 +81,12 @@ export function AuthNavigation() {
       {menuOpen ? (
         <div className="account-menu" id="account-menu">
           <div className="account-menu-identity">
-            <span
-              aria-hidden="true"
-              className="account-avatar account-avatar-large"
-            >
-              {displayName.charAt(0).toUpperCase() ||
-                accountInitial(session.user.email)}
-            </span>
+            <AccountAvatar
+              email={session.user.email}
+              large
+              name={displayName}
+              url={session.user.avatarUrl}
+            />
             <div>
               <strong>{displayName}</strong>
               <span>{session.user.email}</span>
@@ -106,6 +106,9 @@ export function AuthNavigation() {
                 <AccountIcon name="moderation" /> Moderation
               </Link>
             ) : null}
+            <Link href="/settings" onClick={() => setMenuOpen(false)}>
+              <AccountIcon name="settings" /> Settings
+            </Link>
           </div>
           <div className="account-menu-footer">
             <button
@@ -127,13 +130,15 @@ export function AuthNavigation() {
 function AccountIcon({
   name,
 }: {
-  name: 'rooms' | 'studio' | 'moderation' | 'signout';
+  name: 'rooms' | 'studio' | 'moderation' | 'settings' | 'signout';
 }) {
   const paths = {
     rooms: 'M3 10.5 12 3l9 7.5M5 9v11h14V9M9 20v-7h6v7',
     studio: 'M4 5h16v14H4zM8 9h8m-8 4h5',
     moderation:
       'M12 3 4 6v6c0 5 3.2 8 8 10 4.8-2 8-5 8-10V6l-8-3Zm-3 9 2 2 4-4',
+    settings:
+      'M12 3v2m0 14v2M4.2 7.5l1.7 1m12.2 7 1.7 1M3 12h2m14 0h2M4.2 16.5l1.7-1m12.2-7 1.7-1M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z',
     signout: 'M10 4H5v16h5m4-4 4-4-4-4m4 4H9',
   };
 
@@ -149,5 +154,30 @@ function AccountIcon({
     >
       <path d={paths[name]} />
     </svg>
+  );
+}
+
+export function AccountAvatar({
+  email,
+  large = false,
+  name,
+  url,
+}: {
+  email: string;
+  large?: boolean;
+  name: string;
+  url?: string | null;
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`account-avatar ${large ? 'account-avatar-large' : ''}`}
+    >
+      {url ? (
+        <img alt="" src={url} />
+      ) : (
+        name.charAt(0).toUpperCase() || accountInitial(email)
+      )}
+    </span>
   );
 }

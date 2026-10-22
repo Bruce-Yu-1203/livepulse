@@ -48,6 +48,7 @@ model User {
   email         String           @unique @db.VarChar(320)
   emailVerified Boolean          @default(false) @map("email_verified")
   image         String?          @db.VarChar(2048)
+  avatarKey     String?          @map("avatar_key") @db.VarChar(512)
   role          UserRole         @default(VIEWER)
   createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)

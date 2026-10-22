@@ -15,6 +15,7 @@ import type {
 import { DatabaseService } from '../database/database.service.js';
 import type { AuthenticatedRequest } from './authenticated-request.js';
 import { BetterAuthService } from './better-auth.service.js';
+import { AvatarService } from './avatar.service.js';
 import { SessionGuard } from './session.guard.js';
 
 @Controller('auth')
@@ -22,6 +23,7 @@ export class AuthController {
   public constructor(
     private readonly authentication: BetterAuthService,
     private readonly database: DatabaseService,
+    private readonly avatars: AvatarService,
   ) {}
 
   @Get('providers')
@@ -43,6 +45,9 @@ export class AuthController {
         id: true,
         role: true,
         username: true,
+        avatarKey: true,
+        image: true,
+        updatedAt: true,
       },
       where: { id: request.auth.userId },
     });
@@ -60,7 +65,15 @@ export class AuthController {
     return {
       requestId: request.id,
       user: {
-        ...user,
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        username: user.username,
+        avatarUrl: user.avatarKey
+          ? this.avatars.avatarUrl(user.id, user.updatedAt)
+          : user.image && /^https?:\/\//u.test(user.image)
+            ? user.image
+            : null,
         createdAt: user.createdAt.toISOString(),
       },
     };

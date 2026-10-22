@@ -30,6 +30,8 @@ export type { OperationsSummaryResponse } from './operations.js';
 export {
   ApiErrorCode,
   ApiErrorResponseSchema,
+  AvatarUploadRequestSchema,
+  AvatarUploadResponseSchema,
   AuthProvidersResponseSchema,
   CurrentUserResponseSchema,
   LoginRequestSchema,
@@ -46,6 +48,7 @@ export {
 } from './auth.js';
 export type {
   ApiErrorResponse,
+  AvatarUploadResponse,
   AuthProvidersResponse,
   CurrentUserResponse,
   LoginRequest,

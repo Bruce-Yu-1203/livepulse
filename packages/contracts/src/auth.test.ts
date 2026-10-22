@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ApiErrorCode,
+  AvatarUploadRequestSchema,
+  AvatarUploadResponseSchema,
   ApiErrorResponseSchema,
   AuthProvidersResponseSchema,
   CurrentUserResponseSchema,
@@ -164,9 +166,32 @@ describe('login and session contracts', () => {
           id: '295d5bd9-d9da-44b2-8f5d-8839f13a4437',
           role: 'HOST',
           username: null,
+          avatarUrl:
+            'https://api.livepulse.tech/api/v1/users/295d5bd9-d9da-44b2-8f5d-8839f13a4437/avatar?v=1',
         },
       }).user.role,
     ).toBe('HOST');
+  });
+
+  it('accepts an avatar upload and rejects unexpected fields', () => {
+    expect(
+      AvatarUploadRequestSchema.parse({
+        contentType: 'image/png',
+        data: 'aGVsbG8=',
+      }).contentType,
+    ).toBe('image/png');
+    expect(
+      AvatarUploadRequestSchema.safeParse({
+        contentType: 'image/svg+xml',
+        data: 'aGVsbG8=',
+      }).success,
+    ).toBe(false);
+    expect(
+      AvatarUploadResponseSchema.parse({
+        avatarUrl: 'https://api.livepulse.tech/api/v1/users/id/avatar',
+        requestId: 'request-7',
+      }).requestId,
+    ).toBe('request-7');
   });
 });
 

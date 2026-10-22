@@ -80,6 +80,58 @@ test('sign-in and registration open over the current page', async ({
     0,
   );
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+  await page.getByRole('link', { name: 'Settings' }).click();
+  await expect(page).toHaveURL('/settings');
+  await expect(
+    page.getByRole('heading', { name: 'Profile photo' }),
+  ).toBeVisible();
+});
+
+test('settings uploads a profile photo and refreshes the account avatar', async ({
+  page,
+}) => {
+  let avatarUrl: string | null = null;
+  const expectedAvatarUrl = `http://localhost:3001/api/v1/users/${viewer.id}/avatar?v=1`;
+  const avatar = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/X9sAAAAASUVORK5CYII=',
+    'base64',
+  );
+  let uploadedContentType: string | undefined;
+  await page.route('**/api/v1/auth/me', (route) =>
+    route.fulfill({
+      json: { requestId: 'auth-check', user: { ...sessionUser, avatarUrl } },
+    }),
+  );
+  await page.route('**/api/v1/users/me/avatar', (route) => {
+    const body = route.request().postDataJSON();
+    uploadedContentType = body.contentType;
+    avatarUrl = expectedAvatarUrl;
+    return route.fulfill({
+      json: { avatarUrl, requestId: 'avatar-upload' },
+    });
+  });
+  await page.route(`**/api/v1/users/${viewer.id}/avatar*`, (route) =>
+    route.fulfill({
+      body: avatar,
+      contentType: 'image/png',
+    }),
+  );
+
+  await page.goto('/settings');
+  await page.getByLabel('Choose image').setInputFiles({
+    buffer: avatar,
+    mimeType: 'image/png',
+    name: 'avatar.png',
+  });
+  await page.getByRole('button', { name: 'Save photo' }).click();
+
+  await expect(page.getByRole('status')).toHaveText('Photo updated.');
+  expect(uploadedContentType).toBe('image/png');
+  await expect(
+    page
+      .getByRole('button', { name: `Account menu for ${viewer.email}` })
+      .locator('img'),
+  ).toHaveAttribute('src', expectedAvatarUrl);
 });
 
 test('registration validates fields, verifies email, and signs in', async ({

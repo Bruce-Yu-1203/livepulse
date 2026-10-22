@@ -80,6 +80,7 @@ const PublicUserSchema = z
     id: z.uuid(),
     role: UserRoleSchema,
     username: RegistrationUsernameSchema.nullable(),
+    avatarUrl: z.url().nullable().optional(),
   })
   .strict();
 
@@ -91,6 +92,22 @@ export const CurrentUserResponseSchema = z
   .strict();
 
 export type CurrentUserResponse = z.infer<typeof CurrentUserResponseSchema>;
+
+export const AvatarUploadRequestSchema = z
+  .object({
+    contentType: z.enum(['image/jpeg', 'image/png', 'image/webp']),
+    data: z.string().min(1).max(2_800_000),
+  })
+  .strict();
+
+export const AvatarUploadResponseSchema = z
+  .object({
+    avatarUrl: z.url(),
+    requestId: z.string().min(1),
+  })
+  .strict();
+
+export type AvatarUploadResponse = z.infer<typeof AvatarUploadResponseSchema>;
 
 export const RegisterResponseSchema = z
   .object({

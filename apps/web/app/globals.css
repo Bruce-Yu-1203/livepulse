@@ -513,6 +513,13 @@
   color: var(--lp-on-accent);
   font-family: var(--lp-display);
   font-weight: 800;
+  overflow: hidden;
+}
+
+.account-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .account-trigger-name {
@@ -631,6 +638,146 @@
   padding: 0.3rem 0.8rem 0.7rem;
   color: var(--lp-danger);
   font-size: 0.78rem;
+}
+
+/* Sign-in dialog */
+.settings-page {
+  width: min(100%, 54rem);
+  margin: 0 auto;
+  padding: 3.5rem 1.25rem 6rem;
+}
+
+.settings-heading p {
+  color: var(--lp-accent);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.settings-heading h1 {
+  margin-top: 0.4rem;
+  color: var(--lp-fg);
+  font-family: var(--lp-display);
+  font-size: clamp(2.4rem, 7vw, 3.5rem);
+  font-weight: 800;
+  letter-spacing: -0.06em;
+}
+
+.settings-heading > span,
+.settings-card p,
+.settings-avatar-row span,
+.settings-avatar-actions > span {
+  color: var(--lp-muted);
+}
+
+.settings-card {
+  margin-top: 2rem;
+  padding: clamp(1.3rem, 4vw, 2rem);
+  border: 1px solid var(--lp-line-strong);
+  border-radius: 1.25rem;
+  background: var(--lp-surface);
+  box-shadow: var(--lp-shadow);
+}
+
+.settings-card h1,
+.settings-card h2 {
+  color: var(--lp-fg);
+  font-family: var(--lp-display);
+  font-size: 1.4rem;
+  font-weight: 800;
+}
+
+.settings-card-heading p {
+  margin-top: 0.25rem;
+}
+
+.settings-avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.settings-avatar-row .account-avatar {
+  width: 5rem;
+  height: 5rem;
+  font-size: 2rem;
+}
+
+.settings-avatar-row strong,
+.settings-avatar-row span {
+  display: block;
+}
+
+.settings-avatar-row span {
+  overflow-wrap: anywhere;
+}
+
+.settings-avatar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.8rem;
+  margin-top: 1.7rem;
+}
+
+.settings-avatar-actions input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.settings-file-button {
+  padding: 0.7rem 1rem;
+  border: 1px solid var(--lp-line-strong);
+  border-radius: 0.65rem;
+  color: var(--lp-fg);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.settings-file-button:hover {
+  border-color: var(--lp-accent);
+}
+
+.settings-file-button:has(+ input:focus-visible) {
+  outline: 2px solid var(--lp-accent);
+  outline-offset: 2px;
+}
+
+.settings-submit {
+  display: inline-flex;
+  justify-content: center;
+  margin-top: 1.7rem;
+  padding: 0.75rem 1.2rem;
+  border-radius: 0.65rem;
+  background: var(--lp-accent);
+  color: var(--lp-on-accent);
+  font-weight: 800;
+}
+
+.settings-submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.settings-submit:not(:disabled):hover {
+  background: var(--lp-accent-hover);
+}
+
+.settings-card .settings-error {
+  margin-top: 1rem;
+  color: var(--lp-danger);
+}
+
+.settings-card .settings-success {
+  margin-top: 1rem;
+  color: var(--lp-success);
+}
+
+.settings-hint {
+  color: var(--lp-muted);
 }
 
 /* Sign-in dialog */

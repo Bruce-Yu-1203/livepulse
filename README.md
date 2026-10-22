@@ -126,6 +126,28 @@ seeded demo accounts can still sign in without Resend; new email registration
 requires both Resend values. Add the same variables to the Railway API service
 for production registration.
 
+### Store profile photos in S3
+
+The API stores profile photos in the private `livepulse-assets-bruce-2026`
+bucket in `ca-central-1`, using keys under `avatars/{userId}/avatar`. Set these
+server-only values in the root `.env` for Docker Compose, or on the Railway API
+service for deployment:
+
+```bash
+AWS_REGION=ca-central-1
+S3_BUCKET=livepulse-assets-bruce-2026
+AWS_ACCESS_KEY_ID=your-iam-access-key-id
+AWS_SECRET_ACCESS_KEY=your-iam-secret-access-key
+```
+
+Use an IAM identity with only `s3:GetObject` and `s3:PutObject` on
+`arn:aws:s3:::livepulse-assets-bruce-2026/avatars/*`. On AWS hosts, the SDK can
+use an attached IAM role instead of access keys. Keep S3 Block Public Access on;
+the API serves profile photos to browsers. No bucket CORS rule is needed for
+this server-side upload path. Run the new Prisma migration before starting the
+updated API. With Docker Compose, start from the repository root using
+`pnpm demo:up`, which explicitly loads `.env`.
+
 ### Enable Google sign-in
 
 Create an OAuth 2.0 **Web application** client in Google Cloud, configure its
@@ -168,8 +190,8 @@ export LIVEKIT_URL='wss://your-project.livekit.cloud'
 export LIVEKIT_API_KEY='your-api-key'
 export LIVEKIT_API_SECRET='your-api-secret'
 export DEMO_PASSWORD='choose-a-local-demo-password'
-docker compose -f infra/compose/compose.yml up --build -d --wait
-docker compose -f infra/compose/compose.yml run --rm seed
+docker compose --env-file .env -f infra/compose/compose.yml up --build -d --wait
+docker compose --env-file .env -f infra/compose/compose.yml run --rm seed
 ```
 
 The web application runs on port 3000 and the API/WebSocket service runs on port 3001. Stop the stack with:
