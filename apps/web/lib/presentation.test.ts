@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  filterRooms,
   formatRoomDate,
   normalizeSearchQuery,
   orderRoomsForChannels,
@@ -32,24 +31,12 @@ describe('room presentation', () => {
     ).toEqual({ likes: 50, live: 2, replays: 1 });
   });
 
-  it('normalizes search input before matching rooms', () => {
+  it('normalizes search input before requesting rooms', () => {
     expect(normalizeSearchQuery('  design   critique ')).toBe(
       'design critique',
     );
     expect(normalizeSearchQuery(undefined)).toBe('');
     expect(normalizeSearchQuery('x'.repeat(120))).toHaveLength(80);
-  });
-
-  it('filters rooms by title or description, ignoring case', () => {
-    const rooms = [
-      { description: 'Weekly review of layouts', title: 'Design critique' },
-      { description: 'Distributed systems', title: 'Architecture Lab' },
-    ];
-
-    expect(filterRooms(rooms, 'DESIGN')).toEqual([rooms[0]]);
-    expect(filterRooms(rooms, 'systems')).toEqual([rooms[1]]);
-    expect(filterRooms(rooms, '   ')).toEqual(rooms);
-    expect(filterRooms(rooms, 'cooking')).toEqual([]);
   });
 
   it('orders the channel list with live rooms first', () => {

@@ -47,6 +47,7 @@ export class RoomsService {
       : undefined;
     const records = await this.rooms.listVisible({
       cursor,
+      query: query.q,
       take: query.limit + 1,
     });
     const hasNextPage = records.length > query.limit;

@@ -275,6 +275,109 @@ describe('POST /api/v1/rooms', () => {
     expect(allIds).not.toContain('22222222-2222-4222-8222-222222222222');
   });
 
+  it('searches all visible rooms before paginating and treats SQL wildcards literally', async () => {
+    const host = await database.user.findUniqueOrThrow({
+      where: { email: 'host@example.com' },
+    });
+    await database.room.createMany({
+      data: [
+        {
+          ...roomRecord(
+            '11111111-1111-4111-8111-111111111111',
+            host.id,
+            'LIVE',
+            '2026-10-09T17:00:00.000Z',
+          ),
+          description: 'Latest headlines.',
+          title: 'Morning news',
+        },
+        {
+          ...roomRecord(
+            '22222222-2222-4222-8222-222222222222',
+            host.id,
+            'LIVE',
+            '2026-10-09T16:00:00.000Z',
+          ),
+          title: 'Design critique',
+        },
+        {
+          ...roomRecord(
+            '33333333-3333-4333-8333-333333333333',
+            host.id,
+            'ENDED',
+            '2026-10-09T15:00:00.000Z',
+          ),
+          description: 'Weekly design review.',
+          title: 'Morning jazz',
+        },
+        {
+          ...roomRecord(
+            '44444444-4444-4444-8444-444444444444',
+            host.id,
+            'LIVE',
+            '2026-10-09T14:00:00.000Z',
+          ),
+          title: 'DESIGN lab',
+        },
+        {
+          ...roomRecord(
+            '55555555-5555-4555-8555-555555555555',
+            host.id,
+            'DRAFT',
+            '2026-10-09T13:00:00.000Z',
+          ),
+          title: 'Design hidden',
+        },
+        {
+          ...roomRecord(
+            '66666666-6666-4666-8666-666666666666',
+            host.id,
+            'LIVE',
+            '2026-10-09T12:00:00.000Z',
+          ),
+          title: '100% Complete',
+        },
+      ],
+    });
+
+    const firstResponse = await app.getHttpAdapter().getInstance().inject({
+      method: 'GET',
+      url: '/api/v1/rooms?limit=2&q=design',
+    });
+    expect(firstResponse.statusCode).toBe(200);
+    const firstPage = ListRoomsResponseSchema.parse(firstResponse.json());
+    expect(firstPage.items.map(({ id }) => id)).toEqual([
+      '22222222-2222-4222-8222-222222222222',
+      '33333333-3333-4333-8333-333333333333',
+    ]);
+    expect(firstPage.nextCursor).toEqual(expect.any(String));
+
+    const secondResponse = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: 'GET',
+        url: `/api/v1/rooms?limit=2&q=DeSiGn&cursor=${firstPage.nextCursor}`,
+      });
+    expect(secondResponse.statusCode).toBe(200);
+    const secondPage = ListRoomsResponseSchema.parse(secondResponse.json());
+    expect(secondPage.items.map(({ id }) => id)).toEqual([
+      '44444444-4444-4444-8444-444444444444',
+    ]);
+    expect(secondPage.nextCursor).toBeNull();
+
+    const percentResponse = await app.getHttpAdapter().getInstance().inject({
+      method: 'GET',
+      url: '/api/v1/rooms?q=%25',
+    });
+    expect(percentResponse.statusCode).toBe(200);
+    expect(
+      ListRoomsResponseSchema.parse(percentResponse.json()).items.map(
+        ({ id }) => id,
+      ),
+    ).toEqual(['66666666-6666-4666-8666-666666666666']);
+  });
+
   it('returns visible room details while hiding drafts as not found', async () => {
     const host = await database.user.findUniqueOrThrow({
       where: { email: 'host@example.com' },

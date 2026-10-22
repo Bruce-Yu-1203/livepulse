@@ -17,12 +17,18 @@ export class ApiRequestError extends Error {
   }
 }
 
-export async function listRooms(cursor?: string): Promise<ListRoomsResponse> {
+export async function listRooms(
+  cursor?: string,
+  query?: string,
+): Promise<ListRoomsResponse> {
   const url = new URL('/api/v1/rooms', apiOrigin);
   url.searchParams.set('limit', '12');
 
   if (cursor) {
     url.searchParams.set('cursor', cursor);
+  }
+  if (query) {
+    url.searchParams.set('q', query);
   }
 
   return request(url, ListRoomsResponseSchema);

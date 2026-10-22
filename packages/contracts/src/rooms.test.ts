@@ -104,16 +104,22 @@ describe('public room queries', () => {
   it('applies a default limit and accepts an opaque cursor', () => {
     expect(ListRoomsQuerySchema.parse({})).toEqual({ limit: 20 });
     expect(
-      ListRoomsQuerySchema.parse({ cursor: 'opaque-cursor', limit: '5' }),
-    ).toEqual({ cursor: 'opaque-cursor', limit: 5 });
+      ListRoomsQuerySchema.parse({
+        cursor: 'opaque-cursor',
+        limit: '5',
+        q: '  Design   Critique  ',
+      }),
+    ).toEqual({ cursor: 'opaque-cursor', limit: 5, q: 'Design Critique' });
   });
 
-  it.each([{ limit: '0' }, { limit: '51' }, { page: '2' }])(
-    'rejects invalid or offset-style pagination: %o',
-    (query) => {
-      expect(ListRoomsQuerySchema.safeParse(query).success).toBe(false);
-    },
-  );
+  it.each([
+    { limit: '0' },
+    { limit: '51' },
+    { page: '2' },
+    { q: 'x'.repeat(81) },
+  ])('rejects invalid or offset-style pagination: %o', (query) => {
+    expect(ListRoomsQuerySchema.safeParse(query).success).toBe(false);
+  });
 
   it('accepts visible list and detail responses', () => {
     expect(

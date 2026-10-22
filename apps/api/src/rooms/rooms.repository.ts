@@ -43,6 +43,7 @@ export interface RoomsRepository {
   listOwned(hostId: string): Promise<RoomRecord[]>;
   listVisible(input: {
     cursor: RoomCursor | undefined;
+    query: string | undefined;
     take: number;
   }): Promise<VisibleRoomRecord[]>;
   update(input: {
@@ -97,9 +98,11 @@ export class PrismaRoomsRepository implements RoomsRepository {
 
   public async listVisible(input: {
     cursor: RoomCursor | undefined;
+    query: string | undefined;
     take: number;
   }): Promise<VisibleRoomRecord[]> {
     try {
+      const query = input.query ? escapeLikePattern(input.query) : undefined;
       const rooms = await this.database.client.room.findMany({
         include: { _count: { select: { likes: true } } },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -114,6 +117,16 @@ export class PrismaRoomsRepository implements RoomsRepository {
                     id: { lt: input.cursor.id },
                   },
                 ],
+              }
+            : {}),
+          ...(query
+            ? {
+                AND: {
+                  OR: [
+                    { title: { contains: query, mode: 'insensitive' } },
+                    { description: { contains: query, mode: 'insensitive' } },
+                  ],
+                },
               }
             : {}),
           status: { in: ['LIVE', 'ENDED'] },
@@ -220,6 +233,10 @@ export class PrismaRoomsRepository implements RoomsRepository {
       throwRoomDatabaseError(error);
     }
   }
+}
+
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/gu, '\\$&');
 }
 
 function withLikeCount<T extends { _count: { likes: number } }>(room: T) {

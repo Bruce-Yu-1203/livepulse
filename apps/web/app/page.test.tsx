@@ -80,27 +80,32 @@ describe('HomePage', () => {
     expect(html).not.toContain('Rooms are temporarily unavailable');
   });
 
-  it('filters the loaded rooms by the search query', async () => {
-    vi.mocked(listRooms).mockResolvedValue({
-      items: [
-        room,
-        {
-          ...room,
-          description: 'Street food and late-night music.',
-          id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
-          status: 'ENDED',
-          title: 'Night Market',
-        },
-      ],
-      nextCursor: null,
-      requestId: 'test-search',
-    });
+  it('requests and renders a search page from the API', async () => {
+    const otherRoom = {
+      ...room,
+      id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      title: 'Night Market',
+    };
+    vi.mocked(listRooms).mockImplementation(async (_cursor, query) =>
+      query
+        ? { items: [room], nextCursor: 'next-page', requestId: 'test-search' }
+        : {
+            items: [room, otherRoom],
+            nextCursor: null,
+            requestId: 'test-channels',
+          },
+    );
 
-    const html = await renderHome(undefined, 'making');
+    const html = await renderHome(undefined, '  making  ');
 
+    expect(listRooms).toHaveBeenCalledWith(undefined, 'making');
+    expect(listRooms).toHaveBeenCalledWith();
     expect(html).toContain('Open The Making Room');
+    expect(html).toContain('class="channel-name">Night Market');
     expect(html).not.toContain('Open Night Market');
     expect(html).toContain('Clear search');
+    expect(html).toContain('cursor=next-page');
+    expect(html).toContain('q=making');
     expect(html).not.toContain('aria-roledescription="carousel"');
   });
 });

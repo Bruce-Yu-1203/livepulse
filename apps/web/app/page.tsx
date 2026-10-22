@@ -8,7 +8,7 @@ import { HomeAccountAction } from '../components/home-account-action';
 import { RoomCard } from '../components/room-card';
 import { listRooms } from '../lib/api';
 import { selectFeaturedRooms } from '../lib/featured-carousel';
-import { filterRooms, normalizeSearchQuery } from '../lib/presentation';
+import { normalizeSearchQuery } from '../lib/presentation';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,22 +23,28 @@ export default async function HomePage({
     items: [],
     nextCursor: null,
   };
+  let channelRooms: VisibleRoom[] = [];
   let roomsUnavailable = false;
 
   try {
-    page = await listRooms(cursor);
+    const [searchPage, channelPage] = await Promise.all([
+      listRooms(cursor, searchQuery),
+      searchQuery ? listRooms().catch(() => undefined) : undefined,
+    ]);
+    page = searchPage;
+    channelRooms = channelPage?.items ?? page.items;
   } catch {
     roomsUnavailable = true;
   }
 
-  const rooms = filterRooms(page.items, searchQuery);
+  const rooms = page.items;
   const liveRooms = rooms.filter((room) => room.status === 'LIVE');
   const endedRooms = rooms.filter((room) => room.status !== 'LIVE');
 
   return (
     <AppShell
       mainClassName="home-page"
-      rooms={page.items}
+      rooms={channelRooms}
       searchQuery={searchQuery}
     >
       {searchQuery || roomsUnavailable ? null : (
