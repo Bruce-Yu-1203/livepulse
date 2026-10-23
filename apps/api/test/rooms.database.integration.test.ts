@@ -7,11 +7,13 @@ import {
   CreateRoomResponseSchema,
   CurrentBroadcastResponseSchema,
   GetRoomResponseSchema,
+  GetPublicUserResponseSchema,
   ListOwnedRoomsResponseSchema,
   ListBroadcastHistoryResponseSchema,
   ListRoomsResponseSchema,
   MuteRoomUserResponseSchema,
   RoomLikeResponseSchema,
+  SearchSuggestionsResponseSchema,
   UpdateRoomResponseSchema,
 } from '@livepulse/contracts';
 import { createDatabaseClient } from '@livepulse/db';
@@ -505,6 +507,118 @@ describe('POST /api/v1/rooms', () => {
         ({ id }) => id,
       ),
     ).toEqual(['66666666-6666-4666-8666-666666666666']);
+  });
+
+  it('suggests public users and room titles with clickable identifiers', async () => {
+    const host = await database.user.update({
+      data: { name: 'Marina Brown', username: 'streamqueen' },
+      where: { email: 'host@example.com' },
+    });
+    const viewer = await database.user.findUniqueOrThrow({
+      where: { email: 'viewer@example.com' },
+    });
+    await database.room.createMany({
+      data: [
+        {
+          ...roomRecord(
+            'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',
+            host.id,
+            'LIVE',
+            '2026-10-09T15:30:00.000Z',
+          ),
+          title: 'Sunset Jazz',
+        },
+        {
+          ...roomRecord(
+            'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+            host.id,
+            'DRAFT',
+            '2026-10-09T15:31:00.000Z',
+          ),
+          title: 'Sunset rehearsal',
+        },
+        {
+          ...roomRecord(
+            'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+            viewer.id,
+            'ENDED',
+            '2026-10-09T15:29:00.000Z',
+          ),
+          title: 'Morning show',
+        },
+      ],
+    });
+
+    const byName = await app.getHttpAdapter().getInstance().inject({
+      method: 'GET',
+      url: '/api/v1/search?q=marina',
+    });
+    expect(byName.statusCode).toBe(200);
+    expect(SearchSuggestionsResponseSchema.parse(byName.json()).users).toEqual([
+      expect.objectContaining({ id: host.id, name: 'Marina Brown' }),
+    ]);
+    expect(byName.body).not.toContain('host@example.com');
+
+    const byUsername = await app.getHttpAdapter().getInstance().inject({
+      method: 'GET',
+      url: '/api/v1/search?q=STREAMQUEEN',
+    });
+    expect(
+      SearchSuggestionsResponseSchema.parse(byUsername.json()).users,
+    ).toEqual([
+      expect.objectContaining({ id: host.id, username: 'streamqueen' }),
+    ]);
+
+    const byTitle = await app.getHttpAdapter().getInstance().inject({
+      method: 'GET',
+      url: '/api/v1/search?q=sunset',
+    });
+    expect(
+      SearchSuggestionsResponseSchema.parse(byTitle.json()).rooms.map(
+        ({ id }) => id,
+      ),
+    ).toEqual(['aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa']);
+
+    const profile = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: 'GET',
+        url: `/api/v1/users/${host.id}`,
+      });
+    expect(profile.statusCode).toBe(200);
+    expect(
+      GetPublicUserResponseSchema.parse(profile.json()).user,
+    ).toMatchObject({
+      id: host.id,
+      name: 'Marina Brown',
+    });
+    expect(profile.body).not.toContain('host@example.com');
+
+    const wildcard = await app.getHttpAdapter().getInstance().inject({
+      method: 'GET',
+      url: '/api/v1/search?q=%25',
+    });
+    expect(
+      SearchSuggestionsResponseSchema.parse(wildcard.json()).users,
+    ).toEqual([]);
+
+    const invalidQuery = await app.getHttpAdapter().getInstance().inject({
+      method: 'GET',
+      url: '/api/v1/search?q=',
+    });
+    expect(invalidQuery.statusCode).toBe(400);
+
+    const ownRooms = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: 'GET',
+        url: `/api/v1/rooms?hostId=${host.id}`,
+      });
+    expect(
+      ListRoomsResponseSchema.parse(ownRooms.json()).items.map(({ id }) => id),
+    ).toEqual(['aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa']);
   });
 
   it('returns visible room details while hiding drafts as not found', async () => {

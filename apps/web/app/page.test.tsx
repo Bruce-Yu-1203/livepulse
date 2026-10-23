@@ -3,10 +3,13 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthSessionProvider } from '../components/auth-session-provider';
-import { listRooms } from '../lib/api';
+import { listRooms, searchSuggestions } from '../lib/api';
 import HomePage from './page';
 
-vi.mock('../lib/api', () => ({ listRooms: vi.fn() }));
+vi.mock('../lib/api', () => ({
+  listRooms: vi.fn(),
+  searchSuggestions: vi.fn(),
+}));
 
 const room: VisibleRoom = {
   coverImageUrl: null,
@@ -33,7 +36,14 @@ async function renderHome(cursor?: string, q?: string) {
 }
 
 describe('HomePage', () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(searchSuggestions).mockResolvedValue({
+      requestId: 'test-users',
+      rooms: [],
+      users: [],
+    });
+  });
 
   it('shows a featured room and the room list when the API responds', async () => {
     vi.mocked(listRooms).mockResolvedValue({
@@ -107,5 +117,32 @@ describe('HomePage', () => {
     expect(html).toContain('cursor=next-page');
     expect(html).toContain('q=making');
     expect(html).not.toContain('aria-roledescription="carousel"');
+  });
+
+  it('shows matching users as links to public profiles', async () => {
+    vi.mocked(listRooms).mockResolvedValue({
+      items: [],
+      nextCursor: null,
+      requestId: 'test-empty-rooms',
+    });
+    vi.mocked(searchSuggestions).mockResolvedValue({
+      requestId: 'test-matching-users',
+      rooms: [],
+      users: [
+        {
+          avatarUrl: null,
+          id: 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',
+          name: 'Jamie Rivers',
+          username: 'jamierivers',
+        },
+      ],
+    });
+
+    const html = await renderHome(undefined, 'jamie');
+
+    expect(searchSuggestions).toHaveBeenCalledWith('jamie', 10);
+    expect(html).toContain('Jamie Rivers');
+    expect(html).toContain('/users/aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa');
+    expect(html).not.toContain('No matching users or rooms');
   });
 });

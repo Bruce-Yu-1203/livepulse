@@ -9,6 +9,7 @@ import { OperationsModule } from './operations/operations.module.js';
 import { RealtimeModule } from './realtime/realtime.module.js';
 import { ReportsModule } from './reports/reports.module.js';
 import { RoomsModule } from './rooms/rooms.module.js';
+import { SearchModule } from './search/search.module.js';
 
 @Module({
   controllers: [HealthController],
@@ -20,6 +21,7 @@ import { RoomsModule } from './rooms/rooms.module.js';
     RealtimeModule,
     ReportsModule,
     RoomsModule,
+    SearchModule,
   ],
   providers: [HealthService],
 })

@@ -54,6 +54,7 @@ export interface RoomsRepository {
   }): Promise<RoomRecord[]>;
   listVisible(input: {
     cursor: RoomCursor | undefined;
+    hostId: string | undefined;
     query: string | undefined;
     take: number;
   }): Promise<VisibleRoomRecord[]>;
@@ -123,6 +124,7 @@ export class PrismaRoomsRepository implements RoomsRepository {
 
   public async listVisible(input: {
     cursor: RoomCursor | undefined;
+    hostId: string | undefined;
     query: string | undefined;
     take: number;
   }): Promise<VisibleRoomRecord[]> {
@@ -133,6 +135,7 @@ export class PrismaRoomsRepository implements RoomsRepository {
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         take: input.take,
         where: {
+          ...(input.hostId ? { hostId: input.hostId } : {}),
           ...(input.cursor
             ? {
                 OR: [

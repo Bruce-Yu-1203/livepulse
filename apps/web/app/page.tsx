@@ -1,4 +1,8 @@
-import type { ListRoomsResponse, VisibleRoom } from '@livepulse/contracts';
+import type {
+  ListRoomsResponse,
+  SearchUser,
+  VisibleRoom,
+} from '@livepulse/contracts';
 import Link from 'next/link';
 
 import { AppShell } from '../components/app-shell';
@@ -6,7 +10,8 @@ import { BrandMark } from '../components/brand-mark';
 import { FeaturedCarousel } from '../components/featured-carousel';
 import { HomeAccountAction } from '../components/home-account-action';
 import { RoomCard } from '../components/room-card';
-import { listRooms } from '../lib/api';
+import { SearchUserCard } from '../components/search-user-card';
+import { listRooms, searchSuggestions } from '../lib/api';
 import { selectFeaturedRooms } from '../lib/featured-carousel';
 import { normalizeSearchQuery } from '../lib/presentation';
 
@@ -24,17 +29,30 @@ export default async function HomePage({
     nextCursor: null,
   };
   let channelRooms: VisibleRoom[] = [];
+  let users: SearchUser[] = [];
   let roomsUnavailable = false;
+  let usersUnavailable = false;
 
-  try {
-    const [searchPage, channelPage] = await Promise.all([
+  const [roomResult, userResult] = await Promise.allSettled([
+    Promise.all([
       listRooms(cursor, searchQuery),
       searchQuery ? listRooms().catch(() => undefined) : undefined,
-    ]);
+    ]),
+    searchQuery
+      ? searchSuggestions(searchQuery, 10)
+      : Promise.resolve(undefined),
+  ]);
+  if (roomResult.status === 'fulfilled') {
+    const [searchPage, channelPage] = roomResult.value;
     page = searchPage;
     channelRooms = channelPage?.items ?? page.items;
-  } catch {
+  } else {
     roomsUnavailable = true;
+  }
+  if (userResult.status === 'fulfilled') {
+    users = userResult.value?.users ?? [];
+  } else {
+    usersUnavailable = true;
   }
 
   const rooms = page.items;
@@ -51,11 +69,30 @@ export default async function HomePage({
         <FeaturedCarousel rooms={selectFeaturedRooms(page.items)} />
       )}
 
+      {searchQuery && (users.length > 0 || usersUnavailable) ? (
+        <section aria-labelledby="users-title" className="home-users">
+          <h2 className="home-shelf-title" id="users-title">
+            Users
+          </h2>
+          {usersUnavailable ? (
+            <p className="mt-4 text-sm text-muted" role="status">
+              User results are temporarily unavailable.
+            </p>
+          ) : (
+            <div className="home-user-grid">
+              {users.map((user) => (
+                <SearchUserCard key={user.id} user={user} />
+              ))}
+            </div>
+          )}
+        </section>
+      ) : null}
+
       <section aria-labelledby="rooms-title" className="home-rooms" id="rooms">
         <div className="home-section-heading">
           <div>
             <p className="home-section-label">
-              {searchQuery ? 'Search results' : 'Find your next room'}
+              {searchQuery ? 'Search results · Rooms' : 'Find your next room'}
             </p>
             <h2 id="rooms-title">
               {searchQuery ? `“${searchQuery}”` : "What's happening"}
@@ -63,8 +100,9 @@ export default async function HomePage({
           </div>
           {searchQuery ? (
             <p>
-              {rooms.length === 1 ? '1 room' : `${rooms.length} rooms`} on this
-              page match. <Link href="/">Clear search</Link>
+              {users.length} {users.length === 1 ? 'user' : 'users'} ·{' '}
+              {rooms.length} {rooms.length === 1 ? 'room' : 'rooms'} on this
+              page. <Link href="/">Clear search</Link>
             </p>
           ) : (
             <HomeAccountAction />
@@ -89,13 +127,15 @@ export default async function HomePage({
             <RoomShelf rooms={liveRooms} title="Live on LivePulse" />
             <RoomShelf rooms={endedRooms} title="Recently ended" />
           </>
-        ) : (
+        ) : searchQuery && users.length > 0 ? null : (
           <div className="home-room-notice">
             <span aria-hidden="true" className="home-notice-mark">
               <BrandMark />
             </span>
             <div>
-              <h3>{searchQuery ? 'No matching rooms' : 'No rooms yet'}</h3>
+              <h3>
+                {searchQuery ? 'No matching users or rooms' : 'No rooms yet'}
+              </h3>
               <p>
                 {searchQuery
                   ? 'Try another word, or clear the search to see every room.'

@@ -12,6 +12,7 @@ describe('SiteSearch', () => {
     expect(html).toContain('name="q"');
     expect(html).toContain('value="jazz"');
     expect(html).toContain('aria-label="Search"');
+    expect(html).toContain('placeholder="Search users and rooms"');
   });
 
   it('keeps recent searches hidden until the field is focused', () => {

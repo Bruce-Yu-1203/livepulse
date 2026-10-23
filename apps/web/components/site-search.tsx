@@ -1,7 +1,11 @@
 'use client';
 
+import { SearchSuggestionsResponseSchema } from '@livepulse/contracts';
+import type { SearchSuggestionsResponse } from '@livepulse/contracts';
+import Link from 'next/link';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 
+import { clientApiRequest } from '../lib/client-api';
 import {
   addSearchTerm,
   parseSearchHistory,
@@ -20,8 +24,16 @@ function saveHistory(history: string[]) {
 export function SiteSearch({ searchQuery = '' }: { searchQuery?: string }) {
   const formRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [query, setQuery] = useState(searchQuery);
   const [open, setOpen] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<SearchSuggestionsResponse>();
+  const [loading, setLoading] = useState(false);
+  const [searchError, setSearchError] = useState(false);
+
+  useEffect(() => {
+    setQuery(searchQuery);
+  }, [searchQuery]);
 
   useEffect(() => {
     try {
@@ -30,6 +42,44 @@ export function SiteSearch({ searchQuery = '' }: { searchQuery?: string }) {
       setHistory([]);
     }
   }, []);
+
+  useEffect(() => {
+    const term = query.trim().replace(/\s+/gu, ' ');
+    if (!open || !term) {
+      setLoading(false);
+      setSuggestions(undefined);
+      setSearchError(false);
+      return;
+    }
+
+    const abort = new AbortController();
+    setLoading(true);
+    setSearchError(false);
+    const timer = window.setTimeout(() => {
+      void clientApiRequest(
+        `/api/v1/search?q=${encodeURIComponent(term)}&limit=6`,
+        SearchSuggestionsResponseSchema,
+        { signal: abort.signal },
+      )
+        .then((response) => {
+          setSuggestions(response);
+          setSearchError(false);
+        })
+        .catch((error: unknown) => {
+          if (error instanceof Error && error.name === 'AbortError') return;
+          setSuggestions(undefined);
+          setSearchError(true);
+        })
+        .finally(() => {
+          if (!abort.signal.aborted) setLoading(false);
+        });
+    }, 220);
+
+    return () => {
+      window.clearTimeout(timer);
+      abort.abort();
+    };
+  }, [open, query]);
 
   const remember = (term: string) => {
     const next = addSearchTerm(history, term);
@@ -43,11 +93,9 @@ export function SiteSearch({ searchQuery = '' }: { searchQuery?: string }) {
     setOpen(false);
   };
 
-  // Reuse the native form submission so a recent search behaves like a typed one.
   const runSearch = (term: string) => {
-    if (inputRef.current) {
-      inputRef.current.value = term;
-    }
+    setQuery(term);
+    if (inputRef.current) inputRef.current.value = term;
     formRef.current?.requestSubmit();
   };
 
@@ -57,7 +105,11 @@ export function SiteSearch({ searchQuery = '' }: { searchQuery?: string }) {
     saveHistory(next);
   };
 
-  const showPanel = open && history.length > 0;
+  const term = query.trim();
+  const showPanel = open && (Boolean(term) || history.length > 0);
+  const hasMatches = Boolean(
+    suggestions && (suggestions.users.length || suggestions.rooms.length),
+  );
 
   return (
     <form
@@ -75,23 +127,27 @@ export function SiteSearch({ searchQuery = '' }: { searchQuery?: string }) {
     >
       <div className="site-search-row">
         <label className="sr-only" htmlFor="site-search">
-          Search rooms
+          Search users and rooms
         </label>
         <input
+          aria-controls={showPanel ? 'site-search-panel' : undefined}
+          aria-expanded={showPanel}
           autoComplete="off"
-          defaultValue={searchQuery}
           id="site-search"
           maxLength={80}
           name="q"
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setSuggestions(undefined);
+          }}
           onFocus={() => setOpen(true)}
           onKeyDown={(event) => {
-            if (event.key === 'Escape') {
-              setOpen(false);
-            }
+            if (event.key === 'Escape') setOpen(false);
           }}
-          placeholder="Search rooms"
+          placeholder="Search users and rooms"
           ref={inputRef}
           type="search"
+          value={query}
         />
         <button
           aria-label="Search"
@@ -110,43 +166,147 @@ export function SiteSearch({ searchQuery = '' }: { searchQuery?: string }) {
       </div>
 
       {showPanel ? (
-        <ul aria-label="Recent searches" className="site-search-panel">
-          {history.map((term) => (
-            <li className="site-search-recent" key={term}>
-              <button
-                className="site-search-recent-term"
-                onClick={() => runSearch(term)}
-                type="button"
+        <div className="site-search-panel" id="site-search-panel">
+          {term ? (
+            <>
+              {loading ? (
+                <p className="site-search-state" role="status">
+                  Searching…
+                </p>
+              ) : searchError ? (
+                <p className="site-search-state" role="status">
+                  Search is temporarily unavailable.
+                </p>
+              ) : hasMatches ? (
+                <>
+                  {suggestions?.users.length ? (
+                    <div>
+                      <p className="site-search-group-title">Users</p>
+                      <ul aria-label="Matching users">
+                        {suggestions.users.map((user) => (
+                          <li key={user.id}>
+                            <Link
+                              className="site-search-result"
+                              href={`/users/${user.id}`}
+                              onClick={() => {
+                                remember(term);
+                                setOpen(false);
+                              }}
+                            >
+                              <span
+                                aria-hidden="true"
+                                className="site-search-avatar"
+                              >
+                                {user.avatarUrl ? (
+                                  <img alt="" src={user.avatarUrl} />
+                                ) : (
+                                  user.name.charAt(0).toUpperCase()
+                                )}
+                              </span>
+                              <span className="site-search-result-copy">
+                                <strong>{user.name}</strong>
+                                <small>
+                                  {user.username ? `@${user.username}` : 'User'}
+                                </small>
+                              </span>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  {suggestions?.rooms.length ? (
+                    <div>
+                      <p className="site-search-group-title">Rooms</p>
+                      <ul aria-label="Matching rooms">
+                        {suggestions.rooms.map((room) => (
+                          <li key={room.id}>
+                            <Link
+                              className="site-search-result"
+                              href={`/rooms/${room.id}`}
+                              onClick={() => {
+                                remember(term);
+                                setOpen(false);
+                              }}
+                            >
+                              <span
+                                aria-hidden="true"
+                                className="site-search-room-mark"
+                              >
+                                ◉
+                              </span>
+                              <span className="site-search-result-copy">
+                                <strong>{room.title}</strong>
+                                <small>
+                                  {room.status === 'LIVE'
+                                    ? 'Live now'
+                                    : 'Ended'}
+                                </small>
+                              </span>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </>
+              ) : suggestions ? (
+                <p className="site-search-state">No users or rooms found.</p>
+              ) : null}
+              <Link
+                className="site-search-all"
+                href={{ pathname: '/', query: { q: term } }}
+                onClick={() => {
+                  remember(term);
+                  setOpen(false);
+                }}
               >
-                <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
-                  <path
-                    d="M3.5 12a8.5 8.5 0 1 0 2.5-6M3.5 4v4.5H8M12 8v4.5l3 2"
-                    stroke="currentColor"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                  />
-                </svg>
-                <span>{term}</span>
-              </button>
-              <button
-                aria-label={`Remove ${term} from recent searches`}
-                className="site-search-recent-remove"
-                onClick={() => forget(term)}
-                type="button"
-              >
-                <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
-                  <path
-                    d="m6 6 12 12M18 6 6 18"
-                    stroke="currentColor"
-                    strokeLinecap="round"
-                    strokeWidth="2"
-                  />
-                </svg>
-              </button>
-            </li>
-          ))}
-        </ul>
+                See search results for “{term}”
+              </Link>
+            </>
+          ) : (
+            <>
+              <p className="site-search-group-title">Recent searches</p>
+              <ul aria-label="Recent searches">
+                {history.map((item) => (
+                  <li className="site-search-recent" key={item}>
+                    <button
+                      className="site-search-recent-term"
+                      onClick={() => runSearch(item)}
+                      type="button"
+                    >
+                      <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
+                        <path
+                          d="M3.5 12a8.5 8.5 0 1 0 2.5-6M3.5 4v4.5H8M12 8v4.5l3 2"
+                          stroke="currentColor"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                        />
+                      </svg>
+                      <span>{item}</span>
+                    </button>
+                    <button
+                      aria-label={`Remove ${item} from recent searches`}
+                      className="site-search-recent-remove"
+                      onClick={() => forget(item)}
+                      type="button"
+                    >
+                      <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
+                        <path
+                          d="m6 6 12 12M18 6 6 18"
+                          stroke="currentColor"
+                          strokeLinecap="round"
+                          strokeWidth="2"
+                        />
+                      </svg>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
       ) : null}
     </form>
   );

@@ -77,6 +77,19 @@ export {
   UpdateRoomResponseSchema,
   VisibleRoomSchema,
 } from './rooms.js';
+export {
+  GetPublicUserParamsSchema,
+  GetPublicUserResponseSchema,
+  SearchQuerySchema,
+  SearchSuggestionsResponseSchema,
+  SearchUserSchema,
+} from './search.js';
+export type {
+  GetPublicUserResponse,
+  SearchQuery,
+  SearchSuggestionsResponse,
+  SearchUser,
+} from './search.js';
 export type {
   CreateRoomRequest,
   CreateRoomResponse,

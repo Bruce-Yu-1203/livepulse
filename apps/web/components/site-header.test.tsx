@@ -20,7 +20,7 @@ describe('SiteHeader', () => {
     expect(markup).toContain('role="search"');
     expect(markup).toContain('action="/"');
     expect(markup).toContain('name="q"');
-    expect(markup).toContain('Search rooms');
+    expect(markup).toContain('Search users and rooms');
   });
 
   it('offers a light and dark mode switch', () => {

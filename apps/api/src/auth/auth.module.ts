@@ -13,7 +13,7 @@ import { ResendVerificationEmail } from './resend-verification-email.js';
 
 @Module({
   controllers: [AuthController, AvatarController, RegistrationController],
-  exports: [BetterAuthService, CsrfGuard, SessionGuard],
+  exports: [AvatarService, BetterAuthService, CsrfGuard, SessionGuard],
   imports: [DatabaseModule],
   providers: [
     BetterAuthService,

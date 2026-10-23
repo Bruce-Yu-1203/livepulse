@@ -357,7 +357,6 @@
   height: 1.1rem;
 }
 
-/* Focused search lifts into a card with recent searches underneath. */
 /*
  * Focused search lifts into a card: the panel sits behind the input row and
  * extends below it, so the field and recent searches read as one surface.
@@ -377,9 +376,11 @@
   right: -0.45rem;
   left: -0.45rem;
   padding: 3.3rem 0.45rem 0.45rem;
+  max-height: min(28rem, calc(100vh - 5rem));
   border-radius: 1rem;
   background: var(--lp-surface);
   box-shadow: var(--lp-shadow);
+  overflow-y: auto;
   animation: menu-in 140ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
@@ -388,6 +389,104 @@
   margin: -0.45rem -0.45rem 0.35rem;
   border-top: 1px solid var(--lp-line);
   content: '';
+}
+
+.site-search-group-title {
+  padding: 0.45rem 0.65rem 0.25rem;
+  color: var(--lp-muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.site-search-result {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.65rem;
+  color: var(--lp-fg);
+  text-decoration: none;
+}
+
+.site-search-result:hover,
+.site-search-result:focus-visible {
+  background: var(--lp-raised);
+  outline: none;
+}
+
+.site-search-avatar,
+.site-search-room-mark {
+  display: grid;
+  width: 2.2rem;
+  height: 2.2rem;
+  flex: none;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  background: var(--lp-accent-soft);
+  color: var(--lp-accent);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.site-search-avatar {
+  border-radius: 999px;
+}
+
+.site-search-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.site-search-room-mark {
+  color: var(--lp-live);
+}
+
+.site-search-result-copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.1rem;
+}
+
+.site-search-result-copy strong,
+.site-search-result-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-search-result-copy strong {
+  font-size: 0.86rem;
+}
+
+.site-search-result-copy small {
+  color: var(--lp-muted);
+  font-size: 0.72rem;
+}
+
+.site-search-state {
+  padding: 0.7rem 0.65rem;
+  color: var(--lp-muted);
+  font-size: 0.82rem;
+}
+
+.site-search-all {
+  display: block;
+  margin-top: 0.35rem;
+  padding: 0.65rem;
+  border-top: 1px solid var(--lp-line);
+  color: var(--lp-accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.site-search-all:hover,
+.site-search-all:focus-visible {
+  text-decoration: underline;
 }
 
 .site-search-recent {
@@ -975,6 +1074,93 @@ body:has(.auth-modal[open]) {
 
 .home-shelf {
   margin-top: 2.25rem;
+}
+
+.home-users {
+  width: min(100% - 2.5rem, 82rem);
+  margin: 2.5rem auto 0;
+}
+
+.home-user-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.home-user-card {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 1rem;
+  border: 1px solid var(--lp-line);
+  border-radius: 1rem;
+  background: var(--lp-surface);
+  color: var(--lp-fg);
+  transition:
+    border-color 150ms ease,
+    transform 150ms ease;
+}
+
+.home-user-card:hover,
+.home-user-card:focus-visible {
+  border-color: var(--lp-accent);
+  outline: none;
+  transform: translateY(-2px);
+}
+
+.search-user-avatar {
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  flex: none;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--lp-accent-soft);
+  color: var(--lp-accent);
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+.search-user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-avatar {
+  width: 6rem;
+  height: 6rem;
+  font-size: 2.3rem;
+}
+
+.home-user-copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.2rem;
+}
+
+.home-user-copy strong,
+.home-user-copy > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-user-copy strong {
+  font-size: 0.95rem;
+}
+
+.home-user-copy > span {
+  color: var(--lp-muted);
+  font-size: 0.8rem;
+}
+
+.home-user-arrow {
+  margin-left: auto;
+  color: var(--lp-accent);
 }
 
 .home-shelf + .home-shelf {

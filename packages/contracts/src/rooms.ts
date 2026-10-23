@@ -73,6 +73,7 @@ export type CreateRoomResponse = z.infer<typeof CreateRoomResponseSchema>;
 export const ListRoomsQuerySchema = z
   .object({
     cursor: z.string().min(1).max(512).optional(),
+    hostId: z.uuid().optional(),
     limit: z.coerce.number().int().min(1).max(50).default(20),
     q: z
       .string()

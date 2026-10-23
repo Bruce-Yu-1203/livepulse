@@ -83,6 +83,7 @@ describe('RoomsService', () => {
 
     expect(rooms.listVisible).toHaveBeenCalledWith({
       cursor: undefined,
+      hostId: undefined,
       take: 2,
     });
     expect(page.items).toEqual([records[0]]);
@@ -94,6 +95,7 @@ describe('RoomsService', () => {
         createdAt: records[0]?.createdAt,
         id: records[0]?.id,
       },
+      hostId: undefined,
       take: 2,
     });
   });
