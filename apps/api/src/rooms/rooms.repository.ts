@@ -21,6 +21,7 @@ export interface RoomRecord extends Omit<CreateRoomRequest, 'coverImageUrl'> {
   id: string;
   likeCount: number;
   status: RoomStatus;
+  startedAt?: Date | null;
   updatedAt: Date;
   version: number;
 }
@@ -299,7 +300,12 @@ export class PrismaRoomsRepository implements RoomsRepository {
               : { description: input.changes.description }),
             ...(input.changes.status === undefined
               ? {}
-              : { status: input.changes.status }),
+              : {
+                  status: input.changes.status,
+                  ...(input.changes.status === 'LIVE'
+                    ? { startedAt: new Date() }
+                    : {}),
+                }),
             ...(input.changes.title === undefined
               ? {}
               : { title: input.changes.title }),

@@ -30,7 +30,7 @@ try {
 
   for (const { id, ...room } of demoRooms) {
     await database.room.upsert({
-      create: { ...room, hostId: host.id, id },
+      create: { ...room, hostId: host.id, id, startedAt: new Date() },
       update: { ...room, hostId: host.id },
       where: { id },
     });

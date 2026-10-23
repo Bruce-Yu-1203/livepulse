@@ -41,6 +41,7 @@ export class SearchService {
       rooms: roomPage.items.map((room) => ({
         ...room,
         createdAt: room.createdAt.toISOString(),
+        startedAt: room.startedAt?.toISOString() ?? null,
         updatedAt: room.updatedAt.toISOString(),
       })),
       users: users.map((user) => this.publicUser(user)),

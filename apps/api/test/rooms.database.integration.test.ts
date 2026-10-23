@@ -82,6 +82,7 @@ describe('POST /api/v1/rooms', () => {
     expect(body.room.title).toBe(roomInput.title);
     expect(body.room.likeCount).toBe(0);
     expect(body.room.version).toBe(1);
+    expect(body.room.startedAt).toBeNull();
 
     const storedRoom = await database.room.findUniqueOrThrow({
       where: { id: body.room.id },
@@ -172,6 +173,9 @@ describe('POST /api/v1/rooms', () => {
     });
     const live = UpdateRoomResponseSchema.parse(liveResponse.json()).room;
     expect(live).toMatchObject({ status: 'LIVE', version: 3 });
+    expect(Date.parse(live.startedAt ?? '')).toBeGreaterThanOrEqual(
+      Date.parse(created.createdAt),
+    );
 
     const publicResponse = await app
       .getHttpAdapter()
@@ -188,6 +192,7 @@ describe('POST /api/v1/rooms', () => {
     });
     const ended = UpdateRoomResponseSchema.parse(endedResponse.json()).room;
     expect(ended).toMatchObject({ status: 'ENDED', version: 4 });
+    expect(ended.startedAt).toBe(live.startedAt);
 
     const reverseResponse = await updateRoom(headers, created.id, {
       expectedVersion: ended.version,

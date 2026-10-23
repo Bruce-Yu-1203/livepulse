@@ -3,8 +3,6 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { LiveRoomExperience } from '../../../components/live-room-experience';
-import { FollowButton } from '../../../components/follow-controls';
-import { SearchUserAvatar } from '../../../components/search-user-card';
 import { AppShell } from '../../../components/app-shell';
 import {
   ApiRequestError,
@@ -58,7 +56,7 @@ export default async function RoomPage({
           >
             ← All rooms
           </Link>
-          <LiveRoomExperience room={room} />
+          <LiveRoomExperience host={host} initialNow={Date.now()} room={room} />
 
           <div className="py-10 lg:py-14">
             <section>
@@ -71,31 +69,12 @@ export default async function RoomPage({
                   {roomStatusLabel(room.status)}
                 </span>
                 <span className="text-sm text-muted">
-                  Started {formatRoomDate(room.createdAt)}
+                  Started {formatRoomDate(room.startedAt ?? room.createdAt)}
                 </span>
               </div>
               <h1 className="mt-6 text-4xl font-semibold tracking-[-0.045em] text-fg sm:text-6xl">
                 {room.title}
               </h1>
-              <div className="mt-7 flex flex-wrap items-center gap-4 rounded-2xl border border-fg/10 bg-surface px-5 py-4">
-                <Link
-                  className="flex min-w-0 items-center gap-3 hover:text-accent"
-                  href={`/users/${host.id}`}
-                >
-                  <SearchUserAvatar user={host} />
-                  <span className="min-w-0">
-                    <strong className="block truncate text-base text-fg">
-                      {host.name}
-                    </strong>
-                    <span className="block truncate text-sm text-muted">
-                      {host.username ? `@${host.username}` : 'LivePulse host'}
-                    </span>
-                  </span>
-                </Link>
-                <div className="ml-auto">
-                  <FollowButton userId={host.id} userName={host.name} />
-                </div>
-              </div>
               <p className="mt-6 max-w-3xl text-lg leading-8 text-muted">
                 {room.description}
               </p>

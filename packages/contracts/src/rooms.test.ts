@@ -71,6 +71,12 @@ describe('CreateRoomResponseSchema', () => {
     };
 
     expect(CreateRoomResponseSchema.parse(response)).toEqual(response);
+    expect(
+      CreateRoomResponseSchema.safeParse({
+        ...response,
+        room: { ...response.room, startedAt: 'not-a-date' },
+      }).success,
+    ).toBe(false);
   });
 
   it('rejects a non-draft create response', () => {
@@ -100,6 +106,7 @@ describe('public room queries', () => {
     id: '99d30467-ed47-43b8-96b0-d36ab2ee60e0',
     likeCount: 3,
     status: 'LIVE' as const,
+    startedAt: '2026-10-09T14:30:00.000Z',
     updatedAt: '2026-10-09T14:30:00.000Z',
     version: 2,
   };

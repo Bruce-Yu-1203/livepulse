@@ -316,6 +316,7 @@ export class RoomsController {
     return {
       ...room,
       createdAt: room.createdAt.toISOString(),
+      startedAt: room.startedAt?.toISOString() ?? null,
       updatedAt: room.updatedAt.toISOString(),
     };
   }

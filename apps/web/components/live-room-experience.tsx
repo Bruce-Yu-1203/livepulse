@@ -2,6 +2,7 @@
 
 import {
   MuteRoomUserResponseSchema,
+  type SearchUser,
   type VisibleRoom,
 } from '@livepulse/contracts';
 import { AuthEntryLink } from './auth-dialog-provider';
@@ -23,11 +24,20 @@ import {
 import { canModerateRoom } from '../lib/room-moderation';
 import { useRoomChat } from '../lib/use-room-chat';
 import { MessageReportForm } from './message-report-form';
+import { BroadcastHostCard } from './broadcast-host-card';
 import { RoomLikeButton } from './room-like-button';
 import { LiveBroadcastPlayer } from './live-broadcast-player';
 import { PlaybackControls, StageIcon, ViewingControls } from './stage-controls';
 
-export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
+export function LiveRoomExperience({
+  host,
+  initialNow,
+  room,
+}: {
+  host: SearchUser;
+  initialNow: number;
+  room: VisibleRoom;
+}) {
   const chat = useRoomChat(room.id, room.status);
   const [danmakuVisible, setDanmakuVisible] = useState(true);
   const [danmakuDensity, setDanmakuDensity] =
@@ -118,157 +128,67 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
   }
 
   return (
-    <div
-      className={`mt-7 grid overflow-hidden rounded-[2rem] border border-fg/10 bg-surface shadow-2xl shadow-black/20 ${
-        chatCollapsed ? '' : 'lg:grid-cols-[minmax(0,1fr)_23rem]'
-      }`}
-    >
+    <>
       <div
-        className="room-stage relative isolate overflow-hidden bg-stage"
-        ref={stageRef}
+        className={`mt-7 grid overflow-hidden rounded-[2rem] border border-fg/10 bg-surface shadow-2xl shadow-black/20 ${
+          chatCollapsed ? '' : 'lg:grid-cols-[minmax(0,1fr)_23rem]'
+        }`}
       >
-        {room.status === 'LIVE' ? (
-          <LiveBroadcastPlayer
-            coverImageUrl={room.coverImageUrl}
-            paused={paused}
-            reloadKey={reloadKey}
-            roomId={room.id}
-            volume={effectiveVolume(volume, muted, paused)}
-          />
-        ) : (
-          <div className="relative aspect-video min-h-64 overflow-hidden bg-stage">
-            {room.coverImageUrl ? (
-              <img
-                alt=""
-                className="h-full w-full object-cover opacity-45"
-                src={room.coverImageUrl}
-              />
-            ) : null}
-            <div className="absolute inset-0 grid place-items-center bg-black/55 text-center">
-              <div>
-                <p className="text-sm font-semibold text-white">
-                  Broadcast ended
-                </p>
-                <p className="mt-2 text-xs text-white/60">
-                  This room is no longer streaming live.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-        {danmakuVisible ? (
-          <DanmakuLayer density={danmakuDensity} messages={chat.messages} />
-        ) : null}
-        <div className="stage-overlay absolute left-4 top-14 z-20">
-          <RoomLikeButton
-            authChecked={chat.authChecked}
-            initialLikeCount={room.likeCount}
-            roomId={room.id}
-            userId={chat.userId}
-          />
-        </div>
-        {chatCollapsed ? (
-          <button
-            aria-label="Expand chat"
-            className="stage-overlay stage-button stage-chat-expand"
-            onClick={() => setChatOpen(true)}
-            title="Expand chat"
-            type="button"
-          >
-            <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
-              <path
-                d="M20 4v16M15 12H4m4-4-4 4 4 4"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-              />
-            </svg>
-          </button>
-        ) : null}
-        <div className="stage-overlay stage-controls">
+        <div
+          className="room-stage relative isolate overflow-hidden bg-stage"
+          ref={stageRef}
+        >
           {room.status === 'LIVE' ? (
-            <PlaybackControls
-              muted={muted}
-              onRefresh={refreshLive}
-              onToggleMute={() => setMuted((value) => !value)}
-              onTogglePause={() => setPaused((value) => !value)}
-              onVolume={(value) => {
-                setVolume(clampVolume(value));
-                setMuted(value === 0);
-              }}
+            <LiveBroadcastPlayer
+              coverImageUrl={room.coverImageUrl}
               paused={paused}
-              volume={volume}
+              reloadKey={reloadKey}
+              roomId={room.id}
+              volume={effectiveVolume(volume, muted, paused)}
             />
           ) : (
-            <span />
+            <div className="relative aspect-video min-h-64 overflow-hidden bg-stage">
+              {room.coverImageUrl ? (
+                <img
+                  alt=""
+                  className="h-full w-full object-cover opacity-45"
+                  src={room.coverImageUrl}
+                />
+              ) : null}
+              <div className="absolute inset-0 grid place-items-center bg-black/55 text-center">
+                <div>
+                  <p className="text-sm font-semibold text-white">
+                    Broadcast ended
+                  </p>
+                  <p className="mt-2 text-xs text-white/60">
+                    This room is no longer streaming live.
+                  </p>
+                </div>
+              </div>
+            </div>
           )}
-          <ViewingControls
-            danmakuDensity={danmakuDensity}
-            danmakuVisible={danmakuVisible}
-            fullscreen={fullscreen}
-            onDanmakuDensity={setDanmakuDensity}
-            onToggleDanmaku={() => setDanmakuVisible((visible) => !visible)}
-            onToggleFullscreen={toggleFullscreen}
-          />
-        </div>
-        {paused ? (
-          <button
-            aria-label="Resume"
-            className="stage-paused"
-            onClick={() => setPaused(false)}
-            type="button"
-          >
-            <StageIcon name="play" />
-          </button>
-        ) : null}
-      </div>
-
-      <aside
-        className="flex min-h-[30rem] flex-col border-t border-fg/10 bg-surface lg:border-l lg:border-t-0"
-        hidden={chatCollapsed}
-      >
-        <div className="flex items-center justify-between border-b border-fg/8 px-5 py-4">
-          <div>
-            <p className="text-sm font-semibold text-fg">Live chat</p>
-            <p className="mt-1 text-xs text-muted">
-              {connectionLabel(chat.connection)}
-              {chat.connection === 'connected'
-                ? ` · ${roomPresenceLabel(
-                    chat.uniqueUserCount,
-                    chat.onlineCount,
-                  )}`
-                : ''}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              className="rounded-full border border-fg/10 px-2.5 py-1 text-[0.65rem] font-semibold text-muted transition hover:border-accent/40 hover:text-accent disabled:cursor-wait disabled:opacity-50"
-              disabled={chat.historyLoading}
-              onClick={chat.synchronize}
-              type="button"
-            >
-              {chat.historyLoading ? 'Syncing…' : 'Sync'}
-            </button>
-            <span
-              aria-label={connectionLabel(chat.connection)}
-              className={`h-2.5 w-2.5 rounded-full ${connectionColor(chat.connection)}`}
+          {danmakuVisible ? (
+            <DanmakuLayer density={danmakuDensity} messages={chat.messages} />
+          ) : null}
+          <div className="stage-overlay absolute left-4 top-14 z-20">
+            <RoomLikeButton
+              authChecked={chat.authChecked}
+              initialLikeCount={room.likeCount}
+              roomId={room.id}
+              userId={chat.userId}
             />
+          </div>
+          {chatCollapsed ? (
             <button
-              aria-label="Collapse chat"
-              className="grid h-8 w-8 place-items-center rounded-lg text-muted transition hover:bg-raised hover:text-fg"
-              onClick={() => setChatOpen(false)}
-              title="Collapse chat"
+              aria-label="Expand chat"
+              className="stage-overlay stage-button stage-chat-expand"
+              onClick={() => setChatOpen(true)}
+              title="Expand chat"
               type="button"
             >
-              <svg
-                aria-hidden="true"
-                className="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
+              <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
                 <path
-                  d="M20 4v16M4 12h11m-4-4 4 4-4 4"
+                  d="M20 4v16M15 12H4m4-4-4 4 4 4"
                   stroke="currentColor"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -276,92 +196,191 @@ export function LiveRoomExperience({ room }: { room: VisibleRoom }) {
                 />
               </svg>
             </button>
+          ) : null}
+          <div className="stage-overlay stage-controls">
+            {room.status === 'LIVE' ? (
+              <PlaybackControls
+                muted={muted}
+                onRefresh={refreshLive}
+                onToggleMute={() => setMuted((value) => !value)}
+                onTogglePause={() => setPaused((value) => !value)}
+                onVolume={(value) => {
+                  setVolume(clampVolume(value));
+                  setMuted(value === 0);
+                }}
+                paused={paused}
+                volume={volume}
+              />
+            ) : (
+              <span />
+            )}
+            <ViewingControls
+              danmakuDensity={danmakuDensity}
+              danmakuVisible={danmakuVisible}
+              fullscreen={fullscreen}
+              onDanmakuDensity={setDanmakuDensity}
+              onToggleDanmaku={() => setDanmakuVisible((visible) => !visible)}
+              onToggleFullscreen={toggleFullscreen}
+            />
           </div>
-        </div>
-
-        <div
-          aria-live="polite"
-          className="flex-1 space-y-1 overflow-y-auto px-3 py-4 lg:max-h-[31rem]"
-        >
-          {chat.canLoadEarlier ? (
+          {paused ? (
             <button
-              className="mx-auto block rounded-full border border-fg/10 px-3 py-1.5 text-xs font-semibold text-muted transition hover:border-accent/40 hover:text-accent disabled:cursor-wait disabled:opacity-50"
-              disabled={chat.historyLoading}
-              onClick={chat.loadEarlier}
+              aria-label="Resume"
+              className="stage-paused"
+              onClick={() => setPaused(false)}
               type="button"
             >
-              {chat.historyLoading ? 'Loading…' : 'Load earlier messages'}
+              <StageIcon name="play" />
             </button>
           ) : null}
-          {chat.messages.length > 0 ? (
-            chat.messages.map((message) => (
-              <ChatMessageRow
-                currentUserId={chat.userId}
-                key={message.id}
-                message={message}
-                moderationEnabled={canModerate}
-                muted={mutedUserIds.has(message.authorId)}
-                muting={mutingUserId === message.authorId}
-                onMute={muteUser}
-                roomId={room.id}
-              />
-            ))
-          ) : (
-            <div className="grid h-full min-h-48 place-items-center text-center">
-              <div>
-                <p className="text-sm font-medium text-fg-soft">
-                  The chat is ready.
-                </p>
-                <p className="mt-2 text-xs leading-5 text-subtle">
-                  Be the first to say something useful.
-                </p>
-              </div>
-            </div>
-          )}
         </div>
 
-        <div className="border-t border-fg/8 p-4">
-          {roomChatIsClosed(room.status, chat.connection) ? (
-            <p className="rounded-2xl bg-fg/5 px-4 py-3 text-center text-sm text-muted">
-              Chat closed when this broadcast ended.
-            </p>
-          ) : chat.authChecked && !chat.userId ? (
-            <AuthEntryLink className="block rounded-2xl bg-fg px-4 py-3 text-center text-sm font-bold text-canvas transition hover:bg-accent hover:text-on-accent">
-              Sign in to chat
-            </AuthEntryLink>
-          ) : (
-            <form className="flex gap-2" onSubmit={submit}>
-              <input
-                aria-label="Chat message"
-                className="min-w-0 flex-1 rounded-2xl border border-fg/10 bg-sunken px-4 py-3 text-sm text-fg outline-none placeholder:text-subtle focus:border-accent/50"
-                disabled={!chat.userId || chat.connection !== 'connected'}
-                maxLength={200}
-                name="message"
-                placeholder="Write a message"
-                required
+        <aside
+          className="flex min-h-[30rem] flex-col border-t border-fg/10 bg-surface lg:border-l lg:border-t-0"
+          hidden={chatCollapsed}
+        >
+          <div className="flex items-center justify-between border-b border-fg/8 px-5 py-4">
+            <div>
+              <p className="text-sm font-semibold text-fg">Live chat</p>
+              <p className="mt-1 text-xs text-muted">
+                {connectionLabel(chat.connection)}
+                {chat.connection === 'connected'
+                  ? ` · ${roomPresenceLabel(
+                      chat.uniqueUserCount,
+                      chat.onlineCount,
+                    )}`
+                  : ''}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                className="rounded-full border border-fg/10 px-2.5 py-1 text-[0.65rem] font-semibold text-muted transition hover:border-accent/40 hover:text-accent disabled:cursor-wait disabled:opacity-50"
+                disabled={chat.historyLoading}
+                onClick={chat.synchronize}
+                type="button"
+              >
+                {chat.historyLoading ? 'Syncing…' : 'Sync'}
+              </button>
+              <span
+                aria-label={connectionLabel(chat.connection)}
+                className={`h-2.5 w-2.5 rounded-full ${connectionColor(chat.connection)}`}
               />
               <button
-                className="rounded-2xl bg-accent px-4 py-3 text-sm font-bold text-on-accent transition hover:bg-accent-hover disabled:cursor-wait disabled:opacity-40"
-                disabled={!chat.userId || chat.connection !== 'connected'}
-                type="submit"
+                aria-label="Collapse chat"
+                className="grid h-8 w-8 place-items-center rounded-lg text-muted transition hover:bg-raised hover:text-fg"
+                onClick={() => setChatOpen(false)}
+                title="Collapse chat"
+                type="button"
               >
-                Send
+                <svg
+                  aria-hidden="true"
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    d="M20 4v16M4 12h11m-4-4 4 4-4 4"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                  />
+                </svg>
               </button>
-            </form>
-          )}
-          {chat.error ? (
-            <p className="mt-3 text-xs leading-5 text-danger" role="status">
-              {chat.error}
-            </p>
-          ) : null}
-          {moderationError ? (
-            <p className="mt-3 text-xs leading-5 text-danger" role="status">
-              {moderationError}
-            </p>
-          ) : null}
-        </div>
-      </aside>
-    </div>
+            </div>
+          </div>
+
+          <div
+            aria-live="polite"
+            className="flex-1 space-y-1 overflow-y-auto px-3 py-4 lg:max-h-[31rem]"
+          >
+            {chat.canLoadEarlier ? (
+              <button
+                className="mx-auto block rounded-full border border-fg/10 px-3 py-1.5 text-xs font-semibold text-muted transition hover:border-accent/40 hover:text-accent disabled:cursor-wait disabled:opacity-50"
+                disabled={chat.historyLoading}
+                onClick={chat.loadEarlier}
+                type="button"
+              >
+                {chat.historyLoading ? 'Loading…' : 'Load earlier messages'}
+              </button>
+            ) : null}
+            {chat.messages.length > 0 ? (
+              chat.messages.map((message) => (
+                <ChatMessageRow
+                  currentUserId={chat.userId}
+                  key={message.id}
+                  message={message}
+                  moderationEnabled={canModerate}
+                  muted={mutedUserIds.has(message.authorId)}
+                  muting={mutingUserId === message.authorId}
+                  onMute={muteUser}
+                  roomId={room.id}
+                />
+              ))
+            ) : (
+              <div className="grid h-full min-h-48 place-items-center text-center">
+                <div>
+                  <p className="text-sm font-medium text-fg-soft">
+                    The chat is ready.
+                  </p>
+                  <p className="mt-2 text-xs leading-5 text-subtle">
+                    Be the first to say something useful.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-fg/8 p-4">
+            {roomChatIsClosed(room.status, chat.connection) ? (
+              <p className="rounded-2xl bg-fg/5 px-4 py-3 text-center text-sm text-muted">
+                Chat closed when this broadcast ended.
+              </p>
+            ) : chat.authChecked && !chat.userId ? (
+              <AuthEntryLink className="block rounded-2xl bg-fg px-4 py-3 text-center text-sm font-bold text-canvas transition hover:bg-accent hover:text-on-accent">
+                Sign in to chat
+              </AuthEntryLink>
+            ) : (
+              <form className="flex gap-2" onSubmit={submit}>
+                <input
+                  aria-label="Chat message"
+                  className="min-w-0 flex-1 rounded-2xl border border-fg/10 bg-sunken px-4 py-3 text-sm text-fg outline-none placeholder:text-subtle focus:border-accent/50"
+                  disabled={!chat.userId || chat.connection !== 'connected'}
+                  maxLength={200}
+                  name="message"
+                  placeholder="Write a message"
+                  required
+                />
+                <button
+                  className="rounded-2xl bg-accent px-4 py-3 text-sm font-bold text-on-accent transition hover:bg-accent-hover disabled:cursor-wait disabled:opacity-40"
+                  disabled={!chat.userId || chat.connection !== 'connected'}
+                  type="submit"
+                >
+                  Send
+                </button>
+              </form>
+            )}
+            {chat.error ? (
+              <p className="mt-3 text-xs leading-5 text-danger" role="status">
+                {chat.error}
+              </p>
+            ) : null}
+            {moderationError ? (
+              <p className="mt-3 text-xs leading-5 text-danger" role="status">
+                {moderationError}
+              </p>
+            ) : null}
+          </div>
+        </aside>
+      </div>
+      <BroadcastHostCard
+        connection={chat.connection}
+        host={host}
+        initialNow={initialNow}
+        room={room}
+        viewerCount={chat.uniqueUserCount}
+      />
+    </>
   );
 }
 

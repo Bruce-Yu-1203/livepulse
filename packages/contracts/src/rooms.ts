@@ -47,6 +47,7 @@ export const RoomSchema = z
     id: z.uuid(),
     likeCount: z.number().int().nonnegative(),
     status: RoomStatusSchema,
+    startedAt: z.iso.datetime().nullable().optional(),
     title: z.string().min(1).max(120),
     updatedAt: z.iso.datetime(),
     version: z.number().int().positive(),

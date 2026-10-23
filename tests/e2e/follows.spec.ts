@@ -50,6 +50,10 @@ test('viewer follows a host from the profile and unfollows in the room', async (
       .getByRole('link', { name: /host/ })
       .filter({ has: page.locator('.search-user-avatar') }),
   ).toBeVisible();
+  const broadcaster = page.getByRole('region', { name: 'Broadcaster' });
+  await expect(broadcaster.getByLabel('Live')).toHaveCount(0);
+  await expect(broadcaster.locator('.broadcast-host-viewers')).toBeVisible();
+  await expect(broadcaster.locator('.broadcast-host-duration')).toHaveText('—');
   await expect(
     page
       .locator('main section p')

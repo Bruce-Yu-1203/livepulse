@@ -1130,6 +1130,179 @@ body:has(.auth-modal[open]) {
   object-fit: cover;
 }
 
+.broadcast-host-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--lp-line);
+  border-radius: 1.5rem;
+  background: var(--lp-surface);
+}
+
+.broadcast-host-identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 1.25rem;
+  color: var(--lp-fg);
+}
+
+.broadcast-host-identity:hover .broadcast-host-name {
+  color: var(--lp-accent);
+}
+
+.broadcast-host-avatar-wrap {
+  position: relative;
+  display: grid;
+  width: 5.5rem;
+  height: 5.5rem;
+  flex: none;
+  place-items: center;
+}
+
+.broadcast-host-avatar {
+  position: relative;
+  z-index: 1;
+  width: 4.5rem;
+  height: 4.5rem;
+  border: 3px solid var(--lp-line-strong);
+  font-size: 1.7rem;
+}
+
+.broadcast-host-avatar-wrap--live .broadcast-host-avatar {
+  border-color: var(--lp-live);
+}
+
+.broadcast-host-avatar-wrap--live::before,
+.broadcast-host-avatar-wrap--live::after {
+  position: absolute;
+  inset: 0.5rem;
+  border: 2px solid var(--lp-live);
+  border-radius: 50%;
+  content: '';
+  opacity: 0;
+  pointer-events: none;
+  animation: broadcast-signal 2.8s ease-out infinite;
+}
+
+.broadcast-host-avatar-wrap--live::after {
+  animation-delay: 1.4s;
+}
+
+.broadcast-host-live-badge {
+  position: absolute;
+  z-index: 2;
+  bottom: 0;
+  left: 50%;
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.35rem;
+  background: var(--lp-live);
+  color: var(--lp-on-accent);
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  transform: translateX(-50%);
+}
+
+.broadcast-host-name {
+  overflow: hidden;
+  font-size: clamp(1.25rem, 2vw, 1.7rem);
+  font-weight: 750;
+  letter-spacing: -0.025em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.broadcast-host-actions {
+  display: flex;
+  min-height: 5.5rem;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.broadcast-host-stats {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.broadcast-host-viewers {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--lp-live);
+}
+
+.broadcast-host-viewers svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.broadcast-host-duration {
+  min-width: 4.4rem;
+  color: var(--lp-fg-soft);
+  text-align: right;
+}
+
+@keyframes broadcast-signal {
+  0% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+
+  75%,
+  100% {
+    opacity: 0;
+    transform: scale(1.45);
+  }
+}
+
+@media (max-width: 480px) {
+  .broadcast-host-card {
+    gap: 0.5rem;
+    padding: 1rem;
+  }
+
+  .broadcast-host-identity {
+    gap: 0.5rem;
+  }
+
+  .broadcast-host-avatar-wrap {
+    width: 4.5rem;
+    height: 4.5rem;
+  }
+
+  .broadcast-host-avatar {
+    width: 3.75rem;
+    height: 3.75rem;
+  }
+
+  .broadcast-host-actions {
+    min-height: 4.5rem;
+  }
+
+  .broadcast-host-stats {
+    gap: 0.45rem;
+    font-size: 0.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .broadcast-host-avatar-wrap--live::before,
+  .broadcast-host-avatar-wrap--live::after {
+    animation: none;
+  }
+}
+
 .profile-avatar {
   width: 6rem;
   height: 6rem;

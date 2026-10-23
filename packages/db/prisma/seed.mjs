@@ -49,6 +49,7 @@ try {
         hostId: host.id,
         id: '44444444-4444-4444-8444-444444444444',
         status: 'LIVE',
+        startedAt: new Date(),
         title: 'LivePulse MVP demo',
       },
       update: {
@@ -58,6 +59,7 @@ try {
           'A seeded live room for trying chat, danmaku, likes, reports, and moderation.',
         hostId: host.id,
         status: 'LIVE',
+        startedAt: new Date(),
         title: 'LivePulse MVP demo',
       },
       where: { id: '44444444-4444-4444-8444-444444444444' },
