@@ -33,6 +33,8 @@ describe('PublicUserPage', () => {
       requestId: 'user-request',
       user: {
         avatarUrl: null,
+        followerCount: 2,
+        followingCount: 3,
         id: userId,
         joinedAt: '2026-10-01T00:00:00.000Z',
         name: 'Jamie Rivers',
@@ -58,6 +60,10 @@ describe('PublicUserPage', () => {
     expect(getPublicUser).toHaveBeenCalledWith(userId);
     expect(listRooms).toHaveBeenCalledWith('first-page', undefined, userId);
     expect(html).toContain('Jamie Rivers');
+    expect(html).toContain('3</strong> Following');
+    expect(html).toContain('2</strong> Followers');
+    expect(html).toContain(`/users/${userId}/following`);
+    expect(html).toContain(`/users/${userId}/followers`);
     expect(html).toContain('@jamierivers');
     expect(html).toContain('Jazz in the evening');
     expect(html).toContain('cursor=more-rooms');

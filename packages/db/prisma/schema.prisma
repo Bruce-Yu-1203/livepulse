@@ -59,6 +59,8 @@ model User {
   roomMutes     RoomMute[]
   reports       Report[]
   messages      DanmakuMessage[]
+  followers     UserFollow[]     @relation("followedUser")
+  following     UserFollow[]     @relation("followingUser")
 
   @@map("users")
 }
@@ -77,16 +79,16 @@ model RegistrationChallenge {
 }
 
 model Room {
-  id            String     @id @default(uuid()) @db.Uuid
-  hostId        String     @map("host_id") @db.Uuid
-  title         String     @db.VarChar(120)
-  description   String     @db.VarChar(2000)
-  coverImageUrl String?    @map("cover_image_url") @db.Text
-  status        RoomStatus @default(DRAFT)
-  version       Int        @default(1)
-  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  host          User       @relation(fields: [hostId], references: [id], onDelete: Restrict)
+  id            String           @id @default(uuid()) @db.Uuid
+  hostId        String           @map("host_id") @db.Uuid
+  title         String           @db.VarChar(120)
+  description   String           @db.VarChar(2000)
+  coverImageUrl String?          @map("cover_image_url") @db.Text
+  status        RoomStatus       @default(DRAFT)
+  version       Int              @default(1)
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  host          User             @relation(fields: [hostId], references: [id], onDelete: Restrict)
   likes         RoomLike[]
   mutes         RoomMute[]
   reports       Report[]
@@ -107,6 +109,19 @@ model RoomLike {
   @@id([roomId, userId])
   @@index([userId])
   @@map("room_likes")
+}
+
+model UserFollow {
+  followerId String   @map("follower_id") @db.Uuid
+  followedId String   @map("followed_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  follower   User     @relation("followingUser", fields: [followerId], references: [id], onDelete: Cascade)
+  followed   User     @relation("followedUser", fields: [followedId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followedId])
+  @@index([followedId, createdAt(sort: Desc)])
+  @@index([followerId, createdAt(sort: Desc)])
+  @@map("user_follows")
 }
 
 model RoomMute {

@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { AppShell } from '../../../components/app-shell';
+import { ProfileFollowControls } from '../../../components/follow-controls';
 import { RoomCard } from '../../../components/room-card';
 import { SearchUserAvatar } from '../../../components/search-user-card';
 import { ApiRequestError, getPublicUser, listRooms } from '../../../lib/api';
@@ -59,6 +60,12 @@ export default async function PublicUserPage({
               <p className="mt-3 text-sm text-subtle">
                 Joined {new Date(user.joinedAt).toLocaleDateString('en-CA')}
               </p>
+              <ProfileFollowControls
+                followerCount={user.followerCount}
+                followingCount={user.followingCount}
+                userId={user.id}
+                userName={user.name}
+              />
             </div>
           </section>
           <section className="mt-12" aria-labelledby="member-rooms-title">

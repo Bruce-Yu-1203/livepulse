@@ -1,5 +1,6 @@
 import {
   ApiErrorResponseSchema,
+  FollowListResponseSchema,
   GetRoomResponseSchema,
   GetPublicUserResponseSchema,
   ListRoomsResponseSchema,
@@ -7,6 +8,7 @@ import {
 } from '@livepulse/contracts';
 import type {
   GetPublicUserResponse,
+  FollowListResponse,
   GetRoomResponse,
   ListRoomsResponse,
   SearchSuggestionsResponse,
@@ -62,6 +64,19 @@ export async function getPublicUser(
     new URL(`/api/v1/users/${encodeURIComponent(id)}`, apiOrigin),
     GetPublicUserResponseSchema,
   );
+}
+
+export async function listUserFollows(
+  id: string,
+  kind: 'followers' | 'following',
+  page = 1,
+): Promise<FollowListResponse> {
+  const url = new URL(
+    `/api/v1/users/${encodeURIComponent(id)}/${kind}`,
+    apiOrigin,
+  );
+  url.searchParams.set('page', String(page));
+  return request(url, FollowListResponseSchema);
 }
 
 export async function getRoom(id: string): Promise<GetRoomResponse> {

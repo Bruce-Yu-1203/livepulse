@@ -96,6 +96,12 @@ export function AuthNavigation() {
             <Link href="/" onClick={() => setMenuOpen(false)}>
               <AccountIcon name="rooms" /> Browse rooms
             </Link>
+            <Link
+              href={`/users/${session.user.id}`}
+              onClick={() => setMenuOpen(false)}
+            >
+              <AccountIcon name="profile" /> My profile
+            </Link>
             {['ADMIN', 'HOST'].includes(session.user.role) ? (
               <Link href="/studio" onClick={() => setMenuOpen(false)}>
                 <AccountIcon name="studio" /> Creator studio
@@ -130,10 +136,11 @@ export function AuthNavigation() {
 function AccountIcon({
   name,
 }: {
-  name: 'rooms' | 'studio' | 'moderation' | 'settings' | 'signout';
+  name: 'rooms' | 'profile' | 'studio' | 'moderation' | 'settings' | 'signout';
 }) {
   const paths = {
     rooms: 'M3 10.5 12 3l9 7.5M5 9v11h14V9M9 20v-7h6v7',
+    profile: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-8 9a8 8 0 0 1 16 0',
     studio: 'M4 5h16v14H4zM8 9h8m-8 4h5',
     moderation:
       'M12 3 4 6v6c0 5 3.2 8 8 10 4.8-2 8-5 8-10V6l-8-3Zm-3 9 2 2 4-4',

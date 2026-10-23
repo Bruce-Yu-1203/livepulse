@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  FollowListQuerySchema,
+  FollowListResponseSchema,
+  FollowStateResponseSchema,
   GetPublicUserResponseSchema,
   SearchQuerySchema,
   SearchSuggestionsResponseSchema,
@@ -38,8 +41,36 @@ describe('public search contracts', () => {
     expect(
       GetPublicUserResponseSchema.parse({
         requestId: 'req-2',
-        user: { ...user, joinedAt: '2026-10-09T15:30:00.000Z' },
+        user: {
+          ...user,
+          followerCount: 2,
+          followingCount: 1,
+          joinedAt: '2026-10-09T15:30:00.000Z',
+        },
       }).user.name,
     ).toBe('Jamie Rivers');
+  });
+
+  it('bounds follow lists and keeps user details public', () => {
+    expect(FollowListQuerySchema.parse({ page: '2' })).toEqual({
+      limit: 20,
+      page: 2,
+    });
+    expect(FollowListQuerySchema.safeParse({ page: '0' }).success).toBe(false);
+    expect(
+      FollowListResponseSchema.parse({
+        items: [user],
+        nextPage: null,
+        requestId: 'req-3',
+      }).items,
+    ).toEqual([user]);
+    expect(
+      FollowStateResponseSchema.parse({
+        followerCount: 2,
+        following: true,
+        followingCount: 1,
+        requestId: 'req-4',
+      }).following,
+    ).toBe(true);
   });
 });

@@ -78,6 +78,9 @@ export {
   VisibleRoomSchema,
 } from './rooms.js';
 export {
+  FollowListQuerySchema,
+  FollowListResponseSchema,
+  FollowStateResponseSchema,
   GetPublicUserParamsSchema,
   GetPublicUserResponseSchema,
   SearchQuerySchema,
@@ -85,6 +88,9 @@ export {
   SearchUserSchema,
 } from './search.js';
 export type {
+  FollowListQuery,
+  FollowListResponse,
+  FollowStateResponse,
   GetPublicUserResponse,
   SearchQuery,
   SearchSuggestionsResponse,

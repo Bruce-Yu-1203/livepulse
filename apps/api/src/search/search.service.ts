@@ -50,6 +50,7 @@ export class SearchService {
   public async getUser(id: string) {
     const user = await this.database.client.user.findUnique({
       select: {
+        _count: { select: { followers: true, following: true } },
         avatarKey: true,
         createdAt: true,
         id: true,
@@ -61,11 +62,16 @@ export class SearchService {
       where: { id },
     });
     return user
-      ? { ...this.publicUser(user), joinedAt: user.createdAt.toISOString() }
+      ? {
+          ...this.publicUser(user),
+          followerCount: user._count.followers,
+          followingCount: user._count.following,
+          joinedAt: user.createdAt.toISOString(),
+        }
       : undefined;
   }
 
-  private publicUser(user: {
+  public publicUser(user: {
     avatarKey: string | null;
     id: string;
     image: string | null;
