@@ -14,11 +14,23 @@ wrapped methods to record elapsed time.
 | [300/300](300-generator.json) | 300 | 300 | 9,000 | 8,997 | 0 | 13.95 ms | 24.53 s |
 | [400/400 run 1](400-generator-run1.json) | 400 | 400 | 12,000 | 11,253 | 0 | 2,026.92 ms | 32.94 s |
 | [400/400 run 2](400-generator-run2.json) | 400 | 400 | 12,000 | 11,637 | 0 | 871.65 ms | 32.23 s |
+| [400/400, four rooms, run 1](400-four-rooms-generator-run1.json) | 400 | 400 | 12,000 | 11,999 | 0 | 6.62 ms | 17.44 s |
+| [400/400, four rooms, run 2](400-four-rooms-generator-run2.json) | 400 | 400 | 12,000 | 11,999 | 0 | 6.64 ms | 17.65 s |
 
 The two 400/400 runs show substantial variance, but both have much higher ACK
 latency than 300/300. Every planned message was eventually accepted. API CPU
 time approached or exceeded one core's time during both 400/400 measurement
 windows.
+
+The four-room control used the same 400 connections and 400 messages per
+second. Connections were distributed evenly, so each message was delivered to
+about 100 room members instead of 400. This reduced nominal socket deliveries
+from about 160,000 to 40,000 per second while preserving the number of
+inbound messages and database inserts. Its two ACK p95 results were 6.62 and
+6.64 ms. The corresponding [API stage results](400-four-rooms-api-run1.json)
+and [repeat](400-four-rooms-api-run2.json) show PostgreSQL insert wrapper p95
+of 1.40 and 1.38 ms, session check p95 of 2.41 and 2.33 ms, and local
+broadcast call p95 of 0.72 ms in both runs.
 
 ## Server stage p95
 
@@ -55,10 +67,10 @@ run's [ACK p95](400-generator-cpu-diagnostic.json) was 4,847.99 ms, so it is
 excluded from the comparison table because CPU profiling changed the load.
 Its [server stages](400-api-cpu-diagnostic.json) are retained for inspection.
 
-The strongest current evidence points to API-side work around Socket.IO
-delivery as the local high-load limit. Each accepted message is sent to every
-room member, so 400 messages per second and 400 members create about 160,000
-socket deliveries per second. The database wrappers also slow sharply, but
-these measurements do not establish that PostgreSQL execution is the primary
-cause. Query-level timing or an isolated database workload would be needed to
-separate server-side SQL time from client-side waiting.
+The fixed-rate four-room control and CPU profile together point to API-side
+Socket.IO delivery fanout as the main local high-load limit. The database
+wrappers slow sharply in the single-room runs, but their timing includes
+client-side waiting and event-loop scheduling. Distributing messages among
+rooms also changes database key distribution, so the comparison cannot assign
+every millisecond of improvement to socket delivery alone. The PostgreSQL
+activity samples and CPU profile support delivery as the dominant factor.
