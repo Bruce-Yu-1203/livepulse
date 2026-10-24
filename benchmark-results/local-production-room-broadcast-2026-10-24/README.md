@@ -17,7 +17,9 @@ The two local run pairs show about 189x and 176x lower ACK p95, respectively. Th
 
 ## Correctness and delivery
 
-Unit and database integration tests cover authorization before room admission, leaving, reconnecting, and delivery across two API instances. A separate production-code diagnostic run enabled delivery counting: all 12,000 messages were accepted, with zero failures and exactly 4,800,000 client deliveries. Every one of the 400 clients received 12,000 messages. That diagnostic run had 31.58 ms ACK p95, but its timing is excluded from the comparison because delivery counting adds client work.
+Unit and database integration tests cover authorization before room admission, leaving, reconnecting, and delivery across two API instances. A separate smoke test launched two independent API operating-system processes on ports 3101 and 3102 against the same Redis and database. It verified one cross-process receipt on each joined client, no receipt on an unjoined client, no receipt after leaving, and one receipt after reconnecting. The JSON result is `livepulse-two-process-delivery.json`. This smoke test covers three messages, not a sustained multi-process load.
+
+A separate production-code diagnostic run enabled delivery counting: all 12,000 messages were accepted, with zero failures and exactly 4,800,000 client deliveries. Every one of the 400 clients received 12,000 messages. That diagnostic run had 31.58 ms ACK p95, but its timing is excluded from the comparison because delivery counting adds client work.
 
 `pnpm validate` and the realtime database integration test passed. Raw JSON files in this directory contain the two production API/generator pairs and the delivery diagnostic. The previous per-peer raw data is in `benchmark-results/local-broadcast-comparison-2026-10-24/`.
 

@@ -97,6 +97,15 @@ the same. Each sender must still use its joined room.
 The production API now uses Socket.IO room broadcast for `message.created`.
 The earlier per-peer baseline and benchmark-only room comparison are recorded
 in `benchmark-results/local-broadcast-comparison-2026-10-24/`.
+
+To verify cross-process delivery, start two compiled API processes on local
+ports 3101 and 3102 with the same isolated benchmark database and Redis key
+prefix. Run `node --env-file=.env apps/api/scripts/verify-realtime-processes.mjs`
+with `BENCHMARK_API_ORIGIN=http://127.0.0.1:3101` and
+`BENCHMARK_SECOND_API_ORIGIN=http://127.0.0.1:3102`. The verifier logs in,
+joins clients on both processes, and checks one delivery per joined client,
+none to an unjoined client, none after leaving, and one after reconnecting.
+It exits with an error if any check fails.
 Set `BENCHMARK_VERIFY_DELIVERIES=1` on the load generator for a diagnostic run.
 It counts `message.created` events on every connected client for measurement
 messages, then waits up to 15 seconds for delivery to finish. Compare

@@ -1,0 +1,16 @@
+{
+  "workload": "local-two-api-process-room-delivery-v1",
+  "apiOrigins": [
+    "http://127.0.0.1:3101",
+    "http://127.0.0.1:3102"
+  ],
+  "roomId": "44444444-4444-4444-8444-444444444444",
+  "checks": {
+    "crossProcess": "238d6a8c-2962-4ab5-a24e-9fe12217bfb3",
+    "afterLeave": "4ddad379-31de-44e2-b179-b57cca8afc7c",
+    "afterReconnect": "36c6283a-f63b-41c8-9de9-a1d84f1b86b2",
+    "unauthorizedReceipts": 0,
+    "duplicateReceipts": 0
+  },
+  "passed": true
+}
