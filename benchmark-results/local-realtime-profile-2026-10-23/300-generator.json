@@ -1,0 +1,32 @@
+{
+  "workload": "local-authenticated-socketio-message-roundtrip-v1",
+  "target": "isolated local PostgreSQL + Redis",
+  "settings": {
+    "connections": 300,
+    "messagesPerSecond": 300,
+    "durationSeconds": 30,
+    "plannedMessages": 9000,
+    "roomId": "44444444-4444-4444-8444-444444444444"
+  },
+  "acceptedMessages": 9000,
+  "acceptedDuringWindow": 8997,
+  "acceptedPerSecond": 299.9,
+  "failures": 0,
+  "errorCounts": {},
+  "endToEndAckMs": {
+    "count": 9000,
+    "p50": 5.84,
+    "p95": 13.95,
+    "p99": 26.95,
+    "max": 57.18
+  },
+  "generatorProcess": {
+    "cpuUserMs": 12974.42,
+    "cpuSystemMs": 4302.04,
+    "rssStartMiB": 214,
+    "rssEndMiB": 222.19,
+    "eventLoopDelayP95Ms": 20.86,
+    "eventLoopDelayMaxMs": 26.15
+  },
+  "durationObservedSeconds": 30.01
+}
