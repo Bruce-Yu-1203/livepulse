@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "benchmark:realtime": "node --env-file=../../.env scripts/benchmark-realtime.mjs",
+    "benchmark:realtime:server": "node --env-file=../../.env scripts/benchmark-realtime-server.mjs",
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsx watch src/main.ts",
     "start": "node dist/main.js"

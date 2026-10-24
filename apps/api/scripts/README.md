@@ -49,6 +49,46 @@ Because all services share one machine and all connections use one account,
 these results describe a controlled local comparison rather than deployed
 capacity.
 
+## Separate API and load generator
+
+At higher loads, run the API and generator in separate Node.js processes. The
+server prints its PID after it is ready. The generator sends it signals to start
+profiling after socket warm-up and stop profiling after all responses settle.
+Save each process's JSON output to a separate file.
+
+In one terminal, start the profiled API with the same isolated database and
+Redis environment shown above:
+
+```sh
+DATABASE_URL='postgresql://livepulse:livepulse_dev_password@127.0.0.1:5432/livepulse_benchmark_local?schema=public' \
+REDIS_URL='redis://127.0.0.1:6379' \
+REDIS_KEY_PREFIX='livepulse-benchmark-local' \
+BETTER_AUTH_URL='http://localhost:3101' \
+pnpm --filter @livepulse/api benchmark:realtime:server > /tmp/livepulse-api-profile.json
+```
+
+In another terminal, replace `SERVER_PID` with the PID printed by the server:
+
+```sh
+DATABASE_URL='postgresql://livepulse:livepulse_dev_password@127.0.0.1:5432/livepulse_benchmark_local?schema=public' \
+REDIS_URL='redis://127.0.0.1:6379' \
+REDIS_KEY_PREFIX='livepulse-benchmark-local' \
+BETTER_AUTH_URL='http://localhost:3101' \
+BENCHMARK_EXTERNAL_API=1 \
+BENCHMARK_PROFILE_PID=SERVER_PID \
+BENCHMARK_CONNECTIONS=400 \
+BENCHMARK_MESSAGES_PER_SECOND=400 \
+BENCHMARK_DURATION_SECONDS=30 \
+pnpm --filter @livepulse/api benchmark:realtime > /tmp/livepulse-generator-profile.json
+```
+
+The generator records the time from `message.send` to `message.created` on the
+originating socket. The API records session validation, room and mute checks,
+PostgreSQL insertion, Redis publication, message handling, local fanout, CPU,
+and event loop delay. These stages can overlap, so their percentiles cannot be
+summed to reconstruct ACK latency. A long ACK with short server stages can
+indicate time spent waiting before the handler starts or after fanout begins.
+
 ## Initial local profile (2026-10-23)
 
 These runs were collected before changing the realtime message path. Each used

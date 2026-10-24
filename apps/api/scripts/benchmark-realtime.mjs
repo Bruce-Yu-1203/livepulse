@@ -24,9 +24,11 @@ const {
   connections,
   messagesPerSecond,
   durationSeconds,
+  externalApi,
+  profilePid,
 } = readBenchmarkConfig(process.env);
 
-const app = await createApp({ logger: false });
+const app = externalApi ? null : await createApp({ logger: false });
 const samples = new Map([
   ['sessionCheckMs', []],
   ['roomLiveCheckMs', []],
@@ -50,21 +52,23 @@ function timeMethod(target, methodName, sampleName, predicate = () => true) {
   };
 }
 
-timeMethod(
-  app.get(BetterAuthService),
-  'principalFromHeaders',
-  'sessionCheckMs',
-);
-const roomSource = app.get(REALTIME_ROOM_SOURCE);
-timeMethod(roomSource, 'isLive', 'roomLiveCheckMs');
-timeMethod(roomSource, 'findActiveMuteExpiry', 'muteCheckMs');
-timeMethod(app.get(MESSAGES_REPOSITORY), 'create', 'postgresInsertMs');
-timeMethod(
-  app.get(REALTIME_EVENT_BUS),
-  'publish',
-  'redisMessagePublishMs',
-  (event) => event?.type === 'message.created',
-);
+if (app) {
+  timeMethod(
+    app.get(BetterAuthService),
+    'principalFromHeaders',
+    'sessionCheckMs',
+  );
+  const roomSource = app.get(REALTIME_ROOM_SOURCE);
+  timeMethod(roomSource, 'isLive', 'roomLiveCheckMs');
+  timeMethod(roomSource, 'findActiveMuteExpiry', 'muteCheckMs');
+  timeMethod(app.get(MESSAGES_REPOSITORY), 'create', 'postgresInsertMs');
+  timeMethod(
+    app.get(REALTIME_EVENT_BUS),
+    'publish',
+    'redisMessagePublishMs',
+    (event) => event?.type === 'message.created',
+  );
+}
 
 const sockets = [];
 const pendingByMessage = new Map();
@@ -128,7 +132,7 @@ function summary(values) {
 
 async function main() {
   const apiUrl = new URL(apiOrigin);
-  await app.listen(Number(apiUrl.port), apiUrl.hostname);
+  if (app) await app.listen(Number(apiUrl.port), apiUrl.hostname);
   const login = await globalThis.fetch(
     `${apiOrigin}/api/v1/auth/sign-in/email`,
     {
@@ -216,6 +220,7 @@ async function main() {
   const rssStart = process.memoryUsage().rss;
   eventLoopDelay.enable();
   collecting = true;
+  if (profilePid) process.kill(profilePid, 'SIGUSR1');
   const startedAt = performance.now();
   windowEnd = startedAt + durationSeconds * 1_000;
 
@@ -267,6 +272,7 @@ async function main() {
   const finishedAt = performance.now();
   collecting = false;
   eventLoopDelay.disable();
+  if (profilePid) process.kill(profilePid, 'SIGUSR2');
   const cpu = process.cpuUsage(cpuStart);
   const rssEnd = process.memoryUsage().rss;
   const stageSummaries = Object.fromEntries(
@@ -290,8 +296,8 @@ async function main() {
     failures,
     errorCounts: errors,
     endToEndAckMs: summary(latencies),
-    stageMs: stageSummaries,
-    combinedProcess: {
+    ...(app ? { stageMs: stageSummaries } : {}),
+    [app ? 'combinedProcess' : 'generatorProcess']: {
       cpuUserMs: Number((cpu.user / 1_000).toFixed(2)),
       cpuSystemMs: Number((cpu.system / 1_000).toFixed(2)),
       rssStartMiB: Number((rssStart / 1024 / 1024).toFixed(2)),
@@ -312,5 +318,5 @@ try {
   await main();
 } finally {
   for (const socket of sockets) socket.disconnect();
-  await app.close();
+  if (app) await app.close();
 }

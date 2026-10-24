@@ -23,6 +23,24 @@ export function readBenchmarkConfig(environment) {
     30,
     'BENCHMARK_DURATION_SECONDS',
   );
+  const externalApi = environment.BENCHMARK_EXTERNAL_API === '1';
+  const profilePid = environment.BENCHMARK_PROFILE_PID
+    ? positiveInteger(
+        environment.BENCHMARK_PROFILE_PID,
+        1,
+        'BENCHMARK_PROFILE_PID',
+      )
+    : null;
+
+  if (
+    environment.BENCHMARK_EXTERNAL_API &&
+    !['0', '1'].includes(environment.BENCHMARK_EXTERNAL_API)
+  ) {
+    throw new Error('BENCHMARK_EXTERNAL_API must be 0 or 1');
+  }
+  if (profilePid && !externalApi) {
+    throw new Error('BENCHMARK_PROFILE_PID requires BENCHMARK_EXTERNAL_API=1');
+  }
 
   if (
     !databaseUrl ||
@@ -66,6 +84,8 @@ export function readBenchmarkConfig(environment) {
     connections,
     messagesPerSecond,
     durationSeconds,
+    externalApi,
+    profilePid,
   };
 }
 

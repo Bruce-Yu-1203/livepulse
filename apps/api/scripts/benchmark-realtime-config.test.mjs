@@ -21,6 +21,41 @@ describe('local realtime benchmark configuration', () => {
     expect(config.connections).toBe(100);
     expect(config.messagesPerSecond).toBe(100);
     expect(config.durationSeconds).toBe(30);
+    expect(config.externalApi).toBe(false);
+    expect(config.profilePid).toBeNull();
+  });
+
+  it('accepts a separate API process with a profiler PID', () => {
+    const config = readBenchmarkConfig({
+      ...localEnvironment,
+      BENCHMARK_EXTERNAL_API: '1',
+      BENCHMARK_PROFILE_PID: '12345',
+    });
+
+    expect(config.externalApi).toBe(true);
+    expect(config.profilePid).toBe(12345);
+  });
+
+  it('rejects an invalid external API mode or profiler PID', () => {
+    expect(() =>
+      readBenchmarkConfig({
+        ...localEnvironment,
+        BENCHMARK_EXTERNAL_API: 'yes',
+      }),
+    ).toThrow(/BENCHMARK_EXTERNAL_API must be 0 or 1/u);
+    expect(() =>
+      readBenchmarkConfig({
+        ...localEnvironment,
+        BENCHMARK_EXTERNAL_API: '1',
+        BENCHMARK_PROFILE_PID: '0',
+      }),
+    ).toThrow(/BENCHMARK_PROFILE_PID must be a positive integer/u);
+    expect(() =>
+      readBenchmarkConfig({
+        ...localEnvironment,
+        BENCHMARK_PROFILE_PID: '12345',
+      }),
+    ).toThrow(/requires BENCHMARK_EXTERNAL_API=1/u);
   });
 
   it('rejects a non-benchmark database', () => {
