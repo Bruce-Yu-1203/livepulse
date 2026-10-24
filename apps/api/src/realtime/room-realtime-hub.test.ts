@@ -248,6 +248,78 @@ describe('RoomRealtimeHub', () => {
     expect(messagePublisher.publish).not.toHaveBeenCalled();
   });
 
+  it('starts room and mute validation together before persisting a message', async () => {
+    const source = roomSource(true);
+    const messagePublisher = publisher();
+    const hub = new RoomRealtimeHub(
+      source,
+      messagePublisher,
+      eventBus(),
+      presence(),
+      roomLifecycle(),
+      metrics(),
+    );
+    const sender = peer('sender', true);
+    await hub.handle(sender, joinEvent(1));
+
+    let resolveLive!: (value: boolean) => void;
+    let resolveMute!: (value: Date | null) => void;
+    vi.mocked(source.isLive).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveLive = resolve;
+        }),
+    );
+    vi.mocked(source.findActiveMuteExpiry).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveMute = resolve;
+        }),
+    );
+
+    const sending = hub.handle(sender, sendEvent(2, 1, 'Parallel checks'));
+    expect(source.isLive).toHaveBeenCalledTimes(2);
+    expect(source.findActiveMuteExpiry).toHaveBeenCalledOnce();
+    expect(messagePublisher.publish).not.toHaveBeenCalled();
+
+    resolveLive(true);
+    await Promise.resolve();
+    expect(messagePublisher.publish).not.toHaveBeenCalled();
+    resolveMute(null);
+    await sending;
+
+    expect(messagePublisher.publish).toHaveBeenCalledOnce();
+    expect(eventsOfType(sender, 'message.created')).toHaveLength(1);
+  });
+
+  it('keeps room status precedence when mute validation also fails', async () => {
+    const source = roomSource(true);
+    const messagePublisher = publisher();
+    const hub = new RoomRealtimeHub(
+      source,
+      messagePublisher,
+      eventBus(),
+      presence(),
+      roomLifecycle(),
+      metrics(),
+    );
+    const sender = peer('sender', true);
+    await hub.handle(sender, joinEvent(1));
+    vi.mocked(source.isLive).mockResolvedValueOnce(false);
+    vi.mocked(source.findActiveMuteExpiry).mockRejectedValueOnce(
+      new Error('database offline'),
+    );
+
+    await hub.handle(sender, sendEvent(2, 1, 'Ended room'));
+
+    expect(eventsOfType(sender, 'error')).toEqual([
+      expect.objectContaining({
+        payload: expect.objectContaining({ code: 'REALTIME_ROOM_NOT_LIVE' }),
+      }),
+    ]);
+    expect(messagePublisher.publish).not.toHaveBeenCalled();
+  });
+
   it('rejects prohibited content before persistence and rate limiting', async () => {
     const messagePublisher = publisher();
     const hub = new RoomRealtimeHub(

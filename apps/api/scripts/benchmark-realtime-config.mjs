@@ -1,0 +1,87 @@
+import { URL } from 'node:url';
+
+const localHosts = new Set(['127.0.0.1', 'localhost']);
+
+export function readBenchmarkConfig(environment) {
+  const apiOrigin = environment.BENCHMARK_API_ORIGIN ?? 'http://127.0.0.1:3101';
+  const databaseUrl = environment.DATABASE_URL;
+  const redisUrl = environment.REDIS_URL;
+  const redisKeyPrefix = environment.REDIS_KEY_PREFIX;
+  const password = environment.BENCHMARK_PASSWORD ?? environment.DEMO_PASSWORD;
+  const connections = positiveInteger(
+    environment.BENCHMARK_CONNECTIONS,
+    20,
+    'BENCHMARK_CONNECTIONS',
+  );
+  const messagesPerSecond = positiveInteger(
+    environment.BENCHMARK_MESSAGES_PER_SECOND,
+    10,
+    'BENCHMARK_MESSAGES_PER_SECOND',
+  );
+  const durationSeconds = positiveInteger(
+    environment.BENCHMARK_DURATION_SECONDS,
+    30,
+    'BENCHMARK_DURATION_SECONDS',
+  );
+
+  if (
+    !databaseUrl ||
+    !localUrl(databaseUrl, ['postgres:', 'postgresql:']) ||
+    !new URL(databaseUrl).pathname.startsWith('/livepulse_benchmark_')
+  ) {
+    throw new Error(
+      'DATABASE_URL must point to a local livepulse_benchmark_* database',
+    );
+  }
+  if (
+    !redisUrl ||
+    !localUrl(redisUrl, ['redis:']) ||
+    !redisKeyPrefix?.startsWith('livepulse-benchmark-')
+  ) {
+    throw new Error(
+      'Redis must be local with a livepulse-benchmark-* key prefix',
+    );
+  }
+  if (!localUrl(apiOrigin, ['http:']) || !new URL(apiOrigin).port) {
+    throw new Error(
+      'BENCHMARK_API_ORIGIN must be a local HTTP origin with a port',
+    );
+  }
+  if (!password) {
+    throw new Error('DEMO_PASSWORD or BENCHMARK_PASSWORD is required');
+  }
+  if (messagesPerSecond > connections) {
+    throw new Error(
+      'Use at least one connection per message/second to avoid the per-peer rate limit',
+    );
+  }
+
+  return {
+    apiOrigin,
+    webOrigin: environment.WEB_ORIGIN ?? 'http://localhost:3000',
+    roomId:
+      environment.BENCHMARK_ROOM_ID ?? '44444444-4444-4444-8444-444444444444',
+    email: environment.BENCHMARK_EMAIL ?? 'viewer@livepulse.local',
+    password,
+    connections,
+    messagesPerSecond,
+    durationSeconds,
+  };
+}
+
+function localUrl(value, protocols) {
+  try {
+    const url = new URL(value);
+    return protocols.includes(url.protocol) && localHosts.has(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function positiveInteger(value, fallback, name) {
+  const number = Number(value ?? fallback);
+  if (!Number.isSafeInteger(number) || number < 1) {
+    throw new Error(`${name} must be a positive integer`);
+  }
+  return number;
+}
