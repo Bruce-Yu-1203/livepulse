@@ -49,19 +49,20 @@ Because all services share one machine and all connections use one account,
 these results describe a controlled local comparison rather than deployed
 capacity.
 
-## Parallel validation comparison (2026-10-23)
+## Initial local profile (2026-10-23)
 
-Each run used 200 authenticated connections, 200 messages per second, and a
-30-second measurement window. The original handler queried room status and
-mute status sequentially; the updated handler starts both reads together.
+These runs were collected before changing the realtime message path. Each used
+a 30-second measurement window. The API, PostgreSQL, Redis, and load generator
+shared one machine.
 
-| Handler  | Run | Accepted | Failed |  ACK p95 |  ACK p99 |
-| -------- | --: | -------: | -----: | -------: | -------: |
-| Original |   1 |    6,000 |      0 |  9.69 ms | 15.53 ms |
-| Updated  |   1 |    6,000 |      0 |  9.42 ms | 12.95 ms |
-| Original |   2 |    6,000 |      0 | 11.55 ms | 30.51 ms |
-| Updated  |   2 |    6,000 |      0 |  8.86 ms | 11.58 ms |
+| Connections |         Target rate | Accepted | Failed |  ACK p95 |  ACK p99 |
+| ----------: | ------------------: | -------: | -----: | -------: | -------: |
+|          20 |  10 messages/second |      300 |      0 | 21.25 ms | 27.92 ms |
+|          50 |  50 messages/second |    1,500 |      0 | 16.25 ms | 18.81 ms |
+|         100 | 100 messages/second |    3,000 |      0 |  9.49 ms | 12.26 ms |
+|         200 | 200 messages/second |    6,000 |      0 |  9.69 ms | 15.53 ms |
 
-The two-run mean of ACK p95 was 10.62 ms before and 9.14 ms after the change,
-about 14% lower locally. More repetitions and a staging run are needed before
-using that percentage as a general performance claim.
+A 20-connection run targeting 50 messages per second was limited by the
+application's per-connection rate limiter and is excluded from this table.
+These initial measurements show no saturation through 200 messages per second;
+they do not identify a production bottleneck or establish an optimization gain.

@@ -249,22 +249,13 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    const [liveResult, muteResult] = await Promise.allSettled([
-      this.rooms.isLive(roomId),
-      this.rooms.findActiveMuteExpiry(roomId, peer.principal.userId),
-    ]);
+    const live = await this.roomIsLive(peer, event.requestId, roomId);
 
-    if (liveResult.status === 'rejected') {
-      this.sendError(
-        peer,
-        event.requestId,
-        ApiErrorCode.ServiceUnavailable,
-        'Realtime room validation is temporarily unavailable',
-      );
+    if (live === undefined) {
       return;
     }
 
-    if (!liveResult.value) {
+    if (!live) {
       this.sendError(
         peer,
         event.requestId,
@@ -274,17 +265,17 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    if (muteResult.status === 'rejected') {
-      this.sendError(
-        peer,
-        event.requestId,
-        ApiErrorCode.ServiceUnavailable,
-        'Realtime moderation validation is temporarily unavailable',
-      );
+    const muteExpiry = await this.activeMuteExpiry(
+      peer,
+      event.requestId,
+      roomId,
+      peer.principal.userId,
+    );
+
+    if (muteExpiry === undefined) {
       return;
     }
 
-    const muteExpiry = muteResult.value;
     if (muteExpiry) {
       this.sendError(
         peer,
@@ -416,6 +407,25 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
         requestId,
         ApiErrorCode.ServiceUnavailable,
         'Realtime room validation is temporarily unavailable',
+      );
+      return undefined;
+    }
+  }
+
+  private async activeMuteExpiry(
+    peer: RealtimePeer,
+    requestId: string,
+    roomId: string,
+    userId: string,
+  ): Promise<Date | null | undefined> {
+    try {
+      return await this.rooms.findActiveMuteExpiry(roomId, userId);
+    } catch {
+      this.sendError(
+        peer,
+        requestId,
+        ApiErrorCode.ServiceUnavailable,
+        'Realtime moderation validation is temporarily unavailable',
       );
       return undefined;
     }
