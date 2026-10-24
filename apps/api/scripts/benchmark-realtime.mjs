@@ -14,6 +14,7 @@ import {
   REALTIME_ROOM_SOURCE,
 } from '../dist/realtime/realtime.tokens.js';
 import { readBenchmarkConfig } from './benchmark-realtime-config.mjs';
+import { createDeliveryVerifier } from './benchmark-realtime-deliveries.mjs';
 
 const {
   apiOrigin,
@@ -27,6 +28,7 @@ const {
   durationSeconds,
   externalApi,
   profilePid,
+  verifyDeliveries,
 } = readBenchmarkConfig(process.env);
 
 const app = externalApi ? null : await createApp({ logger: false });
@@ -80,6 +82,7 @@ const errors = {};
 let failures = 0;
 let acceptedDuringWindow = 0;
 let windowEnd = 0;
+let deliveryVerifier;
 const eventLoopDelay = monitorEventLoopDelay({ resolution: 20 });
 
 function waitFor(socket, eventName, timeoutMs = 10_000) {
@@ -161,6 +164,7 @@ async function main() {
     });
     const connected = waitFor(socket, 'connect');
     socket.on('message.created', (event) => {
+      deliveryVerifier?.record(index, event);
       const entry = pendingByMessage.get(event?.payload?.clientMessageId);
       if (entry?.senderIndex === index) {
         settle(entry, {
@@ -219,6 +223,9 @@ async function main() {
   );
 
   const count = messagesPerSecond * durationSeconds;
+  if (verifyDeliveries) {
+    deliveryVerifier = createDeliveryVerifier(roomBySocket, count);
+  }
   const intervalMs = 1_000 / messagesPerSecond;
   const cpuStart = process.cpuUsage();
   const rssStart = process.memoryUsage().rss;
@@ -273,6 +280,7 @@ async function main() {
   if (remainingWindowMs > 0) {
     await new Promise((resolve) => setTimeout(resolve, remainingWindowMs));
   }
+  const deliveryVerification = await deliveryVerifier?.finish();
   const finishedAt = performance.now();
   collecting = false;
   eventLoopDelay.disable();
@@ -301,6 +309,7 @@ async function main() {
     failures,
     errorCounts: errors,
     endToEndAckMs: summary(latencies),
+    ...(deliveryVerification ? { deliveryVerification } : {}),
     ...(app ? { stageMs: stageSummaries } : {}),
     [app ? 'combinedProcess' : 'generatorProcess']: {
       cpuUserMs: Number((cpu.user / 1_000).toFixed(2)),

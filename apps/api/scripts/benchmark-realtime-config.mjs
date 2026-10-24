@@ -26,6 +26,7 @@ export function readBenchmarkConfig(environment) {
   const externalApi = environment.BENCHMARK_EXTERNAL_API === '1';
   const nativeRoomBroadcast =
     environment.BENCHMARK_NATIVE_ROOM_BROADCAST === '1';
+  const verifyDeliveries = environment.BENCHMARK_VERIFY_DELIVERIES === '1';
   const profilePid = environment.BENCHMARK_PROFILE_PID
     ? positiveInteger(
         environment.BENCHMARK_PROFILE_PID,
@@ -50,6 +51,12 @@ export function readBenchmarkConfig(environment) {
     !['0', '1'].includes(environment.BENCHMARK_NATIVE_ROOM_BROADCAST)
   ) {
     throw new Error('BENCHMARK_NATIVE_ROOM_BROADCAST must be 0 or 1');
+  }
+  if (
+    environment.BENCHMARK_VERIFY_DELIVERIES &&
+    !['0', '1'].includes(environment.BENCHMARK_VERIFY_DELIVERIES)
+  ) {
+    throw new Error('BENCHMARK_VERIFY_DELIVERIES must be 0 or 1');
   }
   if (profilePid && !externalApi) {
     throw new Error('BENCHMARK_PROFILE_PID requires BENCHMARK_EXTERNAL_API=1');
@@ -105,6 +112,7 @@ export function readBenchmarkConfig(environment) {
     durationSeconds,
     externalApi,
     nativeRoomBroadcast,
+    verifyDeliveries,
     profilePid,
   };
 }

@@ -100,6 +100,12 @@ sockets to their Socket.IO rooms after application room admission and sends
 `message.created` through Socket.IO's room broadcast operator. Other events
 retain the application loop. The default mode uses the existing per-peer loop.
 Compare both modes with the same single-room workload and separate processes.
+Set `BENCHMARK_VERIFY_DELIVERIES=1` on the load generator for a diagnostic run.
+It counts `message.created` events on every connected client for measurement
+messages, then waits up to 15 seconds for delivery to finish. Compare
+`deliveryVerification.received` with `expected`; for 400 connections, one
+room, and 12,000 messages, the expected count is 4,800,000. This extra client
+work affects timing, so use runs without this flag for latency comparisons.
 
 ## Initial local profile (2026-10-23)
 
