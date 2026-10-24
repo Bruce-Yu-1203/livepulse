@@ -94,6 +94,13 @@ of already-live room IDs in the isolated benchmark database. Connections are
 assigned round-robin to those rooms, while the aggregate message rate stays
 the same. Each sender must still use its joined room.
 
+For a local implementation comparison, set `BENCHMARK_NATIVE_ROOM_BROADCAST=1`
+only on the profiled API server. This benchmark-only mode joins authenticated
+sockets to their Socket.IO rooms after application room admission and sends
+`message.created` through Socket.IO's room broadcast operator. Other events
+retain the application loop. The default mode uses the existing per-peer loop.
+Compare both modes with the same single-room workload and separate processes.
+
 ## Initial local profile (2026-10-23)
 
 These runs were collected before changing the realtime message path. Each used

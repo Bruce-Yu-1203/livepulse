@@ -7,17 +7,19 @@ import { BetterAuthService } from '../dist/auth/better-auth.service.js';
 import { createApp } from '../dist/create-app.js';
 import { MESSAGES_REPOSITORY } from '../dist/messages/messages.tokens.js';
 import { RoomRealtimeHub } from '../dist/realtime/room-realtime-hub.js';
+import { RoomSocketIoServer } from '../dist/realtime/room-socket-io.server.js';
 import {
   REALTIME_EVENT_BUS,
   REALTIME_ROOM_SOURCE,
 } from '../dist/realtime/realtime.tokens.js';
 import { readBenchmarkConfig } from './benchmark-realtime-config.mjs';
+import { installNativeRoomBroadcast } from './benchmark-realtime-native-broadcast.mjs';
 import {
   createStageProfiler,
   waitForExclusiveSignal,
 } from './benchmark-realtime-profiler.mjs';
 
-const { apiOrigin } = readBenchmarkConfig(process.env);
+const { apiOrigin, nativeRoomBroadcast } = readBenchmarkConfig(process.env);
 const profiler = createStageProfiler();
 const app = await createApp({ logger: false });
 
@@ -37,6 +39,9 @@ profiler.wrap(
   (event) => event?.type === 'message.created',
 );
 const hub = app.get(RoomRealtimeHub);
+if (nativeRoomBroadcast) {
+  installNativeRoomBroadcast(hub, app.get(RoomSocketIoServer).io);
+}
 profiler.wrap(
   hub,
   'handle',
@@ -76,6 +81,7 @@ console.log(
   JSON.stringify(
     {
       workload: 'local-realtime-api-profile-v1',
+      broadcastMode: nativeRoomBroadcast ? 'socketio-room' : 'per-peer',
       durationSeconds,
       stageMs: profiler.snapshot(),
       apiProcess: {

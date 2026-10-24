@@ -22,6 +22,7 @@ describe('local realtime benchmark configuration', () => {
     expect(config.messagesPerSecond).toBe(100);
     expect(config.durationSeconds).toBe(30);
     expect(config.externalApi).toBe(false);
+    expect(config.nativeRoomBroadcast).toBe(false);
     expect(config.profilePid).toBeNull();
     expect(config.roomIds).toEqual(['44444444-4444-4444-8444-444444444444']);
   });
@@ -56,6 +57,21 @@ describe('local realtime benchmark configuration', () => {
 
     expect(config.externalApi).toBe(true);
     expect(config.profilePid).toBe(12345);
+  });
+
+  it('accepts an explicit native room broadcast benchmark mode', () => {
+    expect(
+      readBenchmarkConfig({
+        ...localEnvironment,
+        BENCHMARK_NATIVE_ROOM_BROADCAST: '1',
+      }).nativeRoomBroadcast,
+    ).toBe(true);
+    expect(() =>
+      readBenchmarkConfig({
+        ...localEnvironment,
+        BENCHMARK_NATIVE_ROOM_BROADCAST: 'yes',
+      }),
+    ).toThrow(/BENCHMARK_NATIVE_ROOM_BROADCAST must be 0 or 1/u);
   });
 
   it('rejects an invalid external API mode or profiler PID', () => {
