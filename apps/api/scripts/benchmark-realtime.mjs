@@ -19,6 +19,7 @@ const {
   apiOrigin,
   webOrigin,
   roomId,
+  roomIds,
   email,
   password,
   connections,
@@ -71,6 +72,7 @@ if (app) {
 }
 
 const sockets = [];
+const roomBySocket = [];
 const pendingByMessage = new Map();
 const pendingByRequest = new Map();
 const latencies = [];
@@ -151,6 +153,7 @@ async function main() {
     throw new Error('Local benchmark login did not return a session cookie');
 
   for (let index = 0; index < connections; index += 1) {
+    const socketRoomId = roomIds[index % roomIds.length];
     const socket = io(apiOrigin, {
       extraHeaders: { cookie, origin: webOrigin },
       reconnection: false,
@@ -171,10 +174,11 @@ async function main() {
       if (entry) settle(entry, { ok: false, code: event?.payload?.code });
     });
     sockets.push(socket);
+    roomBySocket.push(socketRoomId);
     await connected;
     const joined = waitFor(socket, 'room.joined');
     socket.emit('room.join', {
-      payload: { roomId },
+      payload: { roomId: socketRoomId },
       requestId: randomUUID(),
       type: 'room.join',
       v: 1,
@@ -185,7 +189,7 @@ async function main() {
   // Warm the database and event path once per connection before collecting samples.
   await Promise.all(
     sockets.map(
-      (socket) =>
+      (socket, index) =>
         new Promise((resolve, reject) => {
           const clientMessageId = randomUUID();
           const requestId = randomUUID();
@@ -203,7 +207,7 @@ async function main() {
           socket.emit('message.send', {
             payload: {
               clientMessageId,
-              roomId,
+              roomId: roomBySocket[index],
               text: 'Local benchmark warm-up',
             },
             requestId,
@@ -252,7 +256,7 @@ async function main() {
     socket.emit('message.send', {
       payload: {
         clientMessageId,
-        roomId,
+        roomId: roomBySocket[senderIndex],
         text: `Local benchmark message ${index}`,
       },
       requestId,
@@ -287,6 +291,7 @@ async function main() {
       durationSeconds,
       plannedMessages: count,
       roomId,
+      roomIds,
     },
     acceptedMessages: latencies.length,
     acceptedDuringWindow,

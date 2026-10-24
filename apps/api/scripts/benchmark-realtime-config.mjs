@@ -31,6 +31,11 @@ export function readBenchmarkConfig(environment) {
         'BENCHMARK_PROFILE_PID',
       )
     : null;
+  const roomId =
+    environment.BENCHMARK_ROOM_ID ?? '44444444-4444-4444-8444-444444444444';
+  const roomIds = environment.BENCHMARK_ROOM_IDS
+    ? environment.BENCHMARK_ROOM_IDS.split(',').map((value) => value.trim())
+    : [roomId];
 
   if (
     environment.BENCHMARK_EXTERNAL_API &&
@@ -40,6 +45,12 @@ export function readBenchmarkConfig(environment) {
   }
   if (profilePid && !externalApi) {
     throw new Error('BENCHMARK_PROFILE_PID requires BENCHMARK_EXTERNAL_API=1');
+  }
+  if (
+    roomIds.some((value) => !value) ||
+    new Set(roomIds).size !== roomIds.length
+  ) {
+    throw new Error('BENCHMARK_ROOM_IDS must contain unique nonempty IDs');
   }
 
   if (
@@ -77,8 +88,8 @@ export function readBenchmarkConfig(environment) {
   return {
     apiOrigin,
     webOrigin: environment.WEB_ORIGIN ?? 'http://localhost:3000',
-    roomId:
-      environment.BENCHMARK_ROOM_ID ?? '44444444-4444-4444-8444-444444444444',
+    roomId,
+    roomIds,
     email: environment.BENCHMARK_EMAIL ?? 'viewer@livepulse.local',
     password,
     connections,

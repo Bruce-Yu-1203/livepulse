@@ -89,6 +89,11 @@ and event loop delay. These stages can overlap, so their percentiles cannot be
 summed to reconstruct ACK latency. A long ACK with short server stages can
 indicate time spent waiting before the handler starts or after fanout begins.
 
+For a fanout comparison, `BENCHMARK_ROOM_IDS` accepts a comma-separated list
+of already-live room IDs in the isolated benchmark database. Connections are
+assigned round-robin to those rooms, while the aggregate message rate stays
+the same. Each sender must still use its joined room.
+
 ## Initial local profile (2026-10-23)
 
 These runs were collected before changing the realtime message path. Each used
