@@ -58,6 +58,49 @@ describe('RoomRealtimeHub', () => {
     expect(eventsOfType(observer, 'message.created')).toHaveLength(1);
   });
 
+  it('uses a room broadcaster only after admission and stops delivery on leave', async () => {
+    const source = roomSource(true);
+    const hub = createHub(source);
+    const broadcaster = {
+      join: vi.fn(),
+      leave: vi.fn(),
+      broadcast: vi.fn(),
+    };
+    hub.useRoomBroadcaster(broadcaster);
+    const sender = peer('sender', true);
+    const observer = peer('observer', false);
+
+    vi.mocked(source.isLive).mockResolvedValueOnce(false);
+    await hub.handle(observer, joinEvent(1));
+    expect(broadcaster.join).not.toHaveBeenCalled();
+
+    await hub.handle(sender, joinEvent(2));
+    await hub.handle(observer, joinEvent(3));
+    expect(broadcaster.join).toHaveBeenCalledTimes(2);
+    expect(broadcaster.join).toHaveBeenCalledWith('observer', roomId);
+
+    await hub.handle(sender, sendEvent(4, 1, 'Room broadcast'));
+    expect(broadcaster.broadcast).toHaveBeenCalledOnce();
+    expect(broadcaster.broadcast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({ text: 'Room broadcast' }),
+        type: 'message.created',
+      }),
+    );
+    expect(eventsOfType(sender, 'message.created')).toHaveLength(0);
+    expect(eventsOfType(observer, 'message.created')).toHaveLength(0);
+
+    await hub.handle(observer, {
+      payload: { roomId },
+      requestId: uuid(5),
+      type: 'room.leave',
+      v: 1,
+    });
+    expect(broadcaster.leave).toHaveBeenCalledWith('observer', roomId);
+    await hub.disconnect(sender);
+    expect(broadcaster.leave).toHaveBeenCalledWith('sender', roomId);
+  });
+
   it('publishes leased presence updates when members join and leave', async () => {
     const hub = createHub();
     const first = peer('first', false);

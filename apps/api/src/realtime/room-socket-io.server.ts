@@ -62,6 +62,19 @@ export class RoomSocketIoServer implements OnModuleDestroy {
       transports: ['websocket'],
     });
     this.io = io;
+    this.hub.useRoomBroadcaster({
+      join: (peerId, roomId) => {
+        const socket = io.sockets.sockets.get(peerId);
+        if (!socket) {
+          throw new Error('Socket disconnected before joining the room');
+        }
+        return socket.join(roomId);
+      },
+      leave: (peerId, roomId) => io.sockets.sockets.get(peerId)?.leave(roomId),
+      broadcast: (event) => {
+        io.to(event.payload.roomId).emit(event.type, event);
+      },
+    });
 
     io.use((socket, next) => {
       void this.authenticateHandshake(socket).then(next, () => {

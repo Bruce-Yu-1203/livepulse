@@ -232,6 +232,51 @@ describe('room Socket.IO gateway', () => {
     observer.disconnect();
   });
 
+  it('delivers once after a remote client reconnects and rejoins', async () => {
+    const sender = await connect(accessCookie);
+    const remote = await connect(accessCookie, 'http://localhost:3000', true);
+    const unjoined = await connect(accessCookie, 'http://localhost:3000', true);
+    const senderJoined = nextEventOfType(sender, 'room.joined');
+    send(sender, joinEvent(liveRoomId, 60));
+    await senderJoined;
+    const remoteJoined = nextEventOfType(remote, 'room.joined');
+    send(remote, joinEvent(liveRoomId, 61));
+    await remoteJoined;
+
+    const firstDelivery = nextEventOfType(remote, 'message.created');
+    send(sender, sendEvent(liveRoomId, 62, 62, 'Before reconnect'));
+    await firstDelivery;
+    remote.disconnect();
+
+    const replacement = await connect(
+      accessCookie,
+      'http://localhost:3000',
+      true,
+    );
+    const replacementJoined = nextEventOfType(replacement, 'room.joined');
+    send(replacement, joinEvent(liveRoomId, 63));
+    await replacementJoined;
+
+    const replacementDeliveries: unknown[] = [];
+    const unjoinedDeliveries: unknown[] = [];
+    replacement.on('message.created', (event: unknown) =>
+      replacementDeliveries.push(event),
+    );
+    unjoined.on('message.created', (event: unknown) =>
+      unjoinedDeliveries.push(event),
+    );
+    const secondDelivery = nextEventOfType(replacement, 'message.created');
+    send(sender, sendEvent(liveRoomId, 64, 64, 'After reconnect'));
+    await secondDelivery;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(replacementDeliveries).toHaveLength(1);
+    expect(unjoinedDeliveries).toHaveLength(0);
+    sender.disconnect();
+    replacement.disconnect();
+    unjoined.disconnect();
+  });
+
   it('enforces a mute created on one instance against another instance', async () => {
     const viewer = await connect(accessCookie, 'http://localhost:3000', true);
     const joined = nextEventOfType(viewer, 'room.joined');

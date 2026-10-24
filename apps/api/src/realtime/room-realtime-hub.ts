@@ -33,6 +33,12 @@ export interface RealtimePeer {
   send(event: ServerRealtimeEvent): void;
 }
 
+export interface RealtimeRoomBroadcaster {
+  join(peerId: string, roomId: string): Promise<void> | void;
+  leave(peerId: string, roomId: string): Promise<void> | void;
+  broadcast(event: MessageCreatedEvent): void;
+}
+
 interface RateBucket {
   lastRefillAt: number;
   tokens: number;
@@ -57,6 +63,7 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
   private readonly unsubscribeFromBus: () => void;
   private readonly unsubscribeFromRoomEnded: () => void;
   private presenceTimer: ReturnType<typeof setInterval> | undefined;
+  private roomBroadcaster: RealtimeRoomBroadcaster | undefined;
 
   public constructor(
     @Inject(REALTIME_ROOM_SOURCE)
@@ -85,6 +92,10 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
       void this.refreshPresence();
     }, presenceRefreshMilliseconds);
     this.presenceTimer.unref();
+  }
+
+  public useRoomBroadcaster(broadcaster: RealtimeRoomBroadcaster): void {
+    this.roomBroadcaster = broadcaster;
   }
 
   public onModuleDestroy(): void {
@@ -174,6 +185,8 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
     if (previousRoomId && previousRoomId !== roomId) {
       await this.removeFromRoom(peer, previousRoomId);
     }
+
+    await this.roomBroadcaster?.join(peer.id, roomId);
 
     const members = this.roomMembers.get(roomId) ?? new Set<RealtimePeer>();
     members.add(peer);
@@ -435,6 +448,7 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
     peer: RealtimePeer,
     roomId: string,
   ): Promise<void> {
+    await this.roomBroadcaster?.leave(peer.id, roomId);
     const members = this.roomMembers.get(roomId);
     members?.delete(peer);
 
@@ -521,6 +535,10 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
   private broadcastLocal(event: DistributedRealtimeEvent): void {
     const members = this.roomMembers.get(event.payload.roomId);
     this.metrics.deliveriesAttempted(members?.size ?? 0);
+    if (event.type === 'message.created' && this.roomBroadcaster) {
+      this.roomBroadcaster.broadcast(event);
+      return;
+    }
     for (const member of members ?? []) {
       member.send(event);
     }
