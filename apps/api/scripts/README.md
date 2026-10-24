@@ -64,7 +64,7 @@ DATABASE_URL='postgresql://livepulse:livepulse_dev_password@127.0.0.1:5432/livep
 REDIS_URL='redis://127.0.0.1:6379' \
 REDIS_KEY_PREFIX='livepulse-benchmark-local' \
 BETTER_AUTH_URL='http://localhost:3101' \
-pnpm --filter @livepulse/api benchmark:realtime:server > /tmp/livepulse-api-profile.json
+node --env-file=.env apps/api/scripts/benchmark-realtime-server.mjs > /tmp/livepulse-api-profile.json
 ```
 
 In another terminal, replace `SERVER_PID` with the PID printed by the server:
@@ -79,7 +79,7 @@ BENCHMARK_PROFILE_PID=SERVER_PID \
 BENCHMARK_CONNECTIONS=400 \
 BENCHMARK_MESSAGES_PER_SECOND=400 \
 BENCHMARK_DURATION_SECONDS=30 \
-pnpm --filter @livepulse/api benchmark:realtime > /tmp/livepulse-generator-profile.json
+node --env-file=.env apps/api/scripts/benchmark-realtime.mjs > /tmp/livepulse-generator-profile.json
 ```
 
 The generator records the time from `message.send` to `message.created` on the

@@ -12,7 +12,10 @@ import {
   REALTIME_ROOM_SOURCE,
 } from '../dist/realtime/realtime.tokens.js';
 import { readBenchmarkConfig } from './benchmark-realtime-config.mjs';
-import { createStageProfiler } from './benchmark-realtime-profiler.mjs';
+import {
+  createStageProfiler,
+  waitForExclusiveSignal,
+} from './benchmark-realtime-profiler.mjs';
 
 const { apiOrigin } = readBenchmarkConfig(process.env);
 const profiler = createStageProfiler();
@@ -59,7 +62,8 @@ const startedAt = performance.now();
 eventLoopDelay.enable();
 profiler.start();
 
-await new Promise((resolve) => process.once('SIGUSR2', resolve));
+// Nest's shutdown hook re-raises SIGUSR2, so reserve it for benchmark reporting.
+await waitForExclusiveSignal(process, 'SIGUSR2');
 profiler.stop();
 eventLoopDelay.disable();
 const durationSeconds = Number(

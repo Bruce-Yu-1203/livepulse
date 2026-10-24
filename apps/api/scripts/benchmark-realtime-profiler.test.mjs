@@ -1,8 +1,10 @@
+import { EventEmitter } from 'node:events';
 import { describe, expect, it } from 'vitest';
 
 import {
   createStageProfiler,
   summarize,
+  waitForExclusiveSignal,
 } from './benchmark-realtime-profiler.mjs';
 
 describe('realtime benchmark profiler', () => {
@@ -71,5 +73,19 @@ describe('realtime benchmark profiler', () => {
     );
     target.broadcastLocal({ type: 'room.ended' });
     expect(profiler.snapshot().localBroadcastMs.count).toBe(1);
+  });
+
+  it('reserves the benchmark completion signal for report generation', async () => {
+    const emitter = new EventEmitter();
+    let priorListenerCalled = false;
+    emitter.on('SIGUSR2', () => {
+      priorListenerCalled = true;
+    });
+
+    const completed = waitForExclusiveSignal(emitter, 'SIGUSR2');
+    emitter.emit('SIGUSR2');
+    await completed;
+
+    expect(priorListenerCalled).toBe(false);
   });
 });

@@ -77,3 +77,8 @@ export function createStageProfiler() {
     },
   };
 }
+
+export function waitForExclusiveSignal(emitter, signal) {
+  emitter.removeAllListeners(signal);
+  return new Promise((resolve) => emitter.once(signal, resolve));
+}
