@@ -17,6 +17,7 @@ import type {
   PresenceCounts,
   RealtimeEventBus,
   RealtimePresence,
+  RealtimeRateLimiter,
 } from './realtime-coordination.js';
 import type { RealtimeRoomSource } from './realtime-room-source.js';
 import { RealtimeMetricsService } from './realtime-metrics.service.js';
@@ -24,6 +25,7 @@ import { ProhibitedContentFilter } from './prohibited-content.filter.js';
 import {
   REALTIME_EVENT_BUS,
   REALTIME_PRESENCE,
+  REALTIME_RATE_LIMITER,
   REALTIME_ROOM_SOURCE,
 } from './realtime.tokens.js';
 
@@ -51,6 +53,7 @@ interface AcceptedMessage {
 
 const bucketCapacity = 5;
 const refillPerMillisecond = 1 / 1_000;
+const maxFallbackRateBuckets = 10_000;
 const maxAcceptedMessages = 10_000;
 const presenceRefreshMilliseconds = 5_000;
 
@@ -74,6 +77,8 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
     private readonly eventBus: RealtimeEventBus,
     @Inject(REALTIME_PRESENCE)
     private readonly presence: RealtimePresence,
+    @Inject(REALTIME_RATE_LIMITER)
+    private readonly rateLimiter: RealtimeRateLimiter,
     @Inject(RoomLifecycleEvents) roomLifecycle: RoomLifecycleEvents,
     @Inject(RealtimeMetricsService)
     private readonly metrics: RealtimeMetricsService,
@@ -140,8 +145,6 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
     if (roomId) {
       await this.removeFromRoom(peer, roomId);
     }
-
-    this.rateBuckets.delete(peer.id);
   }
 
   public async endRoom(roomId: string, endedAt: Date): Promise<void> {
@@ -310,7 +313,18 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    const retryAfterMs = this.consumeRateToken(peer.id);
+    let retryAfterMs: number | undefined;
+    try {
+      retryAfterMs = await this.rateLimiter.consumeMessageToken(
+        roomId,
+        peer.principal.userId,
+      );
+    } catch {
+      this.metrics.redisFailed();
+      retryAfterMs = this.consumeRateToken(
+        `${roomId}:${peer.principal.userId}`,
+      );
+    }
     if (retryAfterMs !== undefined) {
       this.sendError(
         peer,
@@ -384,9 +398,9 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private consumeRateToken(peerId: string): number | undefined {
+  private consumeRateToken(key: string): number | undefined {
     const now = Date.now();
-    const bucket = this.rateBuckets.get(peerId) ?? {
+    const bucket = this.rateBuckets.get(key) ?? {
       lastRefillAt: now,
       tokens: bucketCapacity,
     };
@@ -397,14 +411,22 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
     );
     bucket.lastRefillAt = now;
 
-    if (bucket.tokens < 1) {
-      this.rateBuckets.set(peerId, bucket);
-      return Math.ceil((1 - bucket.tokens) / refillPerMillisecond);
+    const retryAfterMs =
+      bucket.tokens < 1
+        ? Math.ceil((1 - bucket.tokens) / refillPerMillisecond)
+        : undefined;
+    if (retryAfterMs === undefined) {
+      bucket.tokens -= 1;
     }
-
-    bucket.tokens -= 1;
-    this.rateBuckets.set(peerId, bucket);
-    return undefined;
+    this.rateBuckets.delete(key);
+    this.rateBuckets.set(key, bucket);
+    if (this.rateBuckets.size > maxFallbackRateBuckets) {
+      const oldestKey = this.rateBuckets.keys().next().value;
+      if (oldestKey) {
+        this.rateBuckets.delete(oldestKey);
+      }
+    }
+    return retryAfterMs;
   }
 
   private async roomIsLive(

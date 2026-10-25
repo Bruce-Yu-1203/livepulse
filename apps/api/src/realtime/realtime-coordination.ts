@@ -5,6 +5,13 @@ export interface RealtimeEventBus {
   subscribe(listener: (event: DistributedRealtimeEvent) => void): () => void;
 }
 
+export interface RealtimeRateLimiter {
+  consumeMessageToken(
+    roomId: string,
+    userId: string,
+  ): Promise<number | undefined>;
+}
+
 export interface PresenceCounts {
   connections: number;
   uniqueUsers: number;

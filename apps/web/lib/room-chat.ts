@@ -240,6 +240,12 @@ export function markMessageFailed(
   );
 }
 
+export function visibleDanmakuMessages(messages: ChatMessage[]): ChatMessage[] {
+  return messages.filter(
+    (message) => message.status !== 'failed' && !message.deletedAt,
+  );
+}
+
 export function markMessageDeleted(
   messages: ChatMessage[],
   messageId: string,
@@ -294,7 +300,16 @@ export function roomPresenceLabel(
 export function realtimeErrorMessage(error: {
   code: string;
   message: string;
+  retryAfterMs?: number | undefined;
 }): string {
+  if (error.code === ApiErrorCode.RealtimeRateLimited) {
+    const seconds = Math.max(
+      1,
+      Math.ceil((error.retryAfterMs ?? 1_000) / 1_000),
+    );
+    return `You're sending messages too quickly. Try again in ${seconds} ${seconds === 1 ? 'second' : 'seconds'}.`;
+  }
+
   if (error.code === ApiErrorCode.RealtimeContentBlocked) {
     return 'Your message was blocked by the room content policy.';
   }

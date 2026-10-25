@@ -5,6 +5,7 @@ export const stageNames = [
   'roomLiveCheckMs',
   'muteCheckMs',
   'postgresInsertMs',
+  'redisRateLimitMs',
   'redisMessagePublishMs',
   'hubHandleMs',
   'localBroadcastMs',

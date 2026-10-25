@@ -13,6 +13,7 @@ import { RoomSocketIoServer } from './room-socket-io.server.js';
 import {
   REALTIME_EVENT_BUS,
   REALTIME_PRESENCE,
+  REALTIME_RATE_LIMITER,
   REALTIME_ROOM_SOURCE,
 } from './realtime.tokens.js';
 
@@ -34,6 +35,10 @@ import {
     },
     {
       provide: REALTIME_PRESENCE,
+      useExisting: RedisRealtimeCoordinator,
+    },
+    {
+      provide: REALTIME_RATE_LIMITER,
       useExisting: RedisRealtimeCoordinator,
     },
   ],

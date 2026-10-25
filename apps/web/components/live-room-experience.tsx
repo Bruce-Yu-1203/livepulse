@@ -15,6 +15,7 @@ import {
   type ChatMessage,
   roomChatIsClosed,
   roomPresenceLabel,
+  visibleDanmakuMessages,
 } from '../lib/room-chat';
 import {
   CHAT_COLLAPSED_KEY,
@@ -469,8 +470,7 @@ function DanmakuLayer({
       className="pointer-events-none absolute inset-0 z-10 overflow-hidden"
       aria-hidden="true"
     >
-      {messages
-        .filter((message) => !message.deletedAt)
+      {visibleDanmakuMessages(messages)
         .slice(-layout.limit)
         .map((message, index) => (
           <span

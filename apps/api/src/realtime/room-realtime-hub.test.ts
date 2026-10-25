@@ -9,6 +9,7 @@ import type { RealtimeRoomSource } from './realtime-room-source.js';
 import type {
   RealtimeEventBus,
   RealtimePresence,
+  RealtimeRateLimiter,
 } from './realtime-coordination.js';
 import { RealtimeMetricsService } from './realtime-metrics.service.js';
 import { ProhibitedContentFilter } from './prohibited-content.filter.js';
@@ -163,6 +164,7 @@ describe('RoomRealtimeHub', () => {
       publisher(),
       eventBus(),
       realtimePresence,
+      rateLimiter(),
       roomLifecycle(),
       metrics(),
     );
@@ -224,6 +226,55 @@ describe('RoomRealtimeHub', () => {
     });
   });
 
+  it('shares the message limit across a user’s connections in one room', async () => {
+    const limiter = rateLimiter();
+    const hub = createHub(roomSource(true), limiter);
+    const first = peer('first', true);
+    const second = peer('second', true);
+    await hub.handle(first, joinEvent(1));
+    await hub.handle(second, joinEvent(2));
+
+    for (let index = 1; index <= 5; index += 1) {
+      await hub.handle(
+        index % 2 === 0 ? second : first,
+        sendEvent(index + 2, index, `Message ${index}`),
+      );
+    }
+    await hub.handle(second, sendEvent(8, 6, 'Too many'));
+
+    expect(second.events.at(-1)).toMatchObject({
+      payload: { code: 'REALTIME_RATE_LIMITED', retryAfterMs: 1_000 },
+      type: 'error',
+    });
+    expect(limiter.consumeMessageToken).toHaveBeenCalledWith(roomId, userId);
+  });
+
+  it('uses the local limit when Redis rate limiting fails', async () => {
+    const limiter: RealtimeRateLimiter = {
+      consumeMessageToken: vi
+        .fn()
+        .mockRejectedValue(new Error('Redis offline')),
+    };
+    const hub = createHub(roomSource(true), limiter);
+    const sender = peer('sender', true);
+    const secondTab = peer('second-tab', true);
+    await hub.handle(sender, joinEvent(1));
+    await hub.handle(secondTab, joinEvent(2));
+
+    for (let index = 1; index <= 5; index += 1) {
+      await hub.handle(
+        index % 2 === 0 ? secondTab : sender,
+        sendEvent(index + 2, index, `Message ${index}`),
+      );
+    }
+    await hub.handle(secondTab, sendEvent(8, 6, 'Too many'));
+
+    expect(secondTab.events.at(-1)).toMatchObject({
+      payload: { code: 'REALTIME_RATE_LIMITED', retryAfterMs: 1_000 },
+      type: 'error',
+    });
+  });
+
   it('returns an explicit unavailable event when room validation fails', async () => {
     const source = roomSource(true);
     vi.mocked(source.isLive).mockRejectedValue(new Error('database offline'));
@@ -248,6 +299,7 @@ describe('RoomRealtimeHub', () => {
       failingPublisher,
       eventBus(),
       presence(),
+      rateLimiter(),
       roomLifecycle(),
       metrics(),
     );
@@ -276,6 +328,7 @@ describe('RoomRealtimeHub', () => {
       messagePublisher,
       eventBus(),
       presence(),
+      rateLimiter(),
       roomLifecycle(),
       metrics(),
     );
@@ -298,6 +351,7 @@ describe('RoomRealtimeHub', () => {
       messagePublisher,
       eventBus(),
       presence(),
+      rateLimiter(),
       roomLifecycle(),
       metrics(),
       contentFilter('scam-offer'),
@@ -330,6 +384,7 @@ describe('RoomRealtimeHub', () => {
       messagePublisher,
       eventBus(),
       presence(),
+      rateLimiter(),
       roomLifecycle(),
       metrics(),
     );
@@ -355,6 +410,7 @@ describe('RoomRealtimeHub', () => {
       publisher(),
       unavailableBus,
       presence(),
+      rateLimiter(),
       roomLifecycle(),
       metrics(),
     );
@@ -383,6 +439,7 @@ describe('RoomRealtimeHub', () => {
       publisher(),
       unavailableBus,
       presence(),
+      rateLimiter(),
       roomLifecycle(),
       metrics(),
     );
@@ -423,6 +480,7 @@ describe('RoomRealtimeHub', () => {
       messagePublisher,
       bus,
       presence(),
+      rateLimiter(),
       roomLifecycle(),
       metrics(),
     );
@@ -450,15 +508,41 @@ describe('RoomRealtimeHub', () => {
   });
 });
 
-function createHub(source = roomSource(true)): RoomRealtimeHub {
+function createHub(
+  source = roomSource(true),
+  limiter = rateLimiter(),
+): RoomRealtimeHub {
   return new RoomRealtimeHub(
     source,
     publisher(),
     eventBus(),
     presence(),
+    limiter,
     roomLifecycle(),
     metrics(),
   );
+}
+
+function rateLimiter(): RealtimeRateLimiter {
+  const buckets = new Map<string, { tokens: number; updatedAt: number }>();
+  return {
+    consumeMessageToken: vi.fn(async (joinedRoomId, senderUserId) => {
+      const key = `${joinedRoomId}:${senderUserId}`;
+      const now = Date.now();
+      const bucket = buckets.get(key) ?? { tokens: 5, updatedAt: now };
+      bucket.tokens = Math.min(
+        5,
+        bucket.tokens + Math.max(0, now - bucket.updatedAt) / 1_000,
+      );
+      bucket.updatedAt = now;
+      buckets.set(key, bucket);
+      if (bucket.tokens < 1) {
+        return Math.ceil((1 - bucket.tokens) * 1_000);
+      }
+      bucket.tokens -= 1;
+      return undefined;
+    }),
+  };
 }
 
 function roomLifecycle(): RoomLifecycleEvents {

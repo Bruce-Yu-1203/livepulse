@@ -12,14 +12,44 @@ import type {
   PresenceCounts,
   RealtimeEventBus,
   RealtimePresence,
+  RealtimeRateLimiter,
 } from './realtime-coordination.js';
 
 const presenceLeaseMilliseconds = 45_000;
 const presenceKeyTtlSeconds = 60;
+const messageBucketCapacity = 5;
+const messageRefillMilliseconds = 1_000;
+const messageBucketTtlMilliseconds = 10_000;
+const consumeMessageTokenScript = `
+local key = KEYS[1]
+local capacity = tonumber(ARGV[1])
+local refillMilliseconds = tonumber(ARGV[2])
+local ttlMilliseconds = tonumber(ARGV[3])
+local clock = redis.call('TIME')
+local now = tonumber(clock[1]) * 1000 + math.floor(tonumber(clock[2]) / 1000)
+local state = redis.call('HMGET', key, 'tokens', 'updatedAt')
+local tokens = tonumber(state[1]) or capacity
+local updatedAt = tonumber(state[2]) or now
+tokens = math.min(capacity, tokens + math.max(0, now - updatedAt) / refillMilliseconds)
+local retryAfterMilliseconds = 0
+if tokens >= 1 then
+  tokens = tokens - 1
+else
+  retryAfterMilliseconds = math.ceil((1 - tokens) * refillMilliseconds)
+end
+redis.call('HSET', key, 'tokens', tokens, 'updatedAt', now)
+redis.call('PEXPIRE', key, ttlMilliseconds)
+return retryAfterMilliseconds
+`;
 
 @Injectable()
 export class RedisRealtimeCoordinator
-  implements RealtimeEventBus, RealtimePresence, OnModuleInit, OnModuleDestroy
+  implements
+    RealtimeEventBus,
+    RealtimePresence,
+    RealtimeRateLimiter,
+    OnModuleInit,
+    OnModuleDestroy
 {
   private readonly logger = new Logger(RedisRealtimeCoordinator.name);
   private readonly commands: RedisClientType;
@@ -31,6 +61,10 @@ export class RedisRealtimeCoordinator
   private readonly keyPrefix: string;
   private readonly useInMemory: boolean;
   private readonly inMemoryPresence = new Map<string, Map<string, string>>();
+  private readonly inMemoryMessageBuckets = new Map<
+    string,
+    { tokens: number; updatedAt: number }
+  >();
 
   public constructor() {
     const configuration = resolveRedisConfiguration({
@@ -103,6 +137,48 @@ export class RedisRealtimeCoordinator
   ): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  public async consumeMessageToken(
+    roomId: string,
+    userId: string,
+  ): Promise<number | undefined> {
+    const key = `${this.keyPrefix}:rate-limit:chat:room:${roomId}:user:${userId}`;
+    if (this.useInMemory) {
+      const now = Date.now();
+      const bucket = this.inMemoryMessageBuckets.get(key) ?? {
+        tokens: messageBucketCapacity,
+        updatedAt: now,
+      };
+      bucket.tokens = Math.min(
+        messageBucketCapacity,
+        bucket.tokens +
+          Math.max(0, now - bucket.updatedAt) / messageRefillMilliseconds,
+      );
+      bucket.updatedAt = now;
+      const retryAfterMilliseconds =
+        bucket.tokens >= 1
+          ? undefined
+          : Math.ceil((1 - bucket.tokens) * messageRefillMilliseconds);
+      if (retryAfterMilliseconds === undefined) {
+        bucket.tokens -= 1;
+      }
+      this.inMemoryMessageBuckets.set(key, bucket);
+      return retryAfterMilliseconds;
+    }
+
+    const result = await this.commands.eval(consumeMessageTokenScript, {
+      arguments: [
+        String(messageBucketCapacity),
+        String(messageRefillMilliseconds),
+        String(messageBucketTtlMilliseconds),
+      ],
+      keys: [key],
+    });
+    if (typeof result !== 'number' || !Number.isSafeInteger(result)) {
+      throw new Error('Redis returned an invalid rate limit result');
+    }
+    return result === 0 ? undefined : result;
   }
 
   public async join(

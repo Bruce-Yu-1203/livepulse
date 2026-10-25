@@ -15,6 +15,7 @@ import {
   roomChatIsClosed,
   roomPresenceLabel,
   resolveSocketIoOrigin,
+  visibleDanmakuMessages,
 } from './room-chat';
 
 const clientMessageId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -78,6 +79,9 @@ describe('room chat state', () => {
     expect(markMessageFailed(pending, clientMessageId)[0]?.status).toBe(
       'failed',
     );
+    expect(
+      visibleDanmakuMessages(markMessageFailed(pending, clientMessageId)),
+    ).toEqual([]);
   });
 
   it('prepends older history and reconciles persisted optimistic messages', () => {
@@ -186,6 +190,13 @@ describe('room chat state', () => {
         message: 'Try again later',
       }),
     ).toBe('Try again later');
+    expect(
+      realtimeErrorMessage({
+        code: 'REALTIME_RATE_LIMITED',
+        message: 'Server fallback',
+        retryAfterMs: 1_200,
+      }),
+    ).toBe("You're sending messages too quickly. Try again in 2 seconds.");
   });
 });
 

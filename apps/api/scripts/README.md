@@ -35,19 +35,22 @@ BENCHMARK_DURATION_SECONDS=30 \
 pnpm --filter @livepulse/api benchmark:realtime
 ```
 
-The default room and account are the seeded live room and
+The default room and source account are the seeded live room and
 `viewer@livepulse.local`. `BENCHMARK_ROOM_ID`, `BENCHMARK_EMAIL`, and
-`BENCHMARK_PASSWORD` can override them. Keep connections at least as high as
-messages per second because the application refills one rate-limit token per
-connection each second.
+`BENCHMARK_PASSWORD` can override them. The generator creates one distinct
+viewer per connection in the isolated benchmark database, using the source
+account's password hash, and signs each viewer in before measurement. Keep
+connections at least as high as messages per second so each viewer sends at
+most one message per second after warm-up.
 
 `endToEndAckMs` measures from sending `message.send` until its originating
 socket receives `message.created`. It includes persistence and Redis delivery.
 `stageMs` measures individual operations; stage percentiles should not be
 added together. `combinedProcess` includes both the API and load generator.
-Because all services share one machine and all connections use one account,
-these results describe a controlled local comparison rather than deployed
-capacity.
+Because all services share one machine, these results describe a controlled
+local comparison rather than deployed capacity. Historical reports generated
+before Redis message limiting used a single account and are not directly
+comparable with the distinct-user workload.
 
 ## Separate API and load generator
 
@@ -98,10 +101,11 @@ node --env-file=.env apps/api/scripts/benchmark-realtime.mjs > /tmp/livepulse-ge
 
 The generator records the time from `message.send` to `message.created` on the
 originating socket. The API records session validation, room and mute checks,
-PostgreSQL insertion, Redis publication, message handling, local fanout, CPU,
-and event loop delay. These stages can overlap, so their percentiles cannot be
-summed to reconstruct ACK latency. A long ACK with short server stages can
-indicate time spent waiting before the handler starts or after fanout begins.
+Redis rate limiting, PostgreSQL insertion, Redis publication, message handling,
+local fanout, CPU, and event loop delay. These stages can overlap, so their
+percentiles cannot be summed to reconstruct ACK latency. A long ACK with short
+server stages can indicate time spent waiting before the handler starts or
+after fanout begins.
 
 For a fanout comparison, `BENCHMARK_ROOM_IDS` accepts a comma-separated list
 of already-live room IDs in the isolated benchmark database. Connections are

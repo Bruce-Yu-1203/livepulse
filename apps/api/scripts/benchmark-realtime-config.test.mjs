@@ -162,7 +162,7 @@ describe('local realtime benchmark configuration', () => {
     ).toThrow(/local livepulse_benchmark_/u);
   });
 
-  it('rejects remote services and loads that trigger the per-peer rate limit', () => {
+  it('rejects remote services and loads that trigger the per-user rate limit', () => {
     expect(() =>
       readBenchmarkConfig({
         ...localEnvironment,

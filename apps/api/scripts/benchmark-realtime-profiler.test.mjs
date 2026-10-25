@@ -75,6 +75,18 @@ describe('realtime benchmark profiler', () => {
     expect(profiler.snapshot().localBroadcastMs.count).toBe(1);
   });
 
+  it('records Redis rate limit calls separately from publication', async () => {
+    const profiler = createStageProfiler();
+    const limiter = { consumeMessageToken: async () => undefined };
+    profiler.wrap(limiter, 'consumeMessageToken', 'redisRateLimitMs');
+
+    profiler.start();
+    await limiter.consumeMessageToken();
+
+    expect(profiler.snapshot().redisRateLimitMs.count).toBe(1);
+    expect(profiler.snapshot().redisMessagePublishMs.count).toBe(0);
+  });
+
   it('reserves the benchmark completion signal for report generation', async () => {
     const emitter = new EventEmitter();
     let priorListenerCalled = false;

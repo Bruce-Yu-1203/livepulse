@@ -118,7 +118,7 @@ export function readBenchmarkConfig(environment) {
   }
   if (messagesPerSecond > connections) {
     throw new Error(
-      'Use at least one connection per message/second to avoid the per-peer rate limit',
+      'Use at least one connection per message/second to avoid the per-user rate limit',
     );
   }
 

@@ -9,6 +9,7 @@ import { MESSAGES_REPOSITORY } from '../dist/messages/messages.tokens.js';
 import { RoomRealtimeHub } from '../dist/realtime/room-realtime-hub.js';
 import {
   REALTIME_EVENT_BUS,
+  REALTIME_RATE_LIMITER,
   REALTIME_ROOM_SOURCE,
 } from '../dist/realtime/realtime.tokens.js';
 import { readBenchmarkConfig } from './benchmark-realtime-config.mjs';
@@ -30,6 +31,11 @@ const roomSource = app.get(REALTIME_ROOM_SOURCE);
 profiler.wrap(roomSource, 'isLive', 'roomLiveCheckMs');
 profiler.wrap(roomSource, 'findActiveMuteExpiry', 'muteCheckMs');
 profiler.wrap(app.get(MESSAGES_REPOSITORY), 'create', 'postgresInsertMs');
+profiler.wrap(
+  app.get(REALTIME_RATE_LIMITER),
+  'consumeMessageToken',
+  'redisRateLimitMs',
+);
 profiler.wrap(
   app.get(REALTIME_EVENT_BUS),
   'publish',
@@ -75,7 +81,7 @@ const rssEnd = process.memoryUsage().rss;
 console.log(
   JSON.stringify(
     {
-      workload: 'local-realtime-api-profile-v1',
+      workload: 'local-realtime-api-profile-v2',
       broadcastMode: 'socketio-room',
       durationSeconds,
       stageMs: profiler.snapshot(),

@@ -5,16 +5,19 @@ import process from 'node:process';
 import { clearTimeout, setTimeout } from 'node:timers';
 import { URL } from 'node:url';
 import { io } from 'socket.io-client';
+import { createDatabaseClient } from '@livepulse/db';
 
 import { BetterAuthService } from '../dist/auth/better-auth.service.js';
 import { createApp } from '../dist/create-app.js';
 import { MESSAGES_REPOSITORY } from '../dist/messages/messages.tokens.js';
 import {
   REALTIME_EVENT_BUS,
+  REALTIME_RATE_LIMITER,
   REALTIME_ROOM_SOURCE,
 } from '../dist/realtime/realtime.tokens.js';
 import { readBenchmarkConfig } from './benchmark-realtime-config.mjs';
 import { createDeliveryVerifier } from './benchmark-realtime-deliveries.mjs';
+import { prepareBenchmarkViewers } from './benchmark-realtime-users.mjs';
 
 const {
   apiOrigin,
@@ -38,6 +41,7 @@ const samples = new Map([
   ['roomLiveCheckMs', []],
   ['muteCheckMs', []],
   ['postgresInsertMs', []],
+  ['redisRateLimitMs', []],
   ['redisMessagePublishMs', []],
 ]);
 let collecting = false;
@@ -66,6 +70,11 @@ if (app) {
   timeMethod(roomSource, 'isLive', 'roomLiveCheckMs');
   timeMethod(roomSource, 'findActiveMuteExpiry', 'muteCheckMs');
   timeMethod(app.get(MESSAGES_REPOSITORY), 'create', 'postgresInsertMs');
+  timeMethod(
+    app.get(REALTIME_RATE_LIMITER),
+    'consumeMessageToken',
+    'redisRateLimitMs',
+  );
   timeMethod(
     app.get(REALTIME_EVENT_BUS),
     'publish',
@@ -164,31 +173,58 @@ function summary(values) {
   };
 }
 
-async function main() {
-  const apiUrl = new URL(apiOrigin);
-  if (app) await app.listen(Number(apiUrl.port), apiUrl.hostname);
-  const login = await globalThis.fetch(
-    `${apiOrigin}/api/v1/auth/sign-in/email`,
+async function loginBenchmarkViewer(origin, viewerEmail) {
+  const response = await globalThis.fetch(
+    `${origin}/api/v1/auth/sign-in/email`,
     {
       method: 'POST',
       headers: { 'content-type': 'application/json', origin: webOrigin },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email: viewerEmail, password }),
     },
   );
-  if (!login.ok)
-    throw new Error(`Local benchmark login failed (${login.status})`);
-  const cookie = login.headers
+  if (!response.ok) {
+    throw new Error(`Local benchmark login failed (${response.status})`);
+  }
+  const cookie = response.headers
     .getSetCookie()
     .find((value) => value.startsWith('livepulse.session_token='))
     ?.split(';', 1)[0];
-  if (!cookie)
+  if (!cookie) {
     throw new Error('Local benchmark login did not return a session cookie');
+  }
+  return cookie;
+}
+
+async function main() {
+  const apiUrl = new URL(apiOrigin);
+  if (app) await app.listen(Number(apiUrl.port), apiUrl.hostname);
+  const database = createDatabaseClient(process.env.DATABASE_URL);
+  let viewerEmails;
+  try {
+    viewerEmails = await prepareBenchmarkViewers(database, email, connections);
+  } finally {
+    await database.$disconnect();
+  }
+  const cookies = [];
+  for (let index = 0; index < connections; index += 8) {
+    const batch = viewerEmails.slice(index, index + 8);
+    cookies.push(
+      ...(await Promise.all(
+        batch.map((viewerEmail, offset) =>
+          loginBenchmarkViewer(
+            apiOrigins[(index + offset) % apiOrigins.length],
+            viewerEmail,
+          ),
+        ),
+      )),
+    );
+  }
 
   for (let index = 0; index < connections; index += 1) {
     const socketRoomId = roomIds[index % roomIds.length];
     const socketOrigin = apiOrigins[index % apiOrigins.length];
     const socket = io(socketOrigin, {
-      extraHeaders: { cookie, origin: webOrigin },
+      extraHeaders: { cookie: cookies[index], origin: webOrigin },
       reconnection: false,
       transports: ['websocket'],
     });
@@ -344,10 +380,11 @@ async function main() {
     [...samples].map(([name, values]) => [name, summary(values)]),
   );
   const result = {
-    workload: 'local-authenticated-socketio-message-roundtrip-v1',
+    workload: 'local-authenticated-socketio-message-roundtrip-v2',
     target: 'isolated local PostgreSQL + Redis',
     settings: {
       connections,
+      distinctUsers: viewerEmails.length,
       messagesPerSecond,
       durationSeconds,
       plannedMessages: count,

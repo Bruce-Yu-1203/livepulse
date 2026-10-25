@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   countPresence,
+  RedisRealtimeCoordinator,
   resolveRedisConfiguration,
 } from './redis-realtime-coordinator.js';
 
@@ -44,6 +45,53 @@ describe('Redis realtime configuration', () => {
         redisUrl: undefined,
       }),
     ).toThrow('REDIS_KEY_PREFIX is invalid');
+  });
+});
+
+describe('message rate limiting without a Redis URL', () => {
+  beforeEach(() => {
+    vi.stubEnv('REDIS_URL', undefined);
+    vi.stubEnv('NODE_ENV', 'test');
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-09T20:00:00.000Z'));
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.useRealTimers();
+  });
+
+  it('allows five messages, then refills one token per second', async () => {
+    const coordinator = new RedisRealtimeCoordinator();
+    for (let index = 0; index < 5; index += 1) {
+      await expect(
+        coordinator.consumeMessageToken('room-1', 'user-1'),
+      ).resolves.toBeUndefined();
+    }
+    await expect(
+      coordinator.consumeMessageToken('room-1', 'user-1'),
+    ).resolves.toBe(1_000);
+    vi.advanceTimersByTime(500);
+    await expect(
+      coordinator.consumeMessageToken('room-1', 'user-1'),
+    ).resolves.toBe(500);
+    vi.advanceTimersByTime(500);
+    await expect(
+      coordinator.consumeMessageToken('room-1', 'user-1'),
+    ).resolves.toBeUndefined();
+  });
+
+  it('keeps separate buckets for each room and user', async () => {
+    const coordinator = new RedisRealtimeCoordinator();
+    for (let index = 0; index < 5; index += 1) {
+      await coordinator.consumeMessageToken('room-1', 'user-1');
+    }
+    await expect(
+      coordinator.consumeMessageToken('room-1', 'user-2'),
+    ).resolves.toBeUndefined();
+    await expect(
+      coordinator.consumeMessageToken('room-2', 'user-1'),
+    ).resolves.toBeUndefined();
   });
 });
 

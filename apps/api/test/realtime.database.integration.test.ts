@@ -10,7 +10,7 @@ import {
 } from '@livepulse/contracts';
 import { createDatabaseClient } from '@livepulse/db';
 import { createClient } from 'redis';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { io, type Socket } from 'socket.io-client';
 
 import { sessionCookieName } from '../src/auth/better-auth.service.js';
@@ -98,6 +98,13 @@ describe('room Socket.IO gateway', () => {
     } else {
       process.env.PROHIBITED_WORDS = originalProhibitedWords;
     }
+  });
+
+  beforeEach(async () => {
+    await redis.del([
+      `${redisKeyPrefix}:rate-limit:chat:room:${liveRoomId}:user:${viewerId}`,
+      `${redisKeyPrefix}:rate-limit:chat:room:${endingRoomId}:user:${viewerId}`,
+    ]);
   });
 
   it('joins live rooms, blocks guest sends, and broadcasts one message', async () => {
@@ -230,6 +237,44 @@ describe('room Socket.IO gateway', () => {
     expect(receivedAfterLeave).toHaveLength(0);
     sender.disconnect();
     observer.disconnect();
+  });
+
+  it('shares one message bucket across two API instances', async () => {
+    const first = await connect(accessCookie);
+    const second = await connect(accessCookie, 'http://localhost:3000', true);
+    const firstJoined = nextEventOfType(first, 'room.joined');
+    send(first, joinEvent(liveRoomId, 201));
+    await firstJoined;
+    const secondJoined = nextEventOfType(second, 'room.joined');
+    send(second, joinEvent(liveRoomId, 202));
+    await secondJoined;
+
+    const replies = await Promise.all(
+      Array.from({ length: 6 }, (_, index) => {
+        const sender = index % 2 === 0 ? first : second;
+        const request = 210 + index;
+        const reply = nextMessageReply(sender, uuid(request));
+        send(
+          sender,
+          sendEvent(liveRoomId, request, request, `Rate limit ${index}`),
+        );
+        return reply;
+      }),
+    );
+
+    expect(
+      replies.filter((reply) => reply.type === 'message.created'),
+    ).toHaveLength(5);
+    expect(replies.filter((reply) => reply.type === 'error')).toMatchObject([
+      {
+        payload: {
+          code: 'REALTIME_RATE_LIMITED',
+          retryAfterMs: expect.any(Number),
+        },
+      },
+    ]);
+    first.disconnect();
+    second.disconnect();
   });
 
   it('delivers once after a remote client reconnects and rejoins', async () => {
@@ -435,6 +480,8 @@ describe('room Socket.IO gateway', () => {
 
   async function removeFixtures(): Promise<void> {
     await redis.del([
+      `${redisKeyPrefix}:rate-limit:chat:room:${liveRoomId}:user:${viewerId}`,
+      `${redisKeyPrefix}:rate-limit:chat:room:${endingRoomId}:user:${viewerId}`,
       `${redisKeyPrefix}:room:${liveRoomId}:presence`,
       `${redisKeyPrefix}:room:${endedRoomId}:presence`,
       `${redisKeyPrefix}:room:${endingRoomId}:presence`,
@@ -459,6 +506,25 @@ describe('room Socket.IO gateway', () => {
     });
   }
 });
+
+function nextMessageReply(
+  socket: Socket,
+  requestId: string,
+): Promise<ReturnType<typeof ServerRealtimeEventSchema.parse>> {
+  return new Promise((resolve) => {
+    const receive = (body: unknown) => {
+      const event = ServerRealtimeEventSchema.parse(body);
+      if (event.requestId !== requestId) {
+        return;
+      }
+      socket.off('message.created', receive);
+      socket.off('error', receive);
+      resolve(event);
+    };
+    socket.on('message.created', receive);
+    socket.on('error', receive);
+  });
+}
 
 function nextEventOfType(
   socket: Socket,
