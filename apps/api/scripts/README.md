@@ -56,6 +56,19 @@ server prints its PID after it is ready. The generator sends it signals to start
 profiling after socket warm-up and stop profiling after all responses settle.
 Save each process's JSON output to a separate file.
 
+For a two-process sustained load, start two copies of
+`benchmark-realtime-server.mjs` with the same isolated database and Redis key
+prefix. Give each copy a different `BENCHMARK_API_ORIGIN`, such as local ports
+3101 and 3102. Set `BENCHMARK_EXTERNAL_API=1`,
+`BENCHMARK_API_ORIGINS=http://127.0.0.1:3101,http://127.0.0.1:3102`, and
+`BENCHMARK_PROFILE_PIDS=FIRST_PID,SECOND_PID` on the generator. Set
+`BENCHMARK_CONNECTIONS=400`, `BENCHMARK_MESSAGES_PER_SECOND=400`, and
+`BENCHMARK_DURATION_SECONDS=60` to distribute 200 clients and about 200
+messages/second to each API process. The generator reports per-API ACK results,
+10-second ACK windows, and dispatch lag so a busy generator is visible. Use
+`BENCHMARK_VERIFY_DELIVERIES=1` in a separate diagnostic run to check every
+recipient; counting deliveries adds client work to the latency measurement.
+
 In one terminal, start the profiled API with the same isolated database and
 Redis environment shown above:
 

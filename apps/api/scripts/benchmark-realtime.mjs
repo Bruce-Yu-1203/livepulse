@@ -18,6 +18,7 @@ import { createDeliveryVerifier } from './benchmark-realtime-deliveries.mjs';
 
 const {
   apiOrigin,
+  apiOrigins,
   webOrigin,
   roomId,
   roomIds,
@@ -27,7 +28,7 @@ const {
   messagesPerSecond,
   durationSeconds,
   externalApi,
-  profilePid,
+  profilePids,
   verifyDeliveries,
 } = readBenchmarkConfig(process.env);
 
@@ -75,6 +76,20 @@ if (app) {
 
 const sockets = [];
 const roomBySocket = [];
+const originBySocket = [];
+const byApiOrigin = new Map(
+  apiOrigins.map((origin) => [
+    origin,
+    {
+      connections: 0,
+      plannedMessages: 0,
+      acceptedMessages: 0,
+      acceptedDuringWindow: 0,
+      failures: 0,
+      latencies: [],
+    },
+  ]),
+);
 const pendingByMessage = new Map();
 const pendingByRequest = new Map();
 const latencies = [];
@@ -83,6 +98,9 @@ let failures = 0;
 let acceptedDuringWindow = 0;
 let windowEnd = 0;
 let deliveryVerifier;
+let tenSecondWindows;
+const dispatchLags = [];
+let sentDuringWindow = 0;
 const eventLoopDelay = monitorEventLoopDelay({ resolution: 20 });
 
 function waitFor(socket, eventName, timeoutMs = 10_000) {
@@ -104,11 +122,22 @@ function settle(entry, result) {
   clearTimeout(entry.timeout);
   pendingByMessage.delete(entry.clientMessageId);
   pendingByRequest.delete(entry.requestId);
+  const origin = byApiOrigin.get(entry.origin);
+  const window = tenSecondWindows[entry.windowIndex];
   if (result.ok) {
     latencies.push(result.latencyMs);
-    if (performance.now() <= windowEnd) acceptedDuringWindow += 1;
+    origin.acceptedMessages += 1;
+    origin.latencies.push(result.latencyMs);
+    window.acceptedMessages += 1;
+    window.latencies.push(result.latencyMs);
+    if (performance.now() <= windowEnd) {
+      acceptedDuringWindow += 1;
+      origin.acceptedDuringWindow += 1;
+    }
   } else {
     failures += 1;
+    origin.failures += 1;
+    window.failures += 1;
     errors[result.code ?? 'unknown'] =
       (errors[result.code ?? 'unknown'] ?? 0) + 1;
   }
@@ -157,7 +186,8 @@ async function main() {
 
   for (let index = 0; index < connections; index += 1) {
     const socketRoomId = roomIds[index % roomIds.length];
-    const socket = io(apiOrigin, {
+    const socketOrigin = apiOrigins[index % apiOrigins.length];
+    const socket = io(socketOrigin, {
       extraHeaders: { cookie, origin: webOrigin },
       reconnection: false,
       transports: ['websocket'],
@@ -179,6 +209,8 @@ async function main() {
     });
     sockets.push(socket);
     roomBySocket.push(socketRoomId);
+    originBySocket.push(socketOrigin);
+    byApiOrigin.get(socketOrigin).connections += 1;
     await connected;
     const joined = waitFor(socket, 'room.joined');
     socket.emit('room.join', {
@@ -223,6 +255,15 @@ async function main() {
   );
 
   const count = messagesPerSecond * durationSeconds;
+  tenSecondWindows = Array.from(
+    { length: Math.ceil(durationSeconds / 10) },
+    () => ({
+      sentMessages: 0,
+      acceptedMessages: 0,
+      failures: 0,
+      latencies: [],
+    }),
+  );
   if (verifyDeliveries) {
     deliveryVerifier = createDeliveryVerifier(roomBySocket, count);
   }
@@ -231,7 +272,7 @@ async function main() {
   const rssStart = process.memoryUsage().rss;
   eventLoopDelay.enable();
   collecting = true;
-  if (profilePid) process.kill(profilePid, 'SIGUSR1');
+  for (const pid of profilePids) process.kill(pid, 'SIGUSR1');
   const startedAt = performance.now();
   windowEnd = startedAt + durationSeconds * 1_000;
 
@@ -241,13 +282,25 @@ async function main() {
     if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs));
     const senderIndex = index % sockets.length;
     const socket = sockets[senderIndex];
+    const origin = originBySocket[senderIndex];
     const clientMessageId = randomUUID();
     const requestId = randomUUID();
+    const sentAt = performance.now();
+    const windowIndex = Math.min(
+      tenSecondWindows.length - 1,
+      Math.max(0, Math.floor((sentAt - startedAt) / 10_000)),
+    );
+    dispatchLags.push(Math.max(0, sentAt - targetTime));
+    if (sentAt <= windowEnd) sentDuringWindow += 1;
+    tenSecondWindows[windowIndex].sentMessages += 1;
+    byApiOrigin.get(origin).plannedMessages += 1;
     const entry = {
       clientMessageId,
       requestId,
       senderIndex,
-      sentAt: performance.now(),
+      origin,
+      sentAt,
+      windowIndex,
       done: false,
       resolve: () => {},
     };
@@ -284,7 +337,7 @@ async function main() {
   const finishedAt = performance.now();
   collecting = false;
   eventLoopDelay.disable();
-  if (profilePid) process.kill(profilePid, 'SIGUSR2');
+  for (const pid of profilePids) process.kill(pid, 'SIGUSR2');
   const cpu = process.cpuUsage(cpuStart);
   const rssEnd = process.memoryUsage().rss;
   const stageSummaries = Object.fromEntries(
@@ -300,7 +353,12 @@ async function main() {
       plannedMessages: count,
       roomId,
       roomIds,
+      apiOrigins,
+      connectionsPerApi: Object.fromEntries(
+        [...byApiOrigin].map(([origin, stats]) => [origin, stats.connections]),
+      ),
     },
+    sentDuringWindow,
     acceptedMessages: latencies.length,
     acceptedDuringWindow,
     acceptedPerSecond: Number(
@@ -309,6 +367,32 @@ async function main() {
     failures,
     errorCounts: errors,
     endToEndAckMs: summary(latencies),
+    dispatchLagMs: summary(dispatchLags),
+    tenSecondWindows: tenSecondWindows.map((window, index) => ({
+      fromSecond: index * 10,
+      toSecond: Math.min((index + 1) * 10, durationSeconds),
+      sentMessages: window.sentMessages,
+      acceptedMessages: window.acceptedMessages,
+      failures: window.failures,
+      endToEndAckMs: summary(window.latencies),
+    })),
+    ...(apiOrigins.length > 1
+      ? {
+          byApiOrigin: Object.fromEntries(
+            [...byApiOrigin].map(([origin, stats]) => [
+              origin,
+              {
+                connections: stats.connections,
+                plannedMessages: stats.plannedMessages,
+                acceptedMessages: stats.acceptedMessages,
+                acceptedDuringWindow: stats.acceptedDuringWindow,
+                failures: stats.failures,
+                endToEndAckMs: summary(stats.latencies),
+              },
+            ]),
+          ),
+        }
+      : {}),
     ...(deliveryVerification ? { deliveryVerification } : {}),
     ...(app ? { stageMs: stageSummaries } : {}),
     [app ? 'combinedProcess' : 'generatorProcess']: {

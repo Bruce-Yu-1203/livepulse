@@ -4,6 +4,9 @@ const localHosts = new Set(['127.0.0.1', 'localhost']);
 
 export function readBenchmarkConfig(environment) {
   const apiOrigin = environment.BENCHMARK_API_ORIGIN ?? 'http://127.0.0.1:3101';
+  const apiOrigins = environment.BENCHMARK_API_ORIGINS
+    ? environment.BENCHMARK_API_ORIGINS.split(',').map((value) => value.trim())
+    : [apiOrigin];
   const databaseUrl = environment.DATABASE_URL;
   const redisUrl = environment.REDIS_URL;
   const redisKeyPrefix = environment.REDIS_KEY_PREFIX;
@@ -32,6 +35,13 @@ export function readBenchmarkConfig(environment) {
         'BENCHMARK_PROFILE_PID',
       )
     : null;
+  const profilePids = environment.BENCHMARK_PROFILE_PIDS
+    ? environment.BENCHMARK_PROFILE_PIDS.split(',').map((value) =>
+        positiveInteger(value.trim(), 1, 'BENCHMARK_PROFILE_PIDS'),
+      )
+    : profilePid
+      ? [profilePid]
+      : [];
   const roomId =
     environment.BENCHMARK_ROOM_ID ?? '44444444-4444-4444-8444-444444444444';
   const roomIds = environment.BENCHMARK_ROOM_IDS
@@ -52,6 +62,20 @@ export function readBenchmarkConfig(environment) {
   }
   if (profilePid && !externalApi) {
     throw new Error('BENCHMARK_PROFILE_PID requires BENCHMARK_EXTERNAL_API=1');
+  }
+  if (environment.BENCHMARK_PROFILE_PIDS && !externalApi) {
+    throw new Error('BENCHMARK_PROFILE_PIDS requires BENCHMARK_EXTERNAL_API=1');
+  }
+  if (environment.BENCHMARK_PROFILE_PIDS && profilePid) {
+    throw new Error(
+      'Use either BENCHMARK_PROFILE_PID or BENCHMARK_PROFILE_PIDS',
+    );
+  }
+  if (new Set(profilePids).size !== profilePids.length) {
+    throw new Error('BENCHMARK_PROFILE_PIDS must contain unique process IDs');
+  }
+  if (profilePids.length > 0 && profilePids.length !== apiOrigins.length) {
+    throw new Error('Profile PID count must match API origin count');
   }
   if (
     roomIds.some((value) => !value) ||
@@ -78,10 +102,16 @@ export function readBenchmarkConfig(environment) {
       'Redis must be local with a livepulse-benchmark-* key prefix',
     );
   }
-  if (!localUrl(apiOrigin, ['http:']) || !new URL(apiOrigin).port) {
-    throw new Error(
-      'BENCHMARK_API_ORIGIN must be a local HTTP origin with a port',
-    );
+  if (
+    apiOrigins.some(
+      (origin) => !localUrl(origin, ['http:']) || !new URL(origin).port,
+    ) ||
+    new Set(apiOrigins).size !== apiOrigins.length
+  ) {
+    throw new Error('API origins must be unique local HTTP origins with ports');
+  }
+  if (apiOrigins.length > 1 && !externalApi) {
+    throw new Error('Multiple API origins require BENCHMARK_EXTERNAL_API=1');
   }
   if (!password) {
     throw new Error('DEMO_PASSWORD or BENCHMARK_PASSWORD is required');
@@ -93,7 +123,8 @@ export function readBenchmarkConfig(environment) {
   }
 
   return {
-    apiOrigin,
+    apiOrigin: apiOrigins[0],
+    apiOrigins,
     webOrigin: environment.WEB_ORIGIN ?? 'http://localhost:3000',
     roomId,
     roomIds,
@@ -105,6 +136,7 @@ export function readBenchmarkConfig(environment) {
     externalApi,
     verifyDeliveries,
     profilePid,
+    profilePids,
   };
 }
 

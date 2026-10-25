@@ -24,6 +24,8 @@ describe('local realtime benchmark configuration', () => {
     expect(config.externalApi).toBe(false);
     expect(config.verifyDeliveries).toBe(false);
     expect(config.profilePid).toBeNull();
+    expect(config.apiOrigins).toEqual(['http://127.0.0.1:3101']);
+    expect(config.profilePids).toEqual([]);
     expect(config.roomIds).toEqual(['44444444-4444-4444-8444-444444444444']);
   });
 
@@ -57,6 +59,54 @@ describe('local realtime benchmark configuration', () => {
 
     expect(config.externalApi).toBe(true);
     expect(config.profilePid).toBe(12345);
+    expect(config.profilePids).toEqual([12345]);
+  });
+
+  it('accepts two isolated API processes with matching profiler PIDs', () => {
+    const config = readBenchmarkConfig({
+      ...localEnvironment,
+      BENCHMARK_API_ORIGINS: 'http://127.0.0.1:3101,http://127.0.0.1:3102',
+      BENCHMARK_EXTERNAL_API: '1',
+      BENCHMARK_PROFILE_PIDS: '12345,23456',
+    });
+    expect(config.apiOrigins).toEqual([
+      'http://127.0.0.1:3101',
+      'http://127.0.0.1:3102',
+    ]);
+    expect(config.profilePids).toEqual([12345, 23456]);
+  });
+
+  it('rejects ambiguous or unsafe multi-process workloads', () => {
+    const twoOrigins = {
+      ...localEnvironment,
+      BENCHMARK_API_ORIGINS: 'http://127.0.0.1:3101,http://127.0.0.1:3102',
+      BENCHMARK_EXTERNAL_API: '1',
+    };
+    expect(() =>
+      readBenchmarkConfig({
+        ...twoOrigins,
+        BENCHMARK_PROFILE_PIDS: '12345',
+      }),
+    ).toThrow(/PID count must match/u);
+    expect(() =>
+      readBenchmarkConfig({
+        ...twoOrigins,
+        BENCHMARK_API_ORIGINS:
+          'http://127.0.0.1:3101,http://remote.example:3102',
+      }),
+    ).toThrow(/unique local HTTP origins/u);
+    expect(() =>
+      readBenchmarkConfig({
+        ...twoOrigins,
+        BENCHMARK_API_ORIGINS: 'http://127.0.0.1:3101,http://127.0.0.1:3101',
+      }),
+    ).toThrow(/unique local HTTP origins/u);
+    expect(() =>
+      readBenchmarkConfig({
+        ...twoOrigins,
+        BENCHMARK_EXTERNAL_API: '0',
+      }),
+    ).toThrow(/require BENCHMARK_EXTERNAL_API=1/u);
   });
 
   it('accepts an explicit delivery verification mode', () => {
@@ -124,7 +174,7 @@ describe('local realtime benchmark configuration', () => {
         ...localEnvironment,
         BENCHMARK_API_ORIGIN: 'https://api.example:443',
       }),
-    ).toThrow(/local HTTP origin/u);
+    ).toThrow(/local HTTP origins/u);
     expect(() =>
       readBenchmarkConfig({
         ...localEnvironment,
