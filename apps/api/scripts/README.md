@@ -67,7 +67,8 @@ prefix. Give each copy a different `BENCHMARK_API_ORIGIN`, such as local ports
 messages/second to each API process. The generator reports per-API ACK results,
 10-second ACK windows, and dispatch lag so a busy generator is visible. Use
 `BENCHMARK_VERIFY_DELIVERIES=1` in a separate diagnostic run to check every
-recipient; counting deliveries adds client work to the latency measurement.
+recipient and checks every message index for duplicates or missing deliveries;
+counting deliveries adds client work to the latency measurement.
 
 In one terminal, start the profiled API with the same isolated database and
 Redis environment shown above:
