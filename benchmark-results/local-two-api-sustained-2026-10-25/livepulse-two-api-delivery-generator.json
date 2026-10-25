@@ -1,0 +1,181 @@
+{
+  "workload": "local-authenticated-socketio-message-roundtrip-v1",
+  "target": "isolated local PostgreSQL + Redis",
+  "settings": {
+    "connections": 400,
+    "messagesPerSecond": 400,
+    "durationSeconds": 60,
+    "plannedMessages": 24000,
+    "roomId": "44444444-4444-4444-8444-444444444444",
+    "roomIds": [
+      "44444444-4444-4444-8444-444444444444"
+    ],
+    "apiOrigins": [
+      "http://127.0.0.1:3101",
+      "http://127.0.0.1:3102"
+    ],
+    "connectionsPerApi": {
+      "http://127.0.0.1:3101": 200,
+      "http://127.0.0.1:3102": 200
+    }
+  },
+  "sentDuringWindow": 23997,
+  "acceptedMessages": 24000,
+  "acceptedDuringWindow": 23961,
+  "acceptedPerSecond": 399.35,
+  "failures": 0,
+  "errorCounts": {},
+  "endToEndAckMs": {
+    "count": 24000,
+    "p50": 7.36,
+    "p95": 29.89,
+    "p99": 86.33,
+    "max": 232.77
+  },
+  "dispatchLagMs": {
+    "count": 24000,
+    "p50": 0.98,
+    "p95": 5.76,
+    "p99": 16.47,
+    "max": 69.09
+  },
+  "tenSecondWindows": [
+    {
+      "fromSecond": 0,
+      "toSecond": 10,
+      "sentMessages": 4000,
+      "acceptedMessages": 4000,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 4000,
+        "p50": 7.4,
+        "p95": 15.3,
+        "p99": 33.03,
+        "max": 58.25
+      }
+    },
+    {
+      "fromSecond": 10,
+      "toSecond": 20,
+      "sentMessages": 4000,
+      "acceptedMessages": 4000,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 4000,
+        "p50": 7.52,
+        "p95": 58.6,
+        "p99": 134.71,
+        "max": 232.77
+      }
+    },
+    {
+      "fromSecond": 20,
+      "toSecond": 30,
+      "sentMessages": 4000,
+      "acceptedMessages": 4000,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 4000,
+        "p50": 7.12,
+        "p95": 20.41,
+        "p99": 40.07,
+        "max": 85.8
+      }
+    },
+    {
+      "fromSecond": 30,
+      "toSecond": 40,
+      "sentMessages": 4000,
+      "acceptedMessages": 4000,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 4000,
+        "p50": 7.06,
+        "p95": 20.5,
+        "p99": 55.92,
+        "max": 86.1
+      }
+    },
+    {
+      "fromSecond": 40,
+      "toSecond": 50,
+      "sentMessages": 3998,
+      "acceptedMessages": 3998,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 3998,
+        "p50": 7.79,
+        "p95": 57.6,
+        "p99": 97.87,
+        "max": 130.39
+      }
+    },
+    {
+      "fromSecond": 50,
+      "toSecond": 60,
+      "sentMessages": 4002,
+      "acceptedMessages": 4002,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 4002,
+        "p50": 7.43,
+        "p95": 36.09,
+        "p99": 80.66,
+        "max": 116.76
+      }
+    }
+  ],
+  "byApiOrigin": {
+    "http://127.0.0.1:3101": {
+      "connections": 200,
+      "plannedMessages": 12000,
+      "acceptedMessages": 12000,
+      "acceptedDuringWindow": 11980,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 12000,
+        "p50": 7.4,
+        "p95": 29.83,
+        "p99": 85.63,
+        "max": 217.75
+      }
+    },
+    "http://127.0.0.1:3102": {
+      "connections": 200,
+      "plannedMessages": 12000,
+      "acceptedMessages": 12000,
+      "acceptedDuringWindow": 11981,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 12000,
+        "p50": 7.32,
+        "p95": 30.08,
+        "p99": 88.07,
+        "max": 232.77
+      }
+    }
+  },
+  "deliveryVerification": {
+    "expected": 9600000,
+    "received": 9600000,
+    "uniqueReceived": 9600000,
+    "missing": 0,
+    "duplicates": 0,
+    "wrongRoomDeliveries": 0,
+    "invalidMessageIndexes": 0,
+    "complete": true,
+    "minPerSocket": 24000,
+    "maxPerSocket": 24000,
+    "minUniquePerSocket": 24000,
+    "maxUniquePerSocket": 24000
+  },
+  "generatorProcess": {
+    "cpuUserMs": 44420.1,
+    "cpuSystemMs": 12488.81,
+    "rssStartMiB": 309.06,
+    "rssEndMiB": 243.64,
+    "eventLoopDelayP95Ms": 24.72,
+    "eventLoopDelayMaxMs": 87.03
+  },
+  "durationObservedSeconds": 60.07
+}

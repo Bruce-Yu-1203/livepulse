@@ -1,0 +1,167 @@
+{
+  "workload": "local-authenticated-socketio-message-roundtrip-v1",
+  "target": "isolated local PostgreSQL + Redis",
+  "settings": {
+    "connections": 400,
+    "messagesPerSecond": 400,
+    "durationSeconds": 60,
+    "plannedMessages": 24000,
+    "roomId": "44444444-4444-4444-8444-444444444444",
+    "roomIds": [
+      "44444444-4444-4444-8444-444444444444"
+    ],
+    "apiOrigins": [
+      "http://127.0.0.1:3101",
+      "http://127.0.0.1:3102"
+    ],
+    "connectionsPerApi": {
+      "http://127.0.0.1:3101": 200,
+      "http://127.0.0.1:3102": 200
+    }
+  },
+  "sentDuringWindow": 24000,
+  "acceptedMessages": 24000,
+  "acceptedDuringWindow": 23998,
+  "acceptedPerSecond": 399.97,
+  "failures": 0,
+  "errorCounts": {},
+  "endToEndAckMs": {
+    "count": 24000,
+    "p50": 6.85,
+    "p95": 47.02,
+    "p99": 160.47,
+    "max": 268.93
+  },
+  "dispatchLagMs": {
+    "count": 24000,
+    "p50": 0.55,
+    "p95": 5.72,
+    "p99": 16.45,
+    "max": 89.81
+  },
+  "tenSecondWindows": [
+    {
+      "fromSecond": 0,
+      "toSecond": 10,
+      "sentMessages": 4000,
+      "acceptedMessages": 4000,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 4000,
+        "p50": 7.42,
+        "p95": 72.73,
+        "p99": 148.55,
+        "max": 216.3
+      }
+    },
+    {
+      "fromSecond": 10,
+      "toSecond": 20,
+      "sentMessages": 4001,
+      "acceptedMessages": 4001,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 4001,
+        "p50": 7.3,
+        "p95": 26.01,
+        "p99": 52.93,
+        "max": 85.52
+      }
+    },
+    {
+      "fromSecond": 20,
+      "toSecond": 30,
+      "sentMessages": 3997,
+      "acceptedMessages": 3997,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 3997,
+        "p50": 7.18,
+        "p95": 53.7,
+        "p99": 139.84,
+        "max": 219.41
+      }
+    },
+    {
+      "fromSecond": 30,
+      "toSecond": 40,
+      "sentMessages": 4002,
+      "acceptedMessages": 4002,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 4002,
+        "p50": 7.15,
+        "p95": 156.5,
+        "p99": 219.57,
+        "max": 268.93
+      }
+    },
+    {
+      "fromSecond": 40,
+      "toSecond": 50,
+      "sentMessages": 4000,
+      "acceptedMessages": 4000,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 4000,
+        "p50": 6.09,
+        "p95": 21.6,
+        "p99": 73.02,
+        "max": 188.73
+      }
+    },
+    {
+      "fromSecond": 50,
+      "toSecond": 60,
+      "sentMessages": 4000,
+      "acceptedMessages": 4000,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 4000,
+        "p50": 6.25,
+        "p95": 14.6,
+        "p99": 61.32,
+        "max": 132.45
+      }
+    }
+  ],
+  "byApiOrigin": {
+    "http://127.0.0.1:3101": {
+      "connections": 200,
+      "plannedMessages": 12000,
+      "acceptedMessages": 12000,
+      "acceptedDuringWindow": 11999,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 12000,
+        "p50": 6.84,
+        "p95": 44.57,
+        "p99": 161.67,
+        "max": 268.93
+      }
+    },
+    "http://127.0.0.1:3102": {
+      "connections": 200,
+      "plannedMessages": 12000,
+      "acceptedMessages": 12000,
+      "acceptedDuringWindow": 11999,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 12000,
+        "p50": 6.87,
+        "p95": 49.25,
+        "p99": 158.04,
+        "max": 234.12
+      }
+    }
+  },
+  "generatorProcess": {
+    "cpuUserMs": 43287.33,
+    "cpuSystemMs": 12867.46,
+    "rssStartMiB": 341.97,
+    "rssEndMiB": 237.58,
+    "eventLoopDelayP95Ms": 24.56,
+    "eventLoopDelayMaxMs": 107.48
+  },
+  "durationObservedSeconds": 60
+}
