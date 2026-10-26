@@ -18,7 +18,7 @@ export class RegistrationController {
     @Body() body: unknown,
     @Req() request: FastifyRequest,
   ): Promise<RegistrationStartResponse> {
-    await this.registration.start(body);
+    await this.registration.start(body, request.ip);
     return {
       expiresInSeconds: 600,
       resendAfterSeconds: 60,

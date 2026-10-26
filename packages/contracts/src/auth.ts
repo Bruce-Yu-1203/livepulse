@@ -30,6 +30,7 @@ export const RegisterRequestSchema = z
     email: RegistrationEmailSchema,
     username: RegistrationUsernameSchema,
     password: RegistrationPasswordSchema,
+    turnstileToken: z.string().trim().min(1).max(2_048),
   })
   .strict();
 
@@ -172,6 +173,7 @@ export const ApiErrorCode = {
   EmailAlreadyExists: 'AUTH_EMAIL_ALREADY_REGISTERED',
   RegistrationCodeInvalid: 'AUTH_REGISTRATION_CODE_INVALID',
   RegistrationRateLimited: 'AUTH_REGISTRATION_RATE_LIMITED',
+  TurnstileFailed: 'AUTH_TURNSTILE_FAILED',
   RequestRateLimited: 'REQUEST_RATE_LIMITED',
   UsernameAlreadyExists: 'AUTH_USERNAME_ALREADY_REGISTERED',
   Forbidden: 'AUTH_FORBIDDEN',

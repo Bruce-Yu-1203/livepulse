@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import { AuthPanel, oauthErrorMessage } from './auth-panel.js';
+import { RegistrationTurnstile } from './registration-turnstile.js';
 
 describe('AuthPanel', () => {
   it('renders Google and email authentication choices', () => {
@@ -38,5 +39,13 @@ describe('AuthPanel', () => {
     expect(oauthErrorMessage('provider_error')).toContain(
       'could not be completed',
     );
+  });
+
+  it('provides a named container for the registration challenge', () => {
+    const markup = renderToStaticMarkup(
+      <RegistrationTurnstile onToken={() => undefined} resetKey={0} />,
+    );
+
+    expect(markup).toContain('aria-label="Human verification"');
   });
 });

@@ -138,6 +138,28 @@ test('registration validates fields, verifies email, and signs in', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 667 });
+  await page.route('**/turnstile/v0/api.js*', (route) =>
+    route.fulfill({
+      contentType: 'application/javascript',
+      body: `
+        const widgets = new Map();
+        window.turnstile = {
+          render(container, options) {
+            const id = String(widgets.size + 1);
+            widgets.set(id, options);
+            container.textContent = 'Verification ready';
+            queueMicrotask(() => options.callback('test-turnstile-token-' + id));
+            return id;
+          },
+          reset(id) {
+            const options = widgets.get(id);
+            if (options) queueMicrotask(() => options.callback('fresh-turnstile-token-' + id));
+          },
+          remove(id) { widgets.delete(id); }
+        };
+      `,
+    }),
+  );
   let signedIn = false;
   let startCount = 0;
   let completeCount = 0;
@@ -160,6 +182,10 @@ test('registration validates fields, verifies email, and signs in', async ({
     route.fulfill({ json: { providers: [] } }),
   );
   await page.route('**/api/v1/auth/registration/start', (route) => {
+    expect(route.request().postDataJSON()).toMatchObject({
+      email: 'new@example.com',
+      turnstileToken: expect.stringContaining('turnstile-token'),
+    });
     startCount += 1;
     if (startCount === 1) {
       return route.fulfill({
@@ -223,6 +249,9 @@ test('registration validates fields, verifies email, and signs in', async ({
   await expect(
     dialog.getByRole('button', { name: 'Send verification code' }),
   ).toBeInViewport();
+  await expect(
+    dialog.getByRole('group', { name: 'Human verification' }),
+  ).toBeVisible();
 
   await dialog.getByLabel('Username').fill('abcd');
   await dialog.getByLabel('Password', { exact: true }).fill('letters');

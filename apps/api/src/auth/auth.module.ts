@@ -7,6 +7,7 @@ import { AvatarService } from './avatar.service.js';
 import { BetterAuthService } from './better-auth.service.js';
 import { CsrfGuard } from './csrf.guard.js';
 import { SessionGuard } from './session.guard.js';
+import { TurnstileVerifier } from './turnstile-verifier.js';
 import { RegistrationController } from './registration.controller.js';
 import { RegistrationService } from './registration.service.js';
 import { ResendVerificationEmail } from './resend-verification-email.js';
@@ -20,6 +21,7 @@ import { ResendVerificationEmail } from './resend-verification-email.js';
     AvatarService,
     CsrfGuard,
     SessionGuard,
+    TurnstileVerifier,
     RegistrationService,
     ResendVerificationEmail,
   ],

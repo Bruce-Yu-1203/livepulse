@@ -26,28 +26,63 @@ describe('RegisterRequestSchema', () => {
         email: '  Viewer@Example.COM ',
         username: '  Viewer_123 ',
         password: 'securepass123',
+        turnstileToken: '  valid-turnstile-token  ',
       }),
     ).toEqual({
       email: 'viewer@example.com',
       username: 'viewer_123',
       password: 'securepass123',
+      turnstileToken: 'valid-turnstile-token',
     });
   });
 
   it.each([
-    { email: 'not-an-email', username: 'viewer1', password: 'securepass123' },
+    {
+      email: 'not-an-email',
+      username: 'viewer1',
+      password: 'securepass123',
+      turnstileToken: 'token',
+    },
     {
       email: 'viewer@example.com',
       username: 'abcd',
       password: 'securepass123',
+      turnstileToken: 'token',
     },
-    { email: 'viewer@example.com', username: 'viewer1', password: 'letters' },
-    { email: 'viewer@example.com', username: 'viewer1', password: '12345678' },
-    { email: 'viewer@example.com', username: 'viewer1', password: 'short1' },
+    {
+      email: 'viewer@example.com',
+      username: 'viewer1',
+      password: 'letters',
+      turnstileToken: 'token',
+    },
+    {
+      email: 'viewer@example.com',
+      username: 'viewer1',
+      password: '12345678',
+      turnstileToken: 'token',
+    },
+    {
+      email: 'viewer@example.com',
+      username: 'viewer1',
+      password: 'short1',
+      turnstileToken: 'token',
+    },
     {
       email: 'viewer@example.com',
       username: 'viewer1',
       password: 'securepass123',
+    },
+    {
+      email: 'viewer@example.com',
+      username: 'viewer1',
+      password: 'securepass123',
+      turnstileToken: '',
+    },
+    {
+      email: 'viewer@example.com',
+      username: 'viewer1',
+      password: 'securepass123',
+      turnstileToken: 'token',
       role: 'ADMIN',
     },
   ])('rejects invalid or unknown registration input: %o', (input) => {

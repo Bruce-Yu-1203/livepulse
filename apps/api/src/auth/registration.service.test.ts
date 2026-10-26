@@ -1,6 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { HttpException } from '@nestjs/common';
+import { describe, expect, it, vi } from 'vitest';
 
-import { hashRegistrationCode } from './registration.service.js';
+import type { DatabaseService } from '../database/database.service.js';
+import type { BetterAuthService } from './better-auth.service.js';
+import {
+  hashRegistrationCode,
+  RegistrationService,
+} from './registration.service.js';
+import type { ResendVerificationEmail } from './resend-verification-email.js';
+import type { TurnstileVerifier } from './turnstile-verifier.js';
 
 describe('registration code hashing', () => {
   it('binds a code to the email and secret without storing the code', () => {
@@ -33,5 +41,41 @@ describe('registration code hashing', () => {
         '654321',
       ),
     );
+  });
+});
+
+describe('registration start', () => {
+  it('does not read or write registration data or send email when Turnstile rejects', async () => {
+    const findUnique = vi.fn();
+    const send = vi.fn();
+    const verify = vi
+      .fn()
+      .mockRejectedValue(
+        new HttpException(
+          { code: 'AUTH_TURNSTILE_FAILED', message: 'Verification failed' },
+          403,
+        ),
+      );
+    const registration = new RegistrationService(
+      { client: { user: { findUnique } } } as unknown as DatabaseService,
+      {} as BetterAuthService,
+      { send } as unknown as ResendVerificationEmail,
+      { verify } as unknown as TurnstileVerifier,
+    );
+
+    await expect(
+      registration.start(
+        {
+          email: 'viewer@example.com',
+          username: 'viewer_one',
+          password: 'securepass123',
+          turnstileToken: 'bad-token',
+        },
+        '203.0.113.42',
+      ),
+    ).rejects.toMatchObject({ status: 403 });
+    expect(verify).toHaveBeenCalledWith('bad-token', '203.0.113.42');
+    expect(findUnique).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
   });
 });

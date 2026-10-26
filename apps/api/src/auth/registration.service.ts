@@ -11,6 +11,7 @@ import { DatabaseService } from '../database/database.service.js';
 import { BetterAuthService } from './better-auth.service.js';
 import { ScryptPasswordHasher } from './password-hasher.js';
 import { ResendVerificationEmail } from './resend-verification-email.js';
+import { TurnstileVerifier } from './turnstile-verifier.js';
 
 const verificationLifetimeMs = 10 * 60_000;
 const resendCooldownMs = 60_000;
@@ -33,9 +34,10 @@ export class RegistrationService {
     private readonly database: DatabaseService,
     private readonly authentication: BetterAuthService,
     private readonly email: ResendVerificationEmail,
+    private readonly turnstile: TurnstileVerifier,
   ) {}
 
-  public async start(input: unknown): Promise<void> {
+  public async start(input: unknown, ip: string): Promise<void> {
     const parsed = RegisterRequestSchema.safeParse(input);
     if (!parsed.success) {
       throw registrationError(
@@ -45,7 +47,8 @@ export class RegistrationService {
       );
     }
 
-    const { email, username, password } = parsed.data;
+    const { email, username, password, turnstileToken } = parsed.data;
+    await this.turnstile.verify(turnstileToken, ip);
     const [existingEmail, existingUsername] = await Promise.all([
       this.database.client.user.findUnique({
         where: { email },

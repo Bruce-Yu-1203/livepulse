@@ -16,6 +16,11 @@ import { useEffect, useId, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 
 import { ClientApiError, clientApiRequest } from '../../lib/client-api';
+import { RegistrationTurnstile } from './registration-turnstile';
+
+const RegistrationCredentialsSchema = RegisterRequestSchema.omit({
+  turnstileToken: true,
+});
 
 export type AuthMode = 'login' | 'register';
 type RegistrationStep = 'email' | 'credentials' | 'verification';
@@ -39,6 +44,8 @@ export function AuthPanel({
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
+  const [turnstileToken, setTurnstileToken] = useState<string>();
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
   const [status, setStatus] = useState<FormStatus>({ kind: 'idle' });
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -93,6 +100,8 @@ export function AuthPanel({
 
   function selectMode(nextMode: AuthMode) {
     setMode(nextMode);
+    setTurnstileToken(undefined);
+    setTurnstileResetKey((current) => current + 1);
     setStatus({ kind: 'idle' });
     setFieldErrors({});
   }
@@ -178,16 +187,32 @@ export function AuthPanel({
   }
 
   async function sendCode(): Promise<boolean> {
+    const errors = registrationFieldErrors(email, username, password);
+    if (Object.values(errors).some(Boolean)) {
+      setStatus({ kind: 'idle' });
+      setFieldErrors(errors);
+      if (errors.email) emailRef.current?.focus();
+      else if (errors.username) usernameRef.current?.focus();
+      else passwordRef.current?.focus();
+      return false;
+    }
+
+    if (!turnstileToken) {
+      setStatus({
+        kind: 'error',
+        message: 'Complete the human verification before requesting a code.',
+      });
+      return false;
+    }
+
     const parsed = RegisterRequestSchema.safeParse({
       email,
       username,
       password,
+      turnstileToken,
     });
     if (!parsed.success) {
-      const errors = registrationFieldErrors(email, username, password);
-      setFieldErrors(errors);
-      if (errors.username) usernameRef.current?.focus();
-      else passwordRef.current?.focus();
+      setStatus({ kind: 'error', message: 'Refresh the human verification.' });
       return false;
     }
 
@@ -206,7 +231,11 @@ export function AuthPanel({
       setEmail(parsed.data.email);
       setUsername(parsed.data.username);
       setChallenge({
-        credentials: JSON.stringify(parsed.data),
+        credentials: JSON.stringify({
+          email: parsed.data.email,
+          username: parsed.data.username,
+          password: parsed.data.password,
+        }),
         expiresAt: Date.now() + response.expiresInSeconds * 1000,
       });
       setResendAt(Date.now() + response.resendAfterSeconds * 1000);
@@ -244,12 +273,15 @@ export function AuthPanel({
         });
       }
       return false;
+    } finally {
+      setTurnstileToken(undefined);
+      setTurnstileResetKey((current) => current + 1);
     }
   }
 
   async function continueCredentials(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const parsed = RegisterRequestSchema.safeParse({
+    const parsed = RegistrationCredentialsSchema.safeParse({
       email,
       username,
       password,
@@ -259,6 +291,7 @@ export function AuthPanel({
       challenge?.credentials === JSON.stringify(parsed.data) &&
       challenge.expiresAt > Date.now()
     ) {
+      setTurnstileToken(undefined);
       setStep('verification');
       return;
     }
@@ -481,6 +514,10 @@ export function AuthPanel({
             showPassword={showPassword}
             toggle={() => setShowPassword((current) => !current)}
           />
+          <RegistrationTurnstile
+            onToken={setTurnstileToken}
+            resetKey={turnstileResetKey}
+          />
           <SubmitButton
             label="Send verification code"
             pending={pending}
@@ -522,9 +559,13 @@ export function AuthPanel({
             pending={pending}
             pendingLabel="Verifying…"
           />
+          <RegistrationTurnstile
+            onToken={setTurnstileToken}
+            resetKey={turnstileResetKey}
+          />
           <div className="auth-verification-actions">
             <button
-              disabled={pending || secondsToResend > 0}
+              disabled={pending || secondsToResend > 0 || !turnstileToken}
               onClick={() => void resendCode()}
               type="button"
             >
@@ -534,7 +575,10 @@ export function AuthPanel({
             </button>
             <button
               disabled={pending}
-              onClick={() => setStep('credentials')}
+              onClick={() => {
+                setTurnstileToken(undefined);
+                setStep('credentials');
+              }}
               type="button"
             >
               Edit details

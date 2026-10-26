@@ -25,6 +25,7 @@ import { sessionCookie } from './auth-test-helpers.js';
 const databaseUrl = process.env.DATABASE_URL;
 const originalKey = process.env.RESEND_API_KEY;
 const originalFrom = process.env.RESEND_FROM_EMAIL;
+const originalTurnstileSecret = process.env.TURNSTILE_SECRET_KEY;
 
 if (!databaseUrl)
   throw new Error('DATABASE_URL is required for registration tests');
@@ -37,7 +38,20 @@ describe('verified email registration', () => {
   beforeAll(async () => {
     process.env.RESEND_API_KEY = 're_integration_test';
     process.env.RESEND_FROM_EMAIL = 'LivePulse <verify@example.com>';
+    process.env.TURNSTILE_SECRET_KEY = '1x0000000000000000000000000000000AA';
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      if (
+        String(input) ===
+        'https://challenges.cloudflare.com/turnstile/v0/siteverify'
+      ) {
+        const body = init?.body as URLSearchParams;
+        return new Response(
+          JSON.stringify({
+            success: body.get('response') !== 'invalid-turnstile-token',
+          }),
+          { status: 200 },
+        );
+      }
       if (String(input) !== 'https://api.resend.com/emails') {
         throw new Error(`Unexpected fetch: ${String(input)}`);
       }
@@ -69,6 +83,23 @@ describe('verified email registration', () => {
     else process.env.RESEND_API_KEY = originalKey;
     if (originalFrom === undefined) delete process.env.RESEND_FROM_EMAIL;
     else process.env.RESEND_FROM_EMAIL = originalFrom;
+    if (originalTurnstileSecret === undefined)
+      delete process.env.TURNSTILE_SECRET_KEY;
+    else process.env.TURNSTILE_SECRET_KEY = originalTurnstileSecret;
+  });
+
+  it('rejects failed Turnstile verification before creating a challenge or sending email', async () => {
+    const response = await post('/api/v1/auth/registration/start', {
+      email: 'viewer@example.com',
+      username: 'viewer_one',
+      password: 'securepass123',
+      turnstileToken: 'invalid-turnstile-token',
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toMatchObject({ code: 'AUTH_TURNSTILE_FAILED' });
+    await expect(database.registrationChallenge.count()).resolves.toBe(0);
+    expect(sentCodes).toHaveLength(0);
   });
 
   it('creates a verified user only after the code, then supports auto sign-in', async () => {
@@ -305,7 +336,14 @@ describe('verified email registration', () => {
       .inject({
         headers: { origin: 'http://localhost:3000' },
         method: 'POST',
-        payload,
+        payload:
+          url === '/api/v1/auth/registration/start'
+            ? {
+                ...payload,
+                turnstileToken:
+                  payload.turnstileToken ?? 'XXXX.DUMMY.TOKEN.XXXX',
+              }
+            : payload,
         url,
       });
   }

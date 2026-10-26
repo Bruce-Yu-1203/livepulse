@@ -123,16 +123,25 @@ values before starting the API:
 ```bash
 export RESEND_API_KEY='your-resend-api-key'
 export RESEND_FROM_EMAIL='LivePulse <verify@your-verified-domain.example>'
+export TURNSTILE_SECRET_KEY='your-cloudflare-turnstile-secret-key'
+export NEXT_PUBLIC_TURNSTILE_SITE_KEY='your-cloudflare-turnstile-site-key'
 ```
 
 Registration asks for an email, then a unique username and password, then a
-six-digit email code. Usernames use 5–30 lowercase letters, numbers, or
+Turnstile verification and six-digit email code. The browser sends the
+Turnstile token with the registration request; the API validates it with
+Cloudflare before creating a challenge or sending email. Turnstile tokens are
+single-use, so requesting another code requires a fresh verification. Use
+Cloudflare's official test keys from `.env.example` only for local development
+and tests; production requires a real site key at web build time and a real
+secret on the API service. Usernames use 5–30 lowercase letters, numbers, or
 underscores and start with a letter. Passwords require at least eight characters
 with letters and numbers. Codes expire after ten minutes and can be resent once
 every 60 seconds. Verification creates the account and signs the user in. The
 seeded demo accounts can still sign in without Resend; new email registration
-requires both Resend values. Add the same variables to the Railway API service
-for production registration.
+requires both Resend values and the Turnstile keys. Add the server-only values
+to the Railway API service and `NEXT_PUBLIC_TURNSTILE_SITE_KEY` to the Vercel
+web build for production registration.
 
 ### Store profile photos in S3
 
