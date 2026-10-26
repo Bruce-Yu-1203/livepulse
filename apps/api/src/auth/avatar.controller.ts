@@ -14,6 +14,8 @@ import { ApiErrorCode } from '@livepulse/contracts';
 import type { AvatarUploadResponse } from '@livepulse/contracts';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
+import { enforceIdentityRateLimit } from '../rate-limit/enforce-identity-rate-limit.js';
+import { HttpRateLimiter } from '../rate-limit/http-rate-limiter.js';
 import type { AuthenticatedRequest } from './authenticated-request.js';
 import { AvatarService } from './avatar.service.js';
 import { CsrfGuard } from './csrf.guard.js';
@@ -21,7 +23,10 @@ import { SessionGuard } from './session.guard.js';
 
 @Controller('users')
 export class AvatarController {
-  public constructor(private readonly avatars: AvatarService) {}
+  public constructor(
+    private readonly avatars: AvatarService,
+    private readonly rateLimiter: HttpRateLimiter,
+  ) {}
 
   @Post('me/avatar')
   @UseGuards(CsrfGuard, SessionGuard)
@@ -29,6 +34,11 @@ export class AvatarController {
     @Body() body: unknown,
     @Req() request: AuthenticatedRequest,
   ): Promise<AvatarUploadResponse> {
+    await enforceIdentityRateLimit(
+      this.rateLimiter,
+      'avatarUploadUser',
+      request.auth.userId,
+    );
     const avatarUrl = await this.avatars.upload(request.auth.userId, body);
     return { avatarUrl, requestId: request.id };
   }

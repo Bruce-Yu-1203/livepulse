@@ -39,6 +39,15 @@ export class ApiExceptionFilter implements ExceptionFilter {
         : {}),
     };
 
+    if (
+      status === HttpStatus.TOO_MANY_REQUESTS &&
+      typeof payload.retryAfterMs === 'number'
+    ) {
+      void reply.header(
+        'Retry-After',
+        String(Math.ceil(payload.retryAfterMs / 1_000)),
+      );
+    }
     void reply.status(status).send(response);
   }
 

@@ -29,6 +29,8 @@ import { CsrfGuard } from '../auth/csrf.guard.js';
 import { AllowedRoles } from '../authorization/allowed-roles.decorator.js';
 import { RolesGuard } from '../authorization/roles.guard.js';
 import { MessageDatabaseUnavailableError } from '../messages/messages.errors.js';
+import { enforceIdentityRateLimit } from '../rate-limit/enforce-identity-rate-limit.js';
+import { HttpRateLimiter } from '../rate-limit/http-rate-limiter.js';
 import {
   InvalidReportCursorError,
   ReportAlreadyActionedError,
@@ -43,6 +45,7 @@ import { ReportsService } from './reports.service.js';
 export class ReportsController {
   public constructor(
     @Inject(ReportsService) private readonly reports: ReportsService,
+    private readonly rateLimiter: HttpRateLimiter,
   ) {}
 
   @Post()
@@ -56,6 +59,12 @@ export class ReportsController {
     if (!parsed.success) {
       this.throwValidationError('The message-report request is invalid');
     }
+
+    await enforceIdentityRateLimit(
+      this.rateLimiter,
+      'reportCreateUser',
+      request.auth.userId,
+    );
 
     try {
       const report = await this.reports.create(request.auth, parsed.data);
