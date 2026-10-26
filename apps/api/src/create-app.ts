@@ -11,6 +11,11 @@ import { AppModule } from './app.module.js';
 import { mountBetterAuth } from './auth/better-auth-handler.js';
 import { BetterAuthService } from './auth/better-auth.service.js';
 import { ApiExceptionFilter } from './http/api-exception.filter.js';
+import {
+  registerHttpRateLimitHook,
+  resolveTrustedProxyCidrs,
+} from './rate-limit/http-rate-limit-hook.js';
+import { HttpRateLimiter } from './rate-limit/http-rate-limiter.js';
 import { RoomSocketIoServer } from './realtime/room-socket-io.server.js';
 
 export async function createApp(
@@ -18,7 +23,10 @@ export async function createApp(
 ): Promise<NestFastifyApplication> {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter({ bodyLimit: 3 * 1024 * 1024 }),
+    new FastifyAdapter({
+      bodyLimit: 3 * 1024 * 1024,
+      trustProxy: resolveTrustedProxyCidrs(process.env.HTTP_TRUST_PROXY_CIDRS),
+    }),
     options,
   );
 
@@ -34,11 +42,8 @@ export async function createApp(
   app.useGlobalFilters(new ApiExceptionFilter());
 
   const fastify = app.getHttpAdapter().getInstance() as FastifyInstance;
+  registerHttpRateLimitHook(fastify, app.get(HttpRateLimiter));
   mountBetterAuth(fastify, app.get(BetterAuthService));
-  fastify.addHook('onRequest', (request, reply, done) => {
-    void reply.header('x-request-id', request.id);
-    done();
-  });
   app.get(RoomSocketIoServer).attach(app.getHttpServer() as Server);
 
   return app;

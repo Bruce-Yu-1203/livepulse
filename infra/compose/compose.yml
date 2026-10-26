@@ -18,6 +18,7 @@ services:
       DATABASE_URL: postgresql://livepulse:livepulse_dev_password@postgres:5432/livepulse?schema=public
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      HTTP_TRUST_PROXY_CIDRS: ${HTTP_TRUST_PROXY_CIDRS:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-}
       AWS_REGION: ${AWS_REGION:-}

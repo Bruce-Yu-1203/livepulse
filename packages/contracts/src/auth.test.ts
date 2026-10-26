@@ -153,6 +153,7 @@ describe('login and session contracts', () => {
       'REALTIME_CONTENT_BLOCKED',
     );
     expect(ApiErrorCode.RealtimeRateLimited).toBe('REALTIME_RATE_LIMITED');
+    expect(ApiErrorCode.RequestRateLimited).toBe('REQUEST_RATE_LIMITED');
     expect(ApiErrorCode.Unauthorized).toBe('AUTH_UNAUTHORIZED');
   });
 

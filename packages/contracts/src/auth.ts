@@ -172,6 +172,7 @@ export const ApiErrorCode = {
   EmailAlreadyExists: 'AUTH_EMAIL_ALREADY_REGISTERED',
   RegistrationCodeInvalid: 'AUTH_REGISTRATION_CODE_INVALID',
   RegistrationRateLimited: 'AUTH_REGISTRATION_RATE_LIMITED',
+  RequestRateLimited: 'REQUEST_RATE_LIMITED',
   UsernameAlreadyExists: 'AUTH_USERNAME_ALREADY_REGISTERED',
   Forbidden: 'AUTH_FORBIDDEN',
   InvalidCredentials: 'AUTH_INVALID_CREDENTIALS',

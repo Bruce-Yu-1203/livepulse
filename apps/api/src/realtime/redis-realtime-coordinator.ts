@@ -7,6 +7,12 @@ import {
 import { createClient } from 'redis';
 import type { RedisClientType } from 'redis';
 
+import {
+  consumeInMemoryToken,
+  consumeTokenScript,
+} from '../rate-limit/token-bucket.js';
+import { resolveRedisConfiguration } from '../rate-limit/redis-configuration.js';
+
 import type {
   PresenceConnection,
   PresenceCounts,
@@ -20,28 +26,6 @@ const presenceKeyTtlSeconds = 60;
 const messageBucketCapacity = 5;
 const messageRefillMilliseconds = 1_000;
 const messageBucketTtlMilliseconds = 10_000;
-const consumeMessageTokenScript = `
-local key = KEYS[1]
-local capacity = tonumber(ARGV[1])
-local refillMilliseconds = tonumber(ARGV[2])
-local ttlMilliseconds = tonumber(ARGV[3])
-local clock = redis.call('TIME')
-local now = tonumber(clock[1]) * 1000 + math.floor(tonumber(clock[2]) / 1000)
-local state = redis.call('HMGET', key, 'tokens', 'updatedAt')
-local tokens = tonumber(state[1]) or capacity
-local updatedAt = tonumber(state[2]) or now
-tokens = math.min(capacity, tokens + math.max(0, now - updatedAt) / refillMilliseconds)
-local retryAfterMilliseconds = 0
-if tokens >= 1 then
-  tokens = tokens - 1
-else
-  retryAfterMilliseconds = math.ceil((1 - tokens) * refillMilliseconds)
-end
-redis.call('HSET', key, 'tokens', tokens, 'updatedAt', now)
-redis.call('PEXPIRE', key, ttlMilliseconds)
-return retryAfterMilliseconds
-`;
-
 @Injectable()
 export class RedisRealtimeCoordinator
   implements
@@ -145,29 +129,14 @@ export class RedisRealtimeCoordinator
   ): Promise<number | undefined> {
     const key = `${this.keyPrefix}:rate-limit:chat:room:${roomId}:user:${userId}`;
     if (this.useInMemory) {
-      const now = Date.now();
-      const bucket = this.inMemoryMessageBuckets.get(key) ?? {
-        tokens: messageBucketCapacity,
-        updatedAt: now,
-      };
-      bucket.tokens = Math.min(
-        messageBucketCapacity,
-        bucket.tokens +
-          Math.max(0, now - bucket.updatedAt) / messageRefillMilliseconds,
-      );
-      bucket.updatedAt = now;
-      const retryAfterMilliseconds =
-        bucket.tokens >= 1
-          ? undefined
-          : Math.ceil((1 - bucket.tokens) * messageRefillMilliseconds);
-      if (retryAfterMilliseconds === undefined) {
-        bucket.tokens -= 1;
-      }
-      this.inMemoryMessageBuckets.set(key, bucket);
-      return retryAfterMilliseconds;
+      return consumeInMemoryToken(this.inMemoryMessageBuckets, key, {
+        capacity: messageBucketCapacity,
+        refillMilliseconds: messageRefillMilliseconds,
+        ttlMilliseconds: messageBucketTtlMilliseconds,
+      });
     }
 
-    const result = await this.commands.eval(consumeMessageTokenScript, {
+    const result = await this.commands.eval(consumeTokenScript, {
       arguments: [
         String(messageBucketCapacity),
         String(messageRefillMilliseconds),
@@ -339,27 +308,4 @@ export function countPresence(
   };
 }
 
-interface RedisEnvironment {
-  keyPrefix: string | undefined;
-  nodeEnvironment: string | undefined;
-  redisUrl: string | undefined;
-}
-
-export function resolveRedisConfiguration(environment: RedisEnvironment): {
-  keyPrefix: string;
-  redisUrl: string;
-} {
-  if (!environment.redisUrl && environment.nodeEnvironment === 'production') {
-    throw new Error('REDIS_URL is required in production');
-  }
-
-  const keyPrefix = environment.keyPrefix?.trim() || 'livepulse';
-  if (!/^[A-Za-z0-9:_-]{1,64}$/.test(keyPrefix)) {
-    throw new Error('REDIS_KEY_PREFIX is invalid');
-  }
-
-  return {
-    keyPrefix,
-    redisUrl: environment.redisUrl ?? 'redis://localhost:6379',
-  };
-}
+export { resolveRedisConfiguration } from '../rate-limit/redis-configuration.js';

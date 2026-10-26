@@ -6,6 +6,7 @@ import { HealthController } from './health/health.controller.js';
 import { HealthService } from './health/health.service.js';
 import { MessagesModule } from './messages/messages.module.js';
 import { OperationsModule } from './operations/operations.module.js';
+import { RateLimitModule } from './rate-limit/rate-limit.module.js';
 import { RealtimeModule } from './realtime/realtime.module.js';
 import { ReportsModule } from './reports/reports.module.js';
 import { RoomsModule } from './rooms/rooms.module.js';
@@ -18,6 +19,7 @@ import { SearchModule } from './search/search.module.js';
     AuthModule,
     MessagesModule,
     OperationsModule,
+    RateLimitModule,
     RealtimeModule,
     ReportsModule,
     RoomsModule,
