@@ -46,6 +46,10 @@ export function AuthPanel({
   const [code, setCode] = useState('');
   const [turnstileToken, setTurnstileToken] = useState<string>();
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+  const [loginVerificationRequired, setLoginVerificationRequired] =
+    useState(false);
+  const [loginTurnstileToken, setLoginTurnstileToken] = useState<string>();
+  const [loginTurnstileResetKey, setLoginTurnstileResetKey] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
   const [status, setStatus] = useState<FormStatus>({ kind: 'idle' });
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -102,6 +106,9 @@ export function AuthPanel({
     setMode(nextMode);
     setTurnstileToken(undefined);
     setTurnstileResetKey((current) => current + 1);
+    setLoginVerificationRequired(false);
+    setLoginTurnstileToken(undefined);
+    setLoginTurnstileResetKey((current) => current + 1);
     setStatus({ kind: 'idle' });
     setFieldErrors({});
   }
@@ -151,6 +158,13 @@ export function AuthPanel({
       setStatus({ kind: 'error', message: 'Enter your email and password.' });
       return;
     }
+    if (loginVerificationRequired && !loginTurnstileToken) {
+      setStatus({
+        kind: 'error',
+        message: 'Complete the human verification before signing in.',
+      });
+      return;
+    }
     setStatus({ kind: 'pending' });
     setFieldErrors({});
     try {
@@ -159,16 +173,34 @@ export function AuthPanel({
         LoginResponseSchema,
         {
           body: JSON.stringify(parsed.data),
-          headers: { 'content-type': 'application/json' },
+          headers: {
+            'content-type': 'application/json',
+            ...(loginTurnstileToken
+              ? { 'x-turnstile-token': loginTurnstileToken }
+              : {}),
+          },
           method: 'POST',
         },
       );
       await finishAuthentication(login.user.role);
     } catch (error) {
-      setStatus({
-        kind: 'error',
-        message: error instanceof Error ? error.message : 'Sign in failed.',
-      });
+      if (requiresLoginVerification(error)) {
+        setLoginVerificationRequired(true);
+        setStatus({
+          kind: 'error',
+          message: 'Complete the human verification to continue signing in.',
+        });
+      } else {
+        setStatus({
+          kind: 'error',
+          message: error instanceof Error ? error.message : 'Sign in failed.',
+        });
+      }
+    } finally {
+      if (loginTurnstileToken) {
+        setLoginTurnstileToken(undefined);
+        setLoginTurnstileResetKey((current) => current + 1);
+      }
     }
   }
 
@@ -424,7 +456,11 @@ export function AuthPanel({
               emailErrorId={emailErrorId}
               error={fieldErrors.email}
               inputRef={emailRef}
-              onChange={setEmail}
+              onChange={(value) => {
+                setEmail(value);
+                setLoginVerificationRequired(false);
+                setLoginTurnstileToken(undefined);
+              }}
             />
             <PasswordField
               error={fieldErrors.password}
@@ -436,6 +472,13 @@ export function AuthPanel({
               showPassword={showPassword}
               toggle={() => setShowPassword((current) => !current)}
             />
+            {loginVerificationRequired ? (
+              <RegistrationTurnstile
+                action="login"
+                onToken={setLoginTurnstileToken}
+                resetKey={loginTurnstileResetKey}
+              />
+            ) : null}
             <SubmitButton
               label="Sign in"
               pending={pending}
@@ -779,6 +822,13 @@ function registrationFieldErrors(
     errors.password =
       'Use at least 8 characters with both letters and numbers.';
   return errors;
+}
+
+export function requiresLoginVerification(error: unknown): boolean {
+  return (
+    error instanceof ClientApiError &&
+    error.code === ApiErrorCode.LoginVerificationRequired
+  );
 }
 
 function stepLabel(step: RegistrationStep): string {

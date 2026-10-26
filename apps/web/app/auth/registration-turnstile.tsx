@@ -29,9 +29,11 @@ export const registrationTurnstileSiteKey =
   (process.env.NODE_ENV === 'production' ? '' : '1x00000000000000000000AA');
 
 export function RegistrationTurnstile({
+  action = 'registration',
   onToken,
   resetKey,
 }: {
+  action?: 'login' | 'registration';
   onToken(token: string | undefined): void;
   resetKey: number;
 }) {
@@ -52,7 +54,7 @@ export function RegistrationTurnstile({
     }
 
     widgetIdRef.current = window.turnstile.render(containerRef.current, {
-      action: 'registration',
+      action,
       callback: (token) => onTokenRef.current(token),
       'error-callback': () => {
         onTokenRef.current(undefined);
@@ -61,7 +63,7 @@ export function RegistrationTurnstile({
       'expired-callback': () => onTokenRef.current(undefined),
       sitekey: registrationTurnstileSiteKey,
     });
-  }, []);
+  }, [action]);
 
   useEffect(() => {
     render();
@@ -82,7 +84,7 @@ export function RegistrationTurnstile({
   if (!registrationTurnstileSiteKey) {
     return (
       <p className="text-sm text-danger" role="status">
-        Registration verification is unavailable.
+        Human verification is unavailable.
       </p>
     );
   }

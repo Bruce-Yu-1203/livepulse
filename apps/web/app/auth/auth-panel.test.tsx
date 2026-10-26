@@ -1,7 +1,12 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
-import { AuthPanel, oauthErrorMessage } from './auth-panel.js';
+import { ClientApiError } from '../../lib/client-api.js';
+import {
+  AuthPanel,
+  oauthErrorMessage,
+  requiresLoginVerification,
+} from './auth-panel.js';
 import { RegistrationTurnstile } from './registration-turnstile.js';
 
 describe('AuthPanel', () => {
@@ -47,5 +52,31 @@ describe('AuthPanel', () => {
     );
 
     expect(markup).toContain('aria-label="Human verification"');
+  });
+
+  it('shows the login challenge only for its dedicated API response', () => {
+    expect(
+      requiresLoginVerification(
+        new ClientApiError(
+          'Complete human verification',
+          429,
+          'AUTH_LOGIN_VERIFICATION_REQUIRED',
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      requiresLoginVerification(
+        new ClientApiError('Too many requests', 429, 'REQUEST_RATE_LIMITED'),
+      ),
+    ).toBe(false);
+    expect(
+      renderToStaticMarkup(
+        <RegistrationTurnstile
+          action="login"
+          onToken={() => undefined}
+          resetKey={0}
+        />,
+      ),
+    ).toContain('aria-label="Human verification"');
   });
 });
