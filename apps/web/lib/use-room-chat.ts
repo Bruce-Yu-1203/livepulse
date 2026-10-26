@@ -20,6 +20,7 @@ import {
   mergeCreatedMessage,
   mergeHistoryMessages,
   PendingMessageTracker,
+  rejectChatMessage,
   realtimeErrorMessage,
   resolveSocketIoOrigin,
   type RoomConnectionState,
@@ -255,15 +256,18 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
           return;
         }
 
+        const errorPayload = parsed.data.payload;
         const clientMessageId = pendingMessagesRef.current.rejectRequest(
           parsed.data.requestId,
         );
         if (clientMessageId) {
-          setMessages((current) => markMessageFailed(current, clientMessageId));
+          setMessages((current) =>
+            rejectChatMessage(current, clientMessageId, errorPayload.code),
+          );
         }
-        setError(realtimeErrorMessage(parsed.data.payload));
+        setError(realtimeErrorMessage(errorPayload));
 
-        if (parsed.data.payload.code === ApiErrorCode.RealtimeRoomNotLive) {
+        if (errorPayload.code === ApiErrorCode.RealtimeRoomNotLive) {
           setConnection('ended');
           cancelled = true;
           socket.disconnect();

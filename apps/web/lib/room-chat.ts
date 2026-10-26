@@ -240,6 +240,21 @@ export function markMessageFailed(
   );
 }
 
+export function rejectChatMessage(
+  messages: ChatMessage[],
+  clientMessageId: string,
+  errorCode: string,
+): ChatMessage[] {
+  if (errorCode === ApiErrorCode.RealtimeRateLimited) {
+    return messages.filter(
+      (message) =>
+        message.clientMessageId !== clientMessageId ||
+        message.status === 'sent',
+    );
+  }
+  return markMessageFailed(messages, clientMessageId);
+}
+
 export function visibleDanmakuMessages(messages: ChatMessage[]): ChatMessage[] {
   return messages.filter(
     (message) => message.status !== 'failed' && !message.deletedAt,

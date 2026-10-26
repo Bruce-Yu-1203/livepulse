@@ -11,6 +11,7 @@ import {
   maxMessageDeliveryAttempts,
   PendingMessageTracker,
   pendingMessageRetentionMs,
+  rejectChatMessage,
   realtimeErrorMessage,
   roomChatIsClosed,
   roomPresenceLabel,
@@ -82,6 +83,29 @@ describe('room chat state', () => {
     expect(
       visibleDanmakuMessages(markMessageFailed(pending, clientMessageId)),
     ).toEqual([]);
+  });
+
+  it('removes a rate-limited optimistic message and keeps the retry prompt', () => {
+    const pending = addPendingMessage([], {
+      authorId,
+      clientMessageId,
+      text: 'Too fast',
+    });
+
+    expect(
+      rejectChatMessage(pending, clientMessageId, 'REALTIME_RATE_LIMITED'),
+    ).toEqual([]);
+    expect(
+      realtimeErrorMessage({
+        code: 'REALTIME_RATE_LIMITED',
+        message: 'Wait before sending another message',
+        retryAfterMs: 1_200,
+      }),
+    ).toBe("You're sending messages too quickly. Try again in 2 seconds.");
+    expect(
+      rejectChatMessage(pending, clientMessageId, 'REALTIME_CONTENT_BLOCKED')[0]
+        ?.status,
+    ).toBe('failed');
   });
 
   it('prepends older history and reconciles persisted optimistic messages', () => {
