@@ -7,6 +7,7 @@ import type {
   HttpRateLimitPolicy,
   HttpRateLimiter,
 } from './http-rate-limiter.js';
+import { getHttpClientIp } from './http-client-ip.js';
 
 export function httpRateLimitPolicyForRequest(
   method: string,
@@ -60,7 +61,7 @@ export function registerHttpRateLimitHook(
 
     let retryAfterMs: number | undefined;
     try {
-      retryAfterMs = await limiter.consume(policy, request.ip);
+      retryAfterMs = await limiter.consume(policy, getHttpClientIp(request));
     } catch {
       return reply.status(503).send({
         code: ApiErrorCode.ServiceUnavailable,

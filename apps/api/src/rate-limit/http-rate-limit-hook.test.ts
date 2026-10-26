@@ -71,6 +71,31 @@ describe('Fastify rate limit hook', () => {
     }
   });
 
+  it('uses Railway X-Real-IP for rate limiting', async () => {
+    vi.stubEnv('RAILWAY_ENVIRONMENT_ID', 'test-environment');
+    const consume = vi.fn().mockResolvedValue(undefined);
+    const server = Fastify();
+    registerHttpRateLimitHook(server, { consume });
+    server.post('/*', () => ({ reached: true }));
+
+    try {
+      const response = await server.inject({
+        headers: {
+          'x-real-ip': '203.0.113.42',
+          'x-forwarded-for': '198.51.100.8',
+        },
+        method: 'POST',
+        remoteAddress: '100.64.0.5',
+        url: '/api/v1/auth/sign-in/email',
+      });
+      expect(response.statusCode).toBe(200);
+      expect(consume).toHaveBeenCalledWith('signIn', '203.0.113.42');
+    } finally {
+      vi.unstubAllEnvs();
+      await server.close();
+    }
+  });
+
   it('rejects a protected request when Redis is unavailable', async () => {
     const server = Fastify();
     registerHttpRateLimitHook(server, {
@@ -93,6 +118,7 @@ describe('Fastify rate limit hook', () => {
   });
 
   it('ignores spoofed forwarding headers from an untrusted peer', async () => {
+    vi.stubEnv('RAILWAY_ENVIRONMENT_ID', '');
     const consume = vi.fn().mockResolvedValue(undefined);
     const server = Fastify({ trustProxy: '10.0.0.0/8' });
     registerHttpRateLimitHook(server, { consume });
@@ -104,7 +130,10 @@ describe('Fastify rate limit hook', () => {
 
     try {
       const protectedResponse = await server.inject({
-        headers: { 'x-forwarded-for': '203.0.113.42' },
+        headers: {
+          'x-forwarded-for': '203.0.113.42',
+          'x-real-ip': '203.0.113.43',
+        },
         method: 'POST',
         remoteAddress: '198.51.100.5',
         url: '/api/v1/auth/registration/start',
@@ -121,6 +150,7 @@ describe('Fastify rate limit hook', () => {
       expect(unprotectedResponse.statusCode).toBe(200);
       expect(consume).not.toHaveBeenCalled();
     } finally {
+      vi.unstubAllEnvs();
       await server.close();
     }
   });

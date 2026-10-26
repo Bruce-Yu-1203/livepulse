@@ -113,9 +113,10 @@ The API uses Redis token buckets to limit registration starts and completions,
 sign-ins, avatar uploads, and report creation by client IP. Direct connections
 use the socket IP. Behind a reverse proxy, set `HTTP_TRUST_PROXY_CIDRS` to its
 actual IP addresses or CIDR ranges (comma-separated) so Fastify resolves the
-original client IP. Leave it empty for direct connections. Protected requests
-return `429` with `Retry-After` when their bucket is empty, and `503` if Redis
-is unavailable.
+original client IP. On Railway, the API reads the platform-provided `X-Real-IP`
+header automatically, so no proxy CIDR setting is needed. Leave the setting
+empty for direct connections. Protected requests return `429` with
+`Retry-After` when their bucket is empty, and `503` if Redis is unavailable.
 
 Create a Resend API key and verify the sender domain, then set these server-only
 values before starting the API:

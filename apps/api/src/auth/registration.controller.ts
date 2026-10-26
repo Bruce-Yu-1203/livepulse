@@ -5,6 +5,7 @@ import type {
 } from '@livepulse/contracts';
 import type { FastifyRequest } from 'fastify';
 
+import { getHttpClientIp } from '../rate-limit/http-client-ip.js';
 import { CsrfGuard } from './csrf.guard.js';
 import { RegistrationService } from './registration.service.js';
 
@@ -18,7 +19,7 @@ export class RegistrationController {
     @Body() body: unknown,
     @Req() request: FastifyRequest,
   ): Promise<RegistrationStartResponse> {
-    await this.registration.start(body, request.ip);
+    await this.registration.start(body, getHttpClientIp(request));
     return {
       expiresInSeconds: 600,
       resendAfterSeconds: 60,
