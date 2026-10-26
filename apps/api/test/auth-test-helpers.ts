@@ -11,6 +11,8 @@ interface CredentialUserInput {
   role?: 'ADMIN' | 'HOST' | 'VIEWER';
 }
 
+let nextSignInClient = 1;
+
 export async function createCredentialUser(
   database: DatabaseClient,
   input: CredentialUserInput,
@@ -41,6 +43,8 @@ export function signIn(
   email: string,
   password: string,
 ) {
+  const clientAddress = `198.51.100.${nextSignInClient}`;
+  nextSignInClient = (nextSignInClient % 254) + 1;
   return app
     .getHttpAdapter()
     .getInstance()
@@ -48,6 +52,7 @@ export function signIn(
       headers: { origin: 'http://localhost:3000' },
       method: 'POST',
       payload: { email, password },
+      remoteAddress: clientAddress,
       url: '/api/v1/auth/sign-in/email',
     });
 }

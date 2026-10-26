@@ -20,7 +20,7 @@ import {
 
 import { ScryptPasswordHasher } from '../src/auth/password-hasher.js';
 import { createApp } from '../src/create-app.js';
-import { sessionCookie } from './auth-test-helpers.js';
+import { sessionCookie, signIn } from './auth-test-helpers.js';
 
 const databaseUrl = process.env.DATABASE_URL;
 const originalKey = process.env.RESEND_API_KEY;
@@ -144,10 +144,7 @@ describe('verified email registration', () => {
     ).resolves.toBe(true);
     await expect(database.registrationChallenge.count()).resolves.toBe(0);
 
-    const login = await post('/api/v1/auth/sign-in/email', {
-      email: 'viewer@example.com',
-      password,
-    });
+    const login = await signIn(app, 'viewer@example.com', password);
     expect(login.statusCode).toBe(200);
     expect(LoginResponseSchema.parse(login.json()).user.id).toBe(userId);
     const cookie = sessionCookie(login);
