@@ -10,6 +10,7 @@ import type { Server } from 'node:http';
 import { AppModule } from './app.module.js';
 import { mountBetterAuth } from './auth/better-auth-handler.js';
 import { BetterAuthService } from './auth/better-auth.service.js';
+import { TurnstileVerifier } from './auth/turnstile-verifier.js';
 import { ApiExceptionFilter } from './http/api-exception.filter.js';
 import {
   registerHttpRateLimitHook,
@@ -43,7 +44,12 @@ export async function createApp(
 
   const fastify = app.getHttpAdapter().getInstance() as FastifyInstance;
   registerHttpRateLimitHook(fastify, app.get(HttpRateLimiter));
-  mountBetterAuth(fastify, app.get(BetterAuthService));
+  mountBetterAuth(
+    fastify,
+    app.get(BetterAuthService),
+    app.get(HttpRateLimiter),
+    app.get(TurnstileVerifier),
+  );
   app.get(RoomSocketIoServer).attach(app.getHttpServer() as Server);
 
   return app;

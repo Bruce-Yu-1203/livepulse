@@ -189,6 +189,9 @@ describe('login and session contracts', () => {
     );
     expect(ApiErrorCode.RealtimeRateLimited).toBe('REALTIME_RATE_LIMITED');
     expect(ApiErrorCode.RequestRateLimited).toBe('REQUEST_RATE_LIMITED');
+    expect(ApiErrorCode.LoginVerificationRequired).toBe(
+      'AUTH_LOGIN_VERIFICATION_REQUIRED',
+    );
     expect(ApiErrorCode.Unauthorized).toBe('AUTH_UNAUTHORIZED');
   });
 

@@ -174,6 +174,7 @@ export const ApiErrorCode = {
   RegistrationCodeInvalid: 'AUTH_REGISTRATION_CODE_INVALID',
   RegistrationRateLimited: 'AUTH_REGISTRATION_RATE_LIMITED',
   TurnstileFailed: 'AUTH_TURNSTILE_FAILED',
+  LoginVerificationRequired: 'AUTH_LOGIN_VERIFICATION_REQUIRED',
   RequestRateLimited: 'REQUEST_RATE_LIMITED',
   UsernameAlreadyExists: 'AUTH_USERNAME_ALREADY_REGISTERED',
   Forbidden: 'AUTH_FORBIDDEN',
