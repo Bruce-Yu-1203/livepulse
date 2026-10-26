@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { DatabaseModule } from '../database/database.module.js';
+import { RateLimitModule } from '../rate-limit/rate-limit.module.js';
 import { AuthController } from './auth.controller.js';
 import { AvatarController } from './avatar.controller.js';
 import { AvatarService } from './avatar.service.js';
@@ -15,7 +16,7 @@ import { ResendVerificationEmail } from './resend-verification-email.js';
 @Module({
   controllers: [AuthController, AvatarController, RegistrationController],
   exports: [AvatarService, BetterAuthService, CsrfGuard, SessionGuard],
-  imports: [DatabaseModule],
+  imports: [DatabaseModule, RateLimitModule],
   providers: [
     BetterAuthService,
     AvatarService,

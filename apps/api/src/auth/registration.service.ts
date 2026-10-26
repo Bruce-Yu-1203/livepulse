@@ -8,6 +8,7 @@ import {
 } from '@livepulse/contracts';
 
 import { DatabaseService } from '../database/database.service.js';
+import { HttpRateLimiter } from '../rate-limit/http-rate-limiter.js';
 import { BetterAuthService } from './better-auth.service.js';
 import { ScryptPasswordHasher } from './password-hasher.js';
 import { ResendVerificationEmail } from './resend-verification-email.js';
@@ -35,6 +36,7 @@ export class RegistrationService {
     private readonly authentication: BetterAuthService,
     private readonly email: ResendVerificationEmail,
     private readonly turnstile: TurnstileVerifier,
+    private readonly rateLimiter: HttpRateLimiter,
   ) {}
 
   public async start(input: unknown, ip: string): Promise<void> {
@@ -75,15 +77,39 @@ export class RegistrationService {
       );
     }
 
-    const now = new Date();
-    const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
-    const codeHash = hashRegistrationCode(
-      this.authentication.registrationSecret,
-      email,
-      code,
-    );
-    const passwordHash = await this.passwords.hash(password);
-    const rows = await this.database.client.$queryRaw<{ email: string }[]>`
+    let reservation: Awaited<ReturnType<HttpRateLimiter['reserveIdentity']>>;
+    try {
+      reservation = await this.rateLimiter.reserveIdentity(
+        'registrationEmail',
+        email,
+      );
+    } catch {
+      throw registrationError(
+        ApiErrorCode.ServiceUnavailable,
+        'The service is temporarily unavailable.',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+    if ('retryAfterMs' in reservation) {
+      throw registrationError(
+        ApiErrorCode.RegistrationRateLimited,
+        'Too many verification emails were sent to this address. Please try again later.',
+        HttpStatus.TOO_MANY_REQUESTS,
+        reservation.retryAfterMs,
+      );
+    }
+
+    let emailAccepted = false;
+    try {
+      const now = new Date();
+      const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
+      const codeHash = hashRegistrationCode(
+        this.authentication.registrationSecret,
+        email,
+        code,
+      );
+      const passwordHash = await this.passwords.hash(password);
+      const rows = await this.database.client.$queryRaw<{ email: string }[]>`
       INSERT INTO "registration_challenges"
         ("email", "username", "password_hash", "code_hash", "expires_at", "last_sent_at", "attempts")
       VALUES
@@ -99,26 +125,36 @@ export class RegistrationService {
       RETURNING "email"
     `;
 
-    if (rows.length === 0) {
-      throw registrationError(
-        ApiErrorCode.RegistrationRateLimited,
-        'Please wait 60 seconds before requesting another code.',
-        HttpStatus.TOO_MANY_REQUESTS,
-        resendCooldownMs,
-      );
-    }
+      if (rows.length === 0) {
+        throw registrationError(
+          ApiErrorCode.RegistrationRateLimited,
+          'Please wait 60 seconds before requesting another code.',
+          HttpStatus.TOO_MANY_REQUESTS,
+          resendCooldownMs,
+        );
+      }
 
-    try {
-      await this.email.send(email, code);
-    } catch {
-      await this.database.client.registrationChallenge.deleteMany({
-        where: { email, codeHash },
-      });
-      throw registrationError(
-        ApiErrorCode.ServiceUnavailable,
-        'The verification email could not be sent. Please try again.',
-        HttpStatus.SERVICE_UNAVAILABLE,
-      );
+      try {
+        await this.email.send(email, code);
+        emailAccepted = true;
+      } catch {
+        await this.database.client.registrationChallenge.deleteMany({
+          where: { email, codeHash },
+        });
+        throw registrationError(
+          ApiErrorCode.ServiceUnavailable,
+          'The verification email could not be sent. Please try again.',
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
+    } finally {
+      if (!emailAccepted) {
+        await this.rateLimiter.releaseIdentity(
+          'registrationEmail',
+          email,
+          reservation.reservationId,
+        );
+      }
     }
   }
 
