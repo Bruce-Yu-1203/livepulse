@@ -43,6 +43,10 @@ account's password hash, and signs each viewer in before measurement. Keep
 connections at least as high as messages per second so each viewer sends at
 most one message per second after warm-up.
 
+The benchmark API skips only the HTTP sign-in IP limit while preparing test
+sessions. The realtime per-user message rate limit remains active during the
+measurement window.
+
 `endToEndAckMs` measures from sending `message.send` until its originating
 socket receives `message.created`. It includes persistence and Redis delivery.
 `stageMs` measures individual operations; stage percentiles should not be

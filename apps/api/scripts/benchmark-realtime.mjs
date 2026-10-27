@@ -10,6 +10,7 @@ import { createDatabaseClient } from '@livepulse/db';
 import { BetterAuthService } from '../dist/auth/better-auth.service.js';
 import { createApp } from '../dist/create-app.js';
 import { MESSAGES_REPOSITORY } from '../dist/messages/messages.tokens.js';
+import { HttpRateLimiter } from '../dist/rate-limit/http-rate-limiter.js';
 import {
   REALTIME_EVENT_BUS,
   REALTIME_RATE_LIMITER,
@@ -17,6 +18,7 @@ import {
 } from '../dist/realtime/realtime.tokens.js';
 import { readBenchmarkConfig } from './benchmark-realtime-config.mjs';
 import { createDeliveryVerifier } from './benchmark-realtime-deliveries.mjs';
+import { bypassBenchmarkSignInIpLimit } from './benchmark-realtime-login.mjs';
 import { prepareBenchmarkViewers } from './benchmark-realtime-users.mjs';
 
 const {
@@ -36,6 +38,7 @@ const {
 } = readBenchmarkConfig(process.env);
 
 const app = externalApi ? null : await createApp({ logger: false });
+if (app) bypassBenchmarkSignInIpLimit(app.get(HttpRateLimiter));
 const samples = new Map([
   ['sessionCheckMs', []],
   ['roomLiveCheckMs', []],

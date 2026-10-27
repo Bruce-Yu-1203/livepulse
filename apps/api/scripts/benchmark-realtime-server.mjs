@@ -6,6 +6,7 @@ import { URL } from 'node:url';
 import { BetterAuthService } from '../dist/auth/better-auth.service.js';
 import { createApp } from '../dist/create-app.js';
 import { MESSAGES_REPOSITORY } from '../dist/messages/messages.tokens.js';
+import { HttpRateLimiter } from '../dist/rate-limit/http-rate-limiter.js';
 import { RoomRealtimeHub } from '../dist/realtime/room-realtime-hub.js';
 import {
   REALTIME_EVENT_BUS,
@@ -13,6 +14,7 @@ import {
   REALTIME_ROOM_SOURCE,
 } from '../dist/realtime/realtime.tokens.js';
 import { readBenchmarkConfig } from './benchmark-realtime-config.mjs';
+import { bypassBenchmarkSignInIpLimit } from './benchmark-realtime-login.mjs';
 import {
   createStageProfiler,
   waitForExclusiveSignal,
@@ -21,6 +23,7 @@ import {
 const { apiOrigin } = readBenchmarkConfig(process.env);
 const profiler = createStageProfiler();
 const app = await createApp({ logger: false });
+bypassBenchmarkSignInIpLimit(app.get(HttpRateLimiter));
 
 profiler.wrap(
   app.get(BetterAuthService),
