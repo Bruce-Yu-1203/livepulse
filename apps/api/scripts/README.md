@@ -111,6 +111,21 @@ percentiles cannot be summed to reconstruct ACK latency. A long ACK with short
 server stages can indicate time spent waiting before the handler starts or
 after fanout begins.
 
+For PostgreSQL statement counts during the measurement window, enable
+`pg_stat_statements` in the isolated benchmark database and set
+`BENCHMARK_POSTGRES_STATEMENTS=1` and the same
+`BENCHMARK_PROFILE_READY_FILE=/tmp/livepulse-profile-ready` on the API and
+generator processes. The generator waits for the API to capture its pre-run
+statement snapshot before dispatching messages. The API JSON reports executed
+`SELECT` calls as `postgresStatements.readCalls`, write calls, and each
+normalized statement's call count. These counters exclude login and warm-up
+traffic and include any SQL from other activity on the same benchmark database
+during the window. Use a dedicated database for each run.
+With multiple API instances sharing one database, each API snapshot contains
+the same database-wide SQL calls; do not sum those snapshots. Restore the
+PostgreSQL preload setting after the benchmark if it was changed only for this
+measurement.
+
 For a fanout comparison, `BENCHMARK_ROOM_IDS` accepts a comma-separated list
 of already-live room IDs in the isolated benchmark database. Connections are
 assigned round-robin to those rooms, while the aggregate message rate stays
@@ -133,7 +148,10 @@ It counts `message.created` events on every connected client for measurement
 messages, then waits up to 15 seconds for delivery to finish. Compare
 `deliveryVerification.received` with `expected`; for 400 connections, one
 room, and 12,000 messages, the expected count is 4,800,000. This extra client
-work affects timing, so use runs without this flag for latency comparisons.
+work affects timing, so compare only runs with the same flag. The verifier also
+reports per-recipient latency from dispatch, time until 99% and all room
+members have received each message, and the count delivered within one second.
+Latency percentiles use one-millisecond histogram buckets.
 
 ## Initial local profile (2026-10-23)
 

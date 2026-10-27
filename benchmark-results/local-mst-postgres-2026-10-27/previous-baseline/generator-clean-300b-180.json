@@ -1,0 +1,304 @@
+{
+  "workload": "local-authenticated-socketio-message-roundtrip-v2",
+  "target": "isolated local PostgreSQL + Redis",
+  "settings": {
+    "connections": 300,
+    "distinctUsers": 300,
+    "messagesPerSecond": 300,
+    "durationSeconds": 180,
+    "plannedMessages": 54000,
+    "roomId": "44444444-4444-4444-8444-444444444444",
+    "roomIds": [
+      "44444444-4444-4444-8444-444444444444"
+    ],
+    "apiOrigins": [
+      "http://127.0.0.1:3101"
+    ],
+    "connectionsPerApi": {
+      "http://127.0.0.1:3101": 300
+    }
+  },
+  "sentDuringWindow": 54000,
+  "acceptedMessages": 54000,
+  "acceptedDuringWindow": 53997,
+  "acceptedPerSecond": 299.98,
+  "failures": 0,
+  "errorCounts": {},
+  "endToEndAckMs": {
+    "count": 54000,
+    "p50": 17.99,
+    "p95": 1326.03,
+    "p99": 1890.2,
+    "max": 2848.7
+  },
+  "dispatchLagMs": {
+    "count": 54000,
+    "p50": 0.05,
+    "p95": 3.52,
+    "p99": 40.03,
+    "max": 1468.73
+  },
+  "tenSecondWindows": [
+    {
+      "fromSecond": 0,
+      "toSecond": 10,
+      "sentMessages": 3001,
+      "acceptedMessages": 3001,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 3001,
+        "p50": 5.96,
+        "p95": 28.39,
+        "p99": 65.9,
+        "max": 85.32
+      }
+    },
+    {
+      "fromSecond": 10,
+      "toSecond": 20,
+      "sentMessages": 3000,
+      "acceptedMessages": 3000,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 3000,
+        "p50": 5.79,
+        "p95": 22.8,
+        "p99": 94.76,
+        "max": 123.48
+      }
+    },
+    {
+      "fromSecond": 20,
+      "toSecond": 30,
+      "sentMessages": 3000,
+      "acceptedMessages": 3000,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 3000,
+        "p50": 7.71,
+        "p95": 2711.93,
+        "p99": 2819.53,
+        "max": 2848.7
+      }
+    },
+    {
+      "fromSecond": 30,
+      "toSecond": 40,
+      "sentMessages": 2999,
+      "acceptedMessages": 2999,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 2999,
+        "p50": 45.49,
+        "p95": 1862.66,
+        "p99": 1886.96,
+        "max": 1897.34
+      }
+    },
+    {
+      "fromSecond": 40,
+      "toSecond": 50,
+      "sentMessages": 3000,
+      "acceptedMessages": 3000,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 3000,
+        "p50": 8.36,
+        "p95": 18.63,
+        "p99": 28.29,
+        "max": 43.82
+      }
+    },
+    {
+      "fromSecond": 50,
+      "toSecond": 60,
+      "sentMessages": 3000,
+      "acceptedMessages": 3000,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 3000,
+        "p50": 15.68,
+        "p95": 152.06,
+        "p99": 237.97,
+        "max": 266.9
+      }
+    },
+    {
+      "fromSecond": 60,
+      "toSecond": 70,
+      "sentMessages": 3001,
+      "acceptedMessages": 3001,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 3001,
+        "p50": 14.44,
+        "p95": 35.4,
+        "p99": 58.04,
+        "max": 85.54
+      }
+    },
+    {
+      "fromSecond": 70,
+      "toSecond": 80,
+      "sentMessages": 2999,
+      "acceptedMessages": 2999,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 2999,
+        "p50": 15.05,
+        "p95": 360.55,
+        "p99": 401.92,
+        "max": 434.61
+      }
+    },
+    {
+      "fromSecond": 80,
+      "toSecond": 90,
+      "sentMessages": 3000,
+      "acceptedMessages": 3000,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 3000,
+        "p50": 59.66,
+        "p95": 919.05,
+        "p99": 945.91,
+        "max": 959.17
+      }
+    },
+    {
+      "fromSecond": 90,
+      "toSecond": 100,
+      "sentMessages": 3000,
+      "acceptedMessages": 3000,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 3000,
+        "p50": 128.86,
+        "p95": 643.29,
+        "p99": 708.23,
+        "max": 735.03
+      }
+    },
+    {
+      "fromSecond": 100,
+      "toSecond": 110,
+      "sentMessages": 3000,
+      "acceptedMessages": 3000,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 3000,
+        "p50": 20.95,
+        "p95": 87.01,
+        "p99": 136.42,
+        "max": 153.66
+      }
+    },
+    {
+      "fromSecond": 110,
+      "toSecond": 120,
+      "sentMessages": 3000,
+      "acceptedMessages": 3000,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 3000,
+        "p50": 1319.47,
+        "p95": 1952.8,
+        "p99": 2013.88,
+        "max": 2040.5
+      }
+    },
+    {
+      "fromSecond": 120,
+      "toSecond": 130,
+      "sentMessages": 3001,
+      "acceptedMessages": 3001,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 3001,
+        "p50": 22.43,
+        "p95": 461.68,
+        "p99": 562.9,
+        "max": 588.23
+      }
+    },
+    {
+      "fromSecond": 130,
+      "toSecond": 140,
+      "sentMessages": 2999,
+      "acceptedMessages": 2999,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 2999,
+        "p50": 16.33,
+        "p95": 66.33,
+        "p99": 100.88,
+        "max": 135.63
+      }
+    },
+    {
+      "fromSecond": 140,
+      "toSecond": 150,
+      "sentMessages": 3001,
+      "acceptedMessages": 3001,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 3001,
+        "p50": 28.75,
+        "p95": 1142.58,
+        "p99": 1177.81,
+        "max": 1202.5
+      }
+    },
+    {
+      "fromSecond": 150,
+      "toSecond": 160,
+      "sentMessages": 3000,
+      "acceptedMessages": 3000,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 3000,
+        "p50": 39.63,
+        "p95": 719.97,
+        "p99": 830.71,
+        "max": 845.29
+      }
+    },
+    {
+      "fromSecond": 160,
+      "toSecond": 170,
+      "sentMessages": 2999,
+      "acceptedMessages": 2999,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 2999,
+        "p50": 17.57,
+        "p95": 52.03,
+        "p99": 77.86,
+        "max": 100
+      }
+    },
+    {
+      "fromSecond": 170,
+      "toSecond": 180,
+      "sentMessages": 3000,
+      "acceptedMessages": 3000,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 3000,
+        "p50": 15.61,
+        "p95": 31.97,
+        "p99": 67.44,
+        "max": 96.84
+      }
+    }
+  ],
+  "generatorProcess": {
+    "cpuUserMs": 114275.88,
+    "cpuSystemMs": 39059.01,
+    "rssStartMiB": 368.42,
+    "rssEndMiB": 212.58,
+    "eventLoopDelayP95Ms": 23.13,
+    "eventLoopDelayMaxMs": 1512.05
+  },
+  "durationObservedSeconds": 180.01
+}

@@ -5,6 +5,7 @@ import { URL } from 'node:url';
 
 import { BetterAuthService } from '../dist/auth/better-auth.service.js';
 import { createApp } from '../dist/create-app.js';
+import { DatabaseService } from '../dist/database/database.service.js';
 import { MESSAGES_REPOSITORY } from '../dist/messages/messages.tokens.js';
 import { HttpRateLimiter } from '../dist/rate-limit/http-rate-limiter.js';
 import { RoomRealtimeHub } from '../dist/realtime/room-realtime-hub.js';
@@ -16,11 +17,24 @@ import {
 import { readBenchmarkConfig } from './benchmark-realtime-config.mjs';
 import { bypassBenchmarkSignInIpLimit } from './benchmark-realtime-login.mjs';
 import {
+  readPostgresStatementSnapshot,
+  summarizePostgresStatementDelta,
+} from './benchmark-realtime-postgres.mjs';
+import {
   createStageProfiler,
   waitForExclusiveSignal,
 } from './benchmark-realtime-profiler.mjs';
+import { markProfileReady } from './benchmark-realtime-ready.mjs';
 
 const { apiOrigin } = readBenchmarkConfig(process.env);
+const postgresStatementsEnabled =
+  process.env.BENCHMARK_POSTGRES_STATEMENTS === '1';
+const profileReadyFile = process.env.BENCHMARK_PROFILE_READY_FILE;
+if (postgresStatementsEnabled && !profileReadyFile) {
+  throw new Error(
+    'BENCHMARK_POSTGRES_STATEMENTS requires BENCHMARK_PROFILE_READY_FILE',
+  );
+}
 const profiler = createStageProfiler();
 const app = await createApp({ logger: false });
 bypassBenchmarkSignInIpLimit(app.get(HttpRateLimiter));
@@ -65,15 +79,25 @@ await app.listen(Number(origin.port), origin.hostname);
 console.error(`Benchmark API ready: pid=${process.pid}`);
 
 await new Promise((resolve) => process.once('SIGUSR1', resolve));
+const database = postgresStatementsEnabled
+  ? app.get(DatabaseService).client
+  : undefined;
+const statementBefore = database
+  ? await readPostgresStatementSnapshot(database)
+  : undefined;
 const cpuStart = process.cpuUsage();
 const rssStart = process.memoryUsage().rss;
 const startedAt = performance.now();
 eventLoopDelay.enable();
 profiler.start();
+if (profileReadyFile) await markProfileReady(profileReadyFile, process.pid);
 
 // Nest's shutdown hook re-raises SIGUSR2, so reserve it for benchmark reporting.
 await waitForExclusiveSignal(process, 'SIGUSR2');
 profiler.stop();
+const statementAfter = database
+  ? await readPostgresStatementSnapshot(database)
+  : undefined;
 eventLoopDelay.disable();
 const durationSeconds = Number(
   ((performance.now() - startedAt) / 1_000).toFixed(2),
@@ -88,6 +112,14 @@ console.log(
       broadcastMode: 'socketio-room',
       durationSeconds,
       stageMs: profiler.snapshot(),
+      ...(statementBefore && statementAfter
+        ? {
+            postgresStatements: summarizePostgresStatementDelta(
+              statementBefore,
+              statementAfter,
+            ),
+          }
+        : {}),
       apiProcess: {
         cpuUserMs: Number((cpu.user / 1_000).toFixed(2)),
         cpuSystemMs: Number((cpu.system / 1_000).toFixed(2)),

@@ -1,0 +1,71 @@
+{
+  "workload": "local-realtime-api-profile-v2",
+  "broadcastMode": "socketio-room",
+  "durationSeconds": 60,
+  "stageMs": {
+    "sessionCheckMs": {
+      "count": 18000,
+      "p50": 0.71,
+      "p95": 3.37,
+      "p99": 8.57,
+      "max": 97.93
+    },
+    "roomLiveCheckMs": {
+      "count": 18000,
+      "p50": 0.22,
+      "p95": 1.31,
+      "p99": 3.6,
+      "max": 54.32
+    },
+    "muteCheckMs": {
+      "count": 18000,
+      "p50": 0.22,
+      "p95": 1.39,
+      "p99": 3.42,
+      "max": 35.63
+    },
+    "postgresInsertMs": {
+      "count": 18000,
+      "p50": 0.45,
+      "p95": 1.83,
+      "p99": 4.45,
+      "max": 46.83
+    },
+    "redisRateLimitMs": {
+      "count": 18000,
+      "p50": 0.18,
+      "p95": 1.13,
+      "p99": 3.14,
+      "max": 68.87
+    },
+    "redisMessagePublishMs": {
+      "count": 18000,
+      "p50": 0.15,
+      "p95": 1.68,
+      "p99": 3.41,
+      "max": 31.88
+    },
+    "hubHandleMs": {
+      "count": 18000,
+      "p50": 1.35,
+      "p95": 6.03,
+      "p99": 16.92,
+      "max": 105.57
+    },
+    "localBroadcastMs": {
+      "count": 18000,
+      "p50": 0.86,
+      "p95": 1.26,
+      "p99": 1.83,
+      "max": 8.05
+    }
+  },
+  "apiProcess": {
+    "cpuUserMs": 25425.11,
+    "cpuSystemMs": 11470.12,
+    "rssStartMiB": 460.64,
+    "rssEndMiB": 471.28,
+    "eventLoopDelayP95Ms": 20.94,
+    "eventLoopDelayMaxMs": 34.28
+  }
+}

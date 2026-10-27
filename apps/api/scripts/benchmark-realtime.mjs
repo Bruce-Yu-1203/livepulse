@@ -19,6 +19,10 @@ import {
 import { readBenchmarkConfig } from './benchmark-realtime-config.mjs';
 import { createDeliveryVerifier } from './benchmark-realtime-deliveries.mjs';
 import { bypassBenchmarkSignInIpLimit } from './benchmark-realtime-login.mjs';
+import {
+  clearProfileReady,
+  waitForProfileReady,
+} from './benchmark-realtime-ready.mjs';
 import { prepareBenchmarkViewers } from './benchmark-realtime-users.mjs';
 
 const {
@@ -38,6 +42,10 @@ const {
 } = readBenchmarkConfig(process.env);
 
 const app = externalApi ? null : await createApp({ logger: false });
+const profileReadyFile = process.env.BENCHMARK_PROFILE_READY_FILE;
+if (profileReadyFile && profilePids.length === 0) {
+  throw new Error('BENCHMARK_PROFILE_READY_FILE requires profiled API PIDs');
+}
 if (app) bypassBenchmarkSignInIpLimit(app.get(HttpRateLimiter));
 const samples = new Map([
   ['sessionCheckMs', []],
@@ -311,7 +319,10 @@ async function main() {
   const rssStart = process.memoryUsage().rss;
   eventLoopDelay.enable();
   collecting = true;
+  if (profileReadyFile) await clearProfileReady(profileReadyFile, profilePids);
   for (const pid of profilePids) process.kill(pid, 'SIGUSR1');
+  if (profileReadyFile)
+    await waitForProfileReady(profileReadyFile, profilePids);
   const startedAt = performance.now();
   windowEnd = startedAt + durationSeconds * 1_000;
 
@@ -352,6 +363,7 @@ async function main() {
     );
     pendingByMessage.set(clientMessageId, entry);
     pendingByRequest.set(requestId, entry);
+    deliveryVerifier?.recordSent(index, sentAt);
     socket.emit('message.send', {
       payload: {
         clientMessageId,

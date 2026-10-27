@@ -30,6 +30,54 @@ describe('benchmark delivery verification', () => {
       maxPerSocket: 2,
       minUniquePerSocket: 1,
       maxUniquePerSocket: 2,
+      recipientLatencyMs: {
+        count: 0,
+        p50: null,
+        p95: null,
+        p99: null,
+        max: null,
+        withinOneSecond: 0,
+      },
+      fanout99LatencyMs: {
+        count: 0,
+        p50: null,
+        p95: null,
+        p99: null,
+        max: null,
+        withinOneSecond: 0,
+      },
+      fanoutAllLatencyMs: {
+        count: 0,
+        p50: null,
+        p95: null,
+        p99: null,
+        max: null,
+        withinOneSecond: 0,
+      },
+    });
+  });
+
+  it('measures recipient and complete fanout latency without duplicate samples', async () => {
+    let now = 0;
+    const verifier = createDeliveryVerifier(['a', 'a'], 1, () => now);
+    verifier.recordSent(0, 0);
+
+    now = 25;
+    verifier.record(0, { payload: { text: 'Local benchmark message 0' } });
+    verifier.record(0, { payload: { text: 'Local benchmark message 0' } });
+    now = 75;
+    verifier.record(1, { payload: { text: 'Local benchmark message 0' } });
+
+    expect(await verifier.finish()).toMatchObject({
+      duplicates: 1,
+      recipientLatencyMs: {
+        count: 2,
+        p50: 25,
+        p95: 75,
+        withinOneSecond: 2,
+      },
+      fanout99LatencyMs: { count: 1, p95: 75 },
+      fanoutAllLatencyMs: { count: 1, p95: 75 },
     });
   });
 

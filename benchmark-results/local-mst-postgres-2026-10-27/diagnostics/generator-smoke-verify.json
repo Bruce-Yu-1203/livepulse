@@ -1,0 +1,104 @@
+{
+  "workload": "local-authenticated-socketio-message-roundtrip-v2",
+  "target": "isolated local PostgreSQL + Redis",
+  "settings": {
+    "connections": 20,
+    "distinctUsers": 20,
+    "messagesPerSecond": 10,
+    "durationSeconds": 10,
+    "plannedMessages": 100,
+    "roomId": "44444444-4444-4444-8444-444444444444",
+    "roomIds": [
+      "44444444-4444-4444-8444-444444444444"
+    ],
+    "apiOrigins": [
+      "http://127.0.0.1:3101"
+    ],
+    "connectionsPerApi": {
+      "http://127.0.0.1:3101": 20
+    }
+  },
+  "sentDuringWindow": 100,
+  "acceptedMessages": 100,
+  "acceptedDuringWindow": 100,
+  "acceptedPerSecond": 10,
+  "failures": 0,
+  "errorCounts": {},
+  "endToEndAckMs": {
+    "count": 100,
+    "p50": 16.2,
+    "p95": 24.02,
+    "p99": 30.3,
+    "max": 76.94
+  },
+  "dispatchLagMs": {
+    "count": 100,
+    "p50": 0.35,
+    "p95": 1.44,
+    "p99": 1.71,
+    "max": 6.05
+  },
+  "tenSecondWindows": [
+    {
+      "fromSecond": 0,
+      "toSecond": 10,
+      "sentMessages": 100,
+      "acceptedMessages": 100,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 100,
+        "p50": 16.2,
+        "p95": 24.02,
+        "p99": 30.3,
+        "max": 76.94
+      }
+    }
+  ],
+  "deliveryVerification": {
+    "expected": 2000,
+    "received": 2000,
+    "uniqueReceived": 2000,
+    "missing": 0,
+    "duplicates": 0,
+    "wrongRoomDeliveries": 0,
+    "invalidMessageIndexes": 0,
+    "complete": true,
+    "minPerSocket": 100,
+    "maxPerSocket": 100,
+    "minUniquePerSocket": 100,
+    "maxUniquePerSocket": 100,
+    "recipientLatencyMs": {
+      "count": 2000,
+      "p50": 16,
+      "p95": 23,
+      "p99": 31,
+      "max": 77.63,
+      "withinOneSecond": 2000
+    },
+    "fanout99LatencyMs": {
+      "count": 100,
+      "p50": 16,
+      "p95": 24,
+      "p99": 31,
+      "max": 77.63,
+      "withinOneSecond": 100
+    },
+    "fanoutAllLatencyMs": {
+      "count": 100,
+      "p50": 16,
+      "p95": 24,
+      "p99": 31,
+      "max": 77.63,
+      "withinOneSecond": 100
+    }
+  },
+  "generatorProcess": {
+    "cpuUserMs": 192.29,
+    "cpuSystemMs": 39.1,
+    "rssStartMiB": 291.23,
+    "rssEndMiB": 228.89,
+    "eventLoopDelayP95Ms": 21.32,
+    "eventLoopDelayMaxMs": 31.88
+  },
+  "durationObservedSeconds": 10
+}

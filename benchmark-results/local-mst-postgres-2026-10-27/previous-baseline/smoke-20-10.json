@@ -1,0 +1,110 @@
+{
+  "workload": "local-authenticated-socketio-message-roundtrip-v2",
+  "target": "isolated local PostgreSQL + Redis",
+  "settings": {
+    "connections": 20,
+    "distinctUsers": 20,
+    "messagesPerSecond": 10,
+    "durationSeconds": 10,
+    "plannedMessages": 100,
+    "roomId": "44444444-4444-4444-8444-444444444444",
+    "roomIds": [
+      "44444444-4444-4444-8444-444444444444"
+    ],
+    "apiOrigins": [
+      "http://127.0.0.1:3101"
+    ],
+    "connectionsPerApi": {
+      "http://127.0.0.1:3101": 20
+    }
+  },
+  "sentDuringWindow": 100,
+  "acceptedMessages": 100,
+  "acceptedDuringWindow": 100,
+  "acceptedPerSecond": 10,
+  "failures": 0,
+  "errorCounts": {},
+  "endToEndAckMs": {
+    "count": 100,
+    "p50": 17.14,
+    "p95": 22.53,
+    "p99": 26.31,
+    "max": 35.42
+  },
+  "dispatchLagMs": {
+    "count": 100,
+    "p50": 0.52,
+    "p95": 1.25,
+    "p99": 1.41,
+    "max": 1.45
+  },
+  "tenSecondWindows": [
+    {
+      "fromSecond": 0,
+      "toSecond": 10,
+      "sentMessages": 100,
+      "acceptedMessages": 100,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 100,
+        "p50": 17.14,
+        "p95": 22.53,
+        "p99": 26.31,
+        "max": 35.42
+      }
+    }
+  ],
+  "stageMs": {
+    "sessionCheckMs": {
+      "count": 100,
+      "p50": 6.49,
+      "p95": 8.94,
+      "p99": 11.34,
+      "max": 12.66
+    },
+    "roomLiveCheckMs": {
+      "count": 100,
+      "p50": 1.8,
+      "p95": 3.12,
+      "p99": 4.02,
+      "max": 8.03
+    },
+    "muteCheckMs": {
+      "count": 100,
+      "p50": 1.41,
+      "p95": 2.63,
+      "p99": 3.36,
+      "max": 5.64
+    },
+    "postgresInsertMs": {
+      "count": 100,
+      "p50": 2.45,
+      "p95": 3.71,
+      "p99": 5.64,
+      "max": 6.87
+    },
+    "redisRateLimitMs": {
+      "count": 100,
+      "p50": 0.94,
+      "p95": 2.29,
+      "p99": 2.53,
+      "max": 2.57
+    },
+    "redisMessagePublishMs": {
+      "count": 100,
+      "p50": 0.7,
+      "p95": 2.1,
+      "p99": 6.11,
+      "max": 9.72
+    }
+  },
+  "combinedProcess": {
+    "cpuUserMs": 916.14,
+    "cpuSystemMs": 121.03,
+    "rssStartMiB": 416.92,
+    "rssEndMiB": 277.38,
+    "eventLoopDelayP95Ms": 21.4,
+    "eventLoopDelayMaxMs": 22.17
+  },
+  "durationObservedSeconds": 10
+}

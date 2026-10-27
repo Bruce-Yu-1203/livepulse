@@ -1,0 +1,108 @@
+{
+  "workload": "local-realtime-api-profile-v2",
+  "broadcastMode": "socketio-room",
+  "durationSeconds": 315.07,
+  "stageMs": {
+    "sessionCheckMs": {
+      "count": 82500,
+      "p50": 2.72,
+      "p95": 1195.56,
+      "p99": 2256.65,
+      "max": 2642.39
+    },
+    "roomLiveCheckMs": {
+      "count": 82500,
+      "p50": 0.82,
+      "p95": 511.87,
+      "p99": 1073.38,
+      "max": 1515.55
+    },
+    "muteCheckMs": {
+      "count": 82500,
+      "p50": 0.96,
+      "p95": 511.93,
+      "p99": 1079.78,
+      "max": 1519.56
+    },
+    "postgresInsertMs": {
+      "count": 82225,
+      "p50": 1.46,
+      "p95": 509.26,
+      "p99": 1074.15,
+      "max": 1514.16
+    },
+    "redisRateLimitMs": {
+      "count": 82500,
+      "p50": 0.7,
+      "p95": 11.78,
+      "p99": 22.61,
+      "max": 254.62
+    },
+    "redisMessagePublishMs": {
+      "count": 82225,
+      "p50": 1.05,
+      "p95": 11.72,
+      "p99": 24.74,
+      "max": 231.31
+    },
+    "hubHandleMs": {
+      "count": 82500,
+      "p50": 6.05,
+      "p95": 1607.24,
+      "p99": 3244.98,
+      "max": 3746.44
+    },
+    "localBroadcastMs": {
+      "count": 82225,
+      "p50": 1.24,
+      "p95": 2.05,
+      "p99": 3.08,
+      "max": 78.05
+    }
+  },
+  "postgresStatements": {
+    "readCalls": 330000,
+    "writeCalls": 82225,
+    "otherCalls": 0,
+    "statements": [
+      {
+        "queryId": "10:44164:4976333828332293520",
+        "kind": "read",
+        "calls": 82500,
+        "query": "SELECT \"public\".\"users\".\"id\", \"public\".\"users\".\"name\", \"public\".\"users\".\"username\", \"public\".\"users\".\"email\", \"public\".\"users\".\"email_verified\", \"public\".\"users\".\"image\", \"public\".\"users\".\"avatar_key\", \"public\".\"users\".\"role\"::text, \"public\".\"users\".\"created_at\", \"public\".\"users\".\"updated_at\" FROM \"public\".\"users\" WHERE \"public\".\"users\".\"id\" = $1 LIMIT $2 OFFSET $3"
+      },
+      {
+        "queryId": "10:44164:3804043197520641540",
+        "kind": "read",
+        "calls": 82500,
+        "query": "SELECT \"public\".\"room_mutes\".\"room_id\", \"public\".\"room_mutes\".\"user_id\", \"public\".\"room_mutes\".\"effective_at\", \"public\".\"room_mutes\".\"expires_at\" FROM \"public\".\"room_mutes\" WHERE ((\"public\".\"room_mutes\".\"room_id\" = $1 AND \"public\".\"room_mutes\".\"user_id\" = $2) AND $5=$6) LIMIT $3 OFFSET $4"
+      },
+      {
+        "queryId": "10:44164:8089153025925782850",
+        "kind": "read",
+        "calls": 82500,
+        "query": "SELECT \"public\".\"auth_sessions\".\"id\", \"public\".\"auth_sessions\".\"expires_at\", \"public\".\"auth_sessions\".\"token\", \"public\".\"auth_sessions\".\"created_at\", \"public\".\"auth_sessions\".\"updated_at\", \"public\".\"auth_sessions\".\"ip_address\", \"public\".\"auth_sessions\".\"user_agent\", \"public\".\"auth_sessions\".\"user_id\" FROM \"public\".\"auth_sessions\" WHERE \"public\".\"auth_sessions\".\"token\" = $1 LIMIT $2 OFFSET $3"
+      },
+      {
+        "queryId": "10:44164:-8979894504847546373",
+        "kind": "read",
+        "calls": 82500,
+        "query": "SELECT \"public\".\"rooms\".\"id\", \"public\".\"rooms\".\"status\"::text FROM \"public\".\"rooms\" WHERE (\"public\".\"rooms\".\"id\" = $1 AND $4=$5) LIMIT $2 OFFSET $3"
+      },
+      {
+        "queryId": "10:44164:1453240350524841371",
+        "kind": "write",
+        "calls": 82225,
+        "query": "INSERT INTO \"public\".\"danmaku_messages\" (\"id\",\"room_id\",\"author_id\",\"client_message_id\",\"text\",\"accepted_at\",\"payload_hash\",\"expires_at\") VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING \"public\".\"danmaku_messages\".\"id\", \"public\".\"danmaku_messages\".\"room_id\", \"public\".\"danmaku_messages\".\"author_id\", \"public\".\"danmaku_messages\".\"client_message_id\", \"public\".\"danmaku_messages\".\"text\", \"public\".\"danmaku_messages\".\"accepted_at\", \"public\".\"danmaku_messages\".\"payload_hash\", \"public\".\"danmaku_messages\".\"kafka_partition\", \"public\".\"danmaku_messages\".\"kafka_offset\", \"public\".\"danmaku_messages\".\"deleted_at\", \"public\".\"danmaku_messages\".\"expires_at\""
+      }
+    ]
+  },
+  "apiProcess": {
+    "cpuUserMs": 150026.41,
+    "cpuSystemMs": 78750.76,
+    "rssStartMiB": 326.69,
+    "rssEndMiB": 192.17,
+    "eventLoopDelayP95Ms": 24.66,
+    "eventLoopDelayMaxMs": 156.63
+  }
+}

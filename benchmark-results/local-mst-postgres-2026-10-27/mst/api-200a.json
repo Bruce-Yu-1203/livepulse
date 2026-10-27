@@ -1,0 +1,108 @@
+{
+  "workload": "local-realtime-api-profile-v2",
+  "broadcastMode": "socketio-room",
+  "durationSeconds": 300.02,
+  "stageMs": {
+    "sessionCheckMs": {
+      "count": 60000,
+      "p50": 0.87,
+      "p95": 2.13,
+      "p99": 13.34,
+      "max": 208.27
+    },
+    "roomLiveCheckMs": {
+      "count": 60000,
+      "p50": 0.3,
+      "p95": 0.68,
+      "p99": 3.86,
+      "max": 95.36
+    },
+    "muteCheckMs": {
+      "count": 60000,
+      "p50": 0.3,
+      "p95": 0.63,
+      "p99": 3.6,
+      "max": 72.87
+    },
+    "postgresInsertMs": {
+      "count": 60000,
+      "p50": 0.56,
+      "p95": 1.37,
+      "p99": 5.25,
+      "max": 183
+    },
+    "redisRateLimitMs": {
+      "count": 60000,
+      "p50": 0.24,
+      "p95": 0.49,
+      "p99": 2.88,
+      "max": 94.31
+    },
+    "redisMessagePublishMs": {
+      "count": 60000,
+      "p50": 0.21,
+      "p95": 1.22,
+      "p99": 2.91,
+      "max": 62.38
+    },
+    "hubHandleMs": {
+      "count": 60000,
+      "p50": 1.71,
+      "p95": 3.81,
+      "p99": 19.84,
+      "max": 211.45
+    },
+    "localBroadcastMs": {
+      "count": 60000,
+      "p50": 0.81,
+      "p95": 1.11,
+      "p99": 1.45,
+      "max": 88.51
+    }
+  },
+  "postgresStatements": {
+    "readCalls": 240000,
+    "writeCalls": 60000,
+    "otherCalls": 0,
+    "statements": [
+      {
+        "queryId": "10:44143:8089153025925782850",
+        "kind": "read",
+        "calls": 60000,
+        "query": "SELECT \"public\".\"auth_sessions\".\"id\", \"public\".\"auth_sessions\".\"expires_at\", \"public\".\"auth_sessions\".\"token\", \"public\".\"auth_sessions\".\"created_at\", \"public\".\"auth_sessions\".\"updated_at\", \"public\".\"auth_sessions\".\"ip_address\", \"public\".\"auth_sessions\".\"user_agent\", \"public\".\"auth_sessions\".\"user_id\" FROM \"public\".\"auth_sessions\" WHERE \"public\".\"auth_sessions\".\"token\" = $1 LIMIT $2 OFFSET $3"
+      },
+      {
+        "queryId": "10:44143:1453240350524841371",
+        "kind": "write",
+        "calls": 60000,
+        "query": "INSERT INTO \"public\".\"danmaku_messages\" (\"id\",\"room_id\",\"author_id\",\"client_message_id\",\"text\",\"accepted_at\",\"payload_hash\",\"expires_at\") VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING \"public\".\"danmaku_messages\".\"id\", \"public\".\"danmaku_messages\".\"room_id\", \"public\".\"danmaku_messages\".\"author_id\", \"public\".\"danmaku_messages\".\"client_message_id\", \"public\".\"danmaku_messages\".\"text\", \"public\".\"danmaku_messages\".\"accepted_at\", \"public\".\"danmaku_messages\".\"payload_hash\", \"public\".\"danmaku_messages\".\"kafka_partition\", \"public\".\"danmaku_messages\".\"kafka_offset\", \"public\".\"danmaku_messages\".\"deleted_at\", \"public\".\"danmaku_messages\".\"expires_at\""
+      },
+      {
+        "queryId": "10:44143:4976333828332293520",
+        "kind": "read",
+        "calls": 60000,
+        "query": "SELECT \"public\".\"users\".\"id\", \"public\".\"users\".\"name\", \"public\".\"users\".\"username\", \"public\".\"users\".\"email\", \"public\".\"users\".\"email_verified\", \"public\".\"users\".\"image\", \"public\".\"users\".\"avatar_key\", \"public\".\"users\".\"role\"::text, \"public\".\"users\".\"created_at\", \"public\".\"users\".\"updated_at\" FROM \"public\".\"users\" WHERE \"public\".\"users\".\"id\" = $1 LIMIT $2 OFFSET $3"
+      },
+      {
+        "queryId": "10:44143:-8979894504847546373",
+        "kind": "read",
+        "calls": 60000,
+        "query": "SELECT \"public\".\"rooms\".\"id\", \"public\".\"rooms\".\"status\"::text FROM \"public\".\"rooms\" WHERE (\"public\".\"rooms\".\"id\" = $1 AND $4=$5) LIMIT $2 OFFSET $3"
+      },
+      {
+        "queryId": "10:44143:3804043197520641540",
+        "kind": "read",
+        "calls": 60000,
+        "query": "SELECT \"public\".\"room_mutes\".\"room_id\", \"public\".\"room_mutes\".\"user_id\", \"public\".\"room_mutes\".\"effective_at\", \"public\".\"room_mutes\".\"expires_at\" FROM \"public\".\"room_mutes\" WHERE ((\"public\".\"room_mutes\".\"room_id\" = $1 AND \"public\".\"room_mutes\".\"user_id\" = $2) AND $5=$6) LIMIT $3 OFFSET $4"
+      }
+    ]
+  },
+  "apiProcess": {
+    "cpuUserMs": 83905.88,
+    "cpuSystemMs": 40746.83,
+    "rssStartMiB": 402.95,
+    "rssEndMiB": 389.05,
+    "eventLoopDelayP95Ms": 20.76,
+    "eventLoopDelayMaxMs": 93.26
+  }
+}

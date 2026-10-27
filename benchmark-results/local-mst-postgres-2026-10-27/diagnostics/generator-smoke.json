@@ -1,0 +1,66 @@
+{
+  "workload": "local-authenticated-socketio-message-roundtrip-v2",
+  "target": "isolated local PostgreSQL + Redis",
+  "settings": {
+    "connections": 20,
+    "distinctUsers": 20,
+    "messagesPerSecond": 10,
+    "durationSeconds": 10,
+    "plannedMessages": 100,
+    "roomId": "44444444-4444-4444-8444-444444444444",
+    "roomIds": [
+      "44444444-4444-4444-8444-444444444444"
+    ],
+    "apiOrigins": [
+      "http://127.0.0.1:3101"
+    ],
+    "connectionsPerApi": {
+      "http://127.0.0.1:3101": 20
+    }
+  },
+  "sentDuringWindow": 100,
+  "acceptedMessages": 100,
+  "acceptedDuringWindow": 100,
+  "acceptedPerSecond": 10,
+  "failures": 0,
+  "errorCounts": {},
+  "endToEndAckMs": {
+    "count": 100,
+    "p50": 17,
+    "p95": 24.4,
+    "p99": 27.72,
+    "max": 31.06
+  },
+  "dispatchLagMs": {
+    "count": 100,
+    "p50": 0.26,
+    "p95": 1.6,
+    "p99": 1.78,
+    "max": 1.79
+  },
+  "tenSecondWindows": [
+    {
+      "fromSecond": 0,
+      "toSecond": 10,
+      "sentMessages": 100,
+      "acceptedMessages": 100,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 100,
+        "p50": 17,
+        "p95": 24.4,
+        "p99": 27.72,
+        "max": 31.06
+      }
+    }
+  ],
+  "generatorProcess": {
+    "cpuUserMs": 172.58,
+    "cpuSystemMs": 37.66,
+    "rssStartMiB": 294.84,
+    "rssEndMiB": 228,
+    "eventLoopDelayP95Ms": 21.35,
+    "eventLoopDelayMaxMs": 22.45
+  },
+  "durationObservedSeconds": 10
+}
