@@ -12,6 +12,7 @@ import {
 } from '../auth/better-auth.service.js';
 import { RoomRealtimeHub, type RealtimePeer } from './room-realtime-hub.js';
 import { RealtimeMetricsService } from './realtime-metrics.service.js';
+import { SocketSessionState } from './socket-session-state.js';
 
 const maxPacketBytes = 4 * 1_024;
 export const heartbeatIntervalMs = 15_000;
@@ -96,18 +97,20 @@ export class RoomSocketIoServer implements OnModuleDestroy {
     socket: Socket,
   ): Promise<Error | undefined> {
     const headers = fromNodeHeaders(socket.request.headers);
-    const principal = await this.authentication.principalFromHeaders(headers);
-    if (
-      hasBetterAuthSessionCookie(socket.request.headers.cookie) &&
-      !principal
-    ) {
+    this.metrics.cacheEvent('sessionRefreshes');
+    const session =
+      await this.authentication.sessionPrincipalFromHeaders(headers);
+    const hasSessionCookie = hasBetterAuthSessionCookie(
+      socket.request.headers.cookie,
+    );
+    if (hasSessionCookie && !session) {
       return new Error('Authentication expired');
     }
 
-    socket.data.principal = principal;
-    socket.data.headers = headers;
-    socket.data.hasSessionCookie = hasBetterAuthSessionCookie(
-      socket.request.headers.cookie,
+    socket.data.auth = new SocketSessionState(
+      headers,
+      hasSessionCookie,
+      session,
     );
     return undefined;
   }
@@ -115,7 +118,7 @@ export class RoomSocketIoServer implements OnModuleDestroy {
   private accept(socket: Socket): void {
     const peer: RealtimePeer = {
       id: socket.id,
-      principal: socket.data.principal,
+      principal: (socket.data.auth as SocketSessionState).principal,
       send: (event: ServerRealtimeEvent) => {
         if (socket.connected) {
           socket.emit(event.type, event);
@@ -151,15 +154,19 @@ export class RoomSocketIoServer implements OnModuleDestroy {
     peer: RealtimePeer,
     event: unknown,
   ): Promise<void> {
+    const state = socket.data.auth as SocketSessionState;
     try {
-      peer.principal = await this.authentication.principalFromHeaders(
-        socket.data.headers as Headers,
+      if (state.isCached()) {
+        this.metrics.cacheEvent('sessionCacheHits');
+      }
+      peer.principal = await state.resolve(this.authentication, () =>
+        this.metrics.cacheEvent('sessionRefreshes'),
       );
     } catch {
       socket.disconnect(true);
       return;
     }
-    if (!peer.principal && socket.data.hasSessionCookie) {
+    if (!socket.connected || (!peer.principal && state.hasSessionCookie)) {
       socket.disconnect(true);
       return;
     }

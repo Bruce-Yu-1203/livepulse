@@ -18,6 +18,11 @@ export const secureSessionCookieName = `__Secure-${sessionCookieName}`;
 export type LivePulseAuth = ReturnType<typeof createLivePulseAuth>;
 export type EnabledSocialProvider = 'google';
 
+export interface AuthenticatedSession {
+  principal: AuthenticatedPrincipal;
+  expiresAt: Date;
+}
+
 @Injectable()
 export class BetterAuthService {
   public readonly auth: LivePulseAuth;
@@ -47,16 +52,30 @@ export class BetterAuthService {
   public async principalFromHeaders(
     headers: Headers,
   ): Promise<AuthenticatedPrincipal | undefined> {
+    return (await this.sessionPrincipalFromHeaders(headers))?.principal;
+  }
+
+  public async sessionPrincipalFromHeaders(
+    headers: Headers,
+  ): Promise<AuthenticatedSession | undefined> {
     const result = await this.auth.api.getSession({ headers });
 
     if (!result || !isRole(result.user.role)) {
       return undefined;
     }
 
+    const expiresAt = new Date(result.session.expiresAt);
+    if (!Number.isFinite(expiresAt.getTime()) || expiresAt <= new Date()) {
+      return undefined;
+    }
+
     return {
-      role: result.user.role,
-      sessionId: result.session.id,
-      userId: result.user.id,
+      expiresAt,
+      principal: {
+        role: result.user.role,
+        sessionId: result.session.id,
+        userId: result.user.id,
+      },
     };
   }
 }
