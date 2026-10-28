@@ -87,6 +87,22 @@ describe('realtime benchmark profiler', () => {
     expect(profiler.snapshot().redisMessagePublishMs.count).toBe(0);
   });
 
+  it('records the session lookup used by socket revalidation', async () => {
+    const profiler = createStageProfiler();
+    const authentication = {
+      sessionPrincipalFromHeaders: async () => ({ principal: { userId: '1' } }),
+    };
+    profiler.wrap(
+      authentication,
+      'sessionPrincipalFromHeaders',
+      'sessionCheckMs',
+    );
+
+    profiler.start();
+    await authentication.sessionPrincipalFromHeaders({});
+    expect(profiler.snapshot().sessionCheckMs.count).toBe(1);
+  });
+
   it('reserves the benchmark completion signal for report generation', async () => {
     const emitter = new EventEmitter();
     let priorListenerCalled = false;

@@ -8,6 +8,7 @@ import { io } from 'socket.io-client';
 import { createDatabaseClient } from '@livepulse/db';
 
 import { BetterAuthService } from '../dist/auth/better-auth.service.js';
+import { RealtimeMetricsService } from '../dist/realtime/realtime-metrics.service.js';
 import { createApp } from '../dist/create-app.js';
 import { MESSAGES_REPOSITORY } from '../dist/messages/messages.tokens.js';
 import { HttpRateLimiter } from '../dist/rate-limit/http-rate-limiter.js';
@@ -74,7 +75,7 @@ function timeMethod(target, methodName, sampleName, predicate = () => true) {
 if (app) {
   timeMethod(
     app.get(BetterAuthService),
-    'principalFromHeaders',
+    'sessionPrincipalFromHeaders',
     'sessionCheckMs',
   );
   const roomSource = app.get(REALTIME_ROOM_SOURCE);
@@ -447,6 +448,9 @@ async function main() {
       : {}),
     ...(deliveryVerification ? { deliveryVerification } : {}),
     ...(app ? { stageMs: stageSummaries } : {}),
+    ...(app
+      ? { cacheMetrics: app.get(RealtimeMetricsService).snapshot() }
+      : {}),
     [app ? 'combinedProcess' : 'generatorProcess']: {
       cpuUserMs: Number((cpu.user / 1_000).toFixed(2)),
       cpuSystemMs: Number((cpu.system / 1_000).toFixed(2)),

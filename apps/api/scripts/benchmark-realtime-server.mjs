@@ -9,6 +9,7 @@ import { DatabaseService } from '../dist/database/database.service.js';
 import { MESSAGES_REPOSITORY } from '../dist/messages/messages.tokens.js';
 import { HttpRateLimiter } from '../dist/rate-limit/http-rate-limiter.js';
 import { RoomRealtimeHub } from '../dist/realtime/room-realtime-hub.js';
+import { RealtimeMetricsService } from '../dist/realtime/realtime-metrics.service.js';
 import {
   REALTIME_EVENT_BUS,
   REALTIME_RATE_LIMITER,
@@ -41,7 +42,7 @@ bypassBenchmarkSignInIpLimit(app.get(HttpRateLimiter));
 
 profiler.wrap(
   app.get(BetterAuthService),
-  'principalFromHeaders',
+  'sessionPrincipalFromHeaders',
   'sessionCheckMs',
 );
 const roomSource = app.get(REALTIME_ROOM_SOURCE);
@@ -112,6 +113,7 @@ console.log(
       broadcastMode: 'socketio-room',
       durationSeconds,
       stageMs: profiler.snapshot(),
+      cacheMetrics: app.get(RealtimeMetricsService).snapshot(),
       ...(statementBefore && statementAfter
         ? {
             postgresStatements: summarizePostgresStatementDelta(
