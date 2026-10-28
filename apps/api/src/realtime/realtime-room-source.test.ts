@@ -109,5 +109,6 @@ function source(
       findActiveMuteExpiry: vi.fn().mockResolvedValue(null),
     } as Pick<DatabaseRealtimeRoomSource, 'status' | 'findActiveMuteExpiry'>,
     metrics,
+    { findActiveMuteExpiry: vi.fn().mockResolvedValue(null) },
   );
 }

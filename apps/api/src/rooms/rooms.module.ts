@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module.js';
 import { DatabaseModule } from '../database/database.module.js';
 import { RoomLifecycleModule } from '../room-lifecycle/room-lifecycle.module.js';
+import { RealtimeCacheModule } from '../realtime/realtime-cache.module.js';
 import { RolesGuard } from '../authorization/roles.guard.js';
 import { BroadcastModule } from '../broadcast/broadcast.module.js';
 import { RoomMutesController } from './room-mutes.controller.js';
@@ -21,7 +22,13 @@ import { ROOMS_REPOSITORY } from './rooms.tokens.js';
 @Module({
   controllers: [RoomsController, RoomLikesController, RoomMutesController],
   exports: [RoomsService],
-  imports: [AuthModule, BroadcastModule, DatabaseModule, RoomLifecycleModule],
+  imports: [
+    AuthModule,
+    BroadcastModule,
+    DatabaseModule,
+    RoomLifecycleModule,
+    RealtimeCacheModule,
+  ],
   providers: [
     RoomsService,
     RoomLikesService,

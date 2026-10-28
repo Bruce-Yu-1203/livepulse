@@ -32,7 +32,8 @@ describe('RoomMutesService', () => {
       mute: vi.fn().mockResolvedValue(stored),
       userExists: vi.fn().mockResolvedValue(true),
     });
-    const service = new RoomMutesService(mutes, roomRepository());
+    const cache = { invalidate: vi.fn().mockResolvedValue(undefined) };
+    const service = new RoomMutesService(mutes, roomRepository(), cache);
 
     await expect(
       service.mute(principal(hostId, 'HOST'), roomId, {
@@ -47,6 +48,7 @@ describe('RoomMutesService', () => {
       roomId,
       userId: viewerId,
     });
+    expect(cache.invalidate).toHaveBeenCalledWith(roomId, viewerId);
   });
 
   it('lets an administrator moderate a room they do not own', async () => {
@@ -54,7 +56,7 @@ describe('RoomMutesService', () => {
       mute: vi.fn().mockResolvedValue(muteRecord()),
       userExists: vi.fn().mockResolvedValue(true),
     });
-    const service = new RoomMutesService(mutes, roomRepository());
+    const service = new RoomMutesService(mutes, roomRepository(), muteCache());
 
     await expect(
       service.mute(
@@ -65,9 +67,34 @@ describe('RoomMutesService', () => {
     ).resolves.toMatchObject({ roomId, userId: viewerId });
   });
 
+  it('invalidates only after the mute transaction commits', async () => {
+    let completeMute!: (record: RoomMuteRecord) => void;
+    const mutes = muteRepository({
+      mute: vi.fn().mockImplementation(
+        () =>
+          new Promise<RoomMuteRecord>((resolve) => {
+            completeMute = resolve;
+          }),
+      ),
+      userExists: vi.fn().mockResolvedValue(true),
+    });
+    const cache = muteCache();
+    const service = new RoomMutesService(mutes, roomRepository(), cache);
+    const pending = service.mute(principal(hostId, 'HOST'), roomId, {
+      durationMinutes: 10,
+      userId: viewerId,
+    });
+    await vi.waitFor(() => expect(mutes.mute).toHaveBeenCalledOnce());
+    expect(cache.invalidate).not.toHaveBeenCalled();
+    completeMute(muteRecord());
+
+    await expect(pending).resolves.toEqual(muteRecord());
+    expect(cache.invalidate).toHaveBeenCalledOnce();
+  });
+
   it('rejects another host and a missing room', async () => {
     const mutes = muteRepository();
-    const service = new RoomMutesService(mutes, roomRepository());
+    const service = new RoomMutesService(mutes, roomRepository(), muteCache());
 
     await expect(
       service.mute(
@@ -80,6 +107,7 @@ describe('RoomMutesService', () => {
     const missing = new RoomMutesService(
       mutes,
       roomRepository({ findById: vi.fn().mockResolvedValue(undefined) }),
+      muteCache(),
     );
     await expect(
       missing.mute(principal(hostId, 'HOST'), roomId, {
@@ -93,6 +121,7 @@ describe('RoomMutesService', () => {
     const service = new RoomMutesService(
       muteRepository({ userExists: vi.fn().mockResolvedValue(false) }),
       roomRepository(),
+      muteCache(),
     );
 
     await expect(
@@ -109,6 +138,10 @@ describe('RoomMutesService', () => {
     ).rejects.toBeInstanceOf(RoomMuteTargetNotFoundError);
   });
 });
+
+function muteCache() {
+  return { invalidate: vi.fn().mockResolvedValue(undefined) };
+}
 
 function muteRecord(): RoomMuteRecord {
   return {

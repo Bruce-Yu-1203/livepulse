@@ -104,6 +104,8 @@ describe('room Socket.IO gateway', () => {
     await redis.del([
       `${redisKeyPrefix}:rate-limit:chat:room:${liveRoomId}:user:${viewerId}`,
       `${redisKeyPrefix}:rate-limit:chat:room:${endingRoomId}:user:${viewerId}`,
+      `${redisKeyPrefix}:chat:mute:v1:${liveRoomId}:${viewerId}`,
+      `${redisKeyPrefix}:chat:mute-version:v1:${liveRoomId}:${viewerId}`,
     ]);
   });
 
@@ -328,6 +330,15 @@ describe('room Socket.IO gateway', () => {
     send(viewer, joinEvent(liveRoomId, 10));
     await joined;
 
+    const warmed = nextEventOfType(viewer, 'message.created');
+    send(viewer, sendEvent(liveRoomId, 9, 9, 'Before moderation'));
+    await warmed;
+    expect(
+      await redis.get(
+        `${redisKeyPrefix}:chat:mute:v1:${liveRoomId}:${viewerId}`,
+      ),
+    ).toBe('none');
+
     const muted = await app
       .getHttpAdapter()
       .getInstance()
@@ -482,6 +493,8 @@ describe('room Socket.IO gateway', () => {
     await redis.del([
       `${redisKeyPrefix}:rate-limit:chat:room:${liveRoomId}:user:${viewerId}`,
       `${redisKeyPrefix}:rate-limit:chat:room:${endingRoomId}:user:${viewerId}`,
+      `${redisKeyPrefix}:chat:mute:v1:${liveRoomId}:${viewerId}`,
+      `${redisKeyPrefix}:chat:mute-version:v1:${liveRoomId}:${viewerId}`,
       `${redisKeyPrefix}:room:${liveRoomId}:presence`,
       `${redisKeyPrefix}:room:${endedRoomId}:presence`,
       `${redisKeyPrefix}:room:${endingRoomId}:presence`,

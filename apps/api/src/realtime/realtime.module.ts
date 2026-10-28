@@ -4,13 +4,13 @@ import { AuthModule } from '../auth/auth.module.js';
 import { DatabaseModule } from '../database/database.module.js';
 import { MessagesModule } from '../messages/messages.module.js';
 import { RoomLifecycleModule } from '../room-lifecycle/room-lifecycle.module.js';
+import { RealtimeCacheModule } from './realtime-cache.module.js';
 import {
   CachedRealtimeRoomSource,
   DatabaseRealtimeRoomSource,
 } from './realtime-room-source.js';
 import { RedisRealtimeCoordinator } from './redis-realtime-coordinator.js';
 import { ProhibitedContentFilter } from './prohibited-content.filter.js';
-import { RealtimeMetricsService } from './realtime-metrics.service.js';
 import { RoomRealtimeHub } from './room-realtime-hub.js';
 import { RoomSocketIoServer } from './room-socket-io.server.js';
 import {
@@ -21,12 +21,17 @@ import {
 } from './realtime.tokens.js';
 
 @Module({
-  imports: [AuthModule, DatabaseModule, MessagesModule, RoomLifecycleModule],
+  imports: [
+    AuthModule,
+    DatabaseModule,
+    MessagesModule,
+    RoomLifecycleModule,
+    RealtimeCacheModule,
+  ],
   providers: [
     RoomRealtimeHub,
     RoomSocketIoServer,
     RedisRealtimeCoordinator,
-    RealtimeMetricsService,
     DatabaseRealtimeRoomSource,
     CachedRealtimeRoomSource,
     ProhibitedContentFilter,
@@ -47,6 +52,6 @@ import {
       useExisting: RedisRealtimeCoordinator,
     },
   ],
-  exports: [REALTIME_EVENT_BUS, RealtimeMetricsService, RoomSocketIoServer],
+  exports: [REALTIME_EVENT_BUS, RealtimeCacheModule, RoomSocketIoServer],
 })
 export class RealtimeModule {}

@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { MuteRoomUserRequest } from '@livepulse/contracts';
 
 import type { AuthenticatedPrincipal } from '../auth/authenticated-request.js';
+import { RoomMuteCache } from '../realtime/room-mute-cache.js';
 import type {
   RoomMuteRecord,
   RoomMutesRepository,
@@ -22,6 +23,8 @@ export class RoomMutesService {
     @Inject(ROOM_MUTES_REPOSITORY)
     private readonly mutes: RoomMutesRepository,
     @Inject(ROOMS_REPOSITORY) private readonly rooms: RoomsRepository,
+    @Inject(RoomMuteCache)
+    private readonly cache: Pick<RoomMuteCache, 'invalidate'>,
   ) {}
 
   public async mute(
@@ -52,12 +55,14 @@ export class RoomMutesService {
       effectiveAt.getTime() + input.durationMinutes * 60_000,
     );
 
-    return this.mutes.mute({
+    const record = await this.mutes.mute({
       effectiveAt,
       expiresAt,
       mutedBy: actor.userId,
       roomId,
       userId: input.userId,
     });
+    await this.cache.invalidate(roomId, input.userId);
+    return record;
   }
 }

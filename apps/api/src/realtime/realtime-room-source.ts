@@ -3,6 +3,7 @@ import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 
 import { DatabaseService } from '../database/database.service.js';
 import { RealtimeMetricsService } from './realtime-metrics.service.js';
+import { RoomMuteCache } from './room-mute-cache.js';
 
 type RoomStatus = 'DRAFT' | 'LIVE' | 'ENDED' | undefined;
 
@@ -75,6 +76,8 @@ export class CachedRealtimeRoomSource
     >,
     @Inject(RealtimeMetricsService)
     private readonly metrics: RealtimeMetricsService,
+    @Inject(RoomMuteCache)
+    private readonly muteCache: Pick<RoomMuteCache, 'findActiveMuteExpiry'>,
   ) {}
 
   public onModuleInit(): void {
@@ -119,7 +122,7 @@ export class CachedRealtimeRoomSource
     roomId: string,
     userId: string,
   ): Promise<Date | null> {
-    return this.database.findActiveMuteExpiry(roomId, userId);
+    return this.muteCache.findActiveMuteExpiry(roomId, userId);
   }
 
   public markEnded(roomId: string): void {
