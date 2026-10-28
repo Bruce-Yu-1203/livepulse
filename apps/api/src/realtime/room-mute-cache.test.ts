@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Logger } from '@nestjs/common';
 
 import type { DatabaseService } from '../database/database.service.js';
 import { RealtimeMetricsService } from './realtime-metrics.service.js';
@@ -15,7 +16,10 @@ describe('RoomMuteCache', () => {
     vi.setSystemTime(new Date('2026-10-28T12:00:00.000Z'));
   });
 
-  afterEach(() => vi.useRealTimers());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
 
   it('caches negative and positive database results for fifteen seconds', async () => {
     const query = vi
@@ -88,6 +92,7 @@ describe('RoomMuteCache', () => {
   });
 
   it('returns after a committed mute when invalidation fails and retries', async () => {
+    vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
     const store = new MemoryStore();
     const invalidate = vi
       .spyOn(store, 'invalidate')

@@ -443,6 +443,22 @@ describe('room Socket.IO gateway', () => {
     const published = RoomEndedEventSchema.parse(await firstEnded);
     expect(published.payload).toMatchObject({ roomId: endingRoomId });
     expect(RoomEndedEventSchema.parse(await secondEnded)).toEqual(published);
+
+    const firstRejected = nextEventOfType(firstViewer, 'error');
+    const secondRejected = nextEventOfType(secondViewer, 'error');
+    send(firstViewer, sendEvent(endingRoomId, 32, 32, 'After end A'));
+    send(secondViewer, sendEvent(endingRoomId, 33, 33, 'After end B'));
+    expect(
+      RealtimeErrorEventSchema.parse(await firstRejected).payload.code,
+    ).toBe('REALTIME_ROOM_NOT_LIVE');
+    expect(
+      RealtimeErrorEventSchema.parse(await secondRejected).payload.code,
+    ).toBe('REALTIME_ROOM_NOT_LIVE');
+    expect(
+      await database.danmakuMessage.count({
+        where: { roomId: endingRoomId, text: { startsWith: 'After end' } },
+      }),
+    ).toBe(0);
     firstViewer.disconnect();
     secondViewer.disconnect();
   });

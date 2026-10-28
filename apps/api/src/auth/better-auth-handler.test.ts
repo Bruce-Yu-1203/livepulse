@@ -63,6 +63,77 @@ describe('Better Auth email sign-in challenge', () => {
       await server.close();
     }
   });
+
+  it('targets single-session and user-wide Better Auth revocations', async () => {
+    const publishControl = vi.fn().mockResolvedValue(undefined);
+    const server = Fastify();
+    mountBetterAuth(
+      server,
+      {
+        apiOrigin: 'http://localhost:3001',
+        auth: {
+          handler: vi
+            .fn()
+            .mockImplementation(() =>
+              Promise.resolve(new Response('{}', { status: 200 })),
+            ),
+        },
+        sessionPrincipalFromHeaders: vi.fn().mockResolvedValue({
+          expiresAt: new Date(Date.now() + 60_000),
+          principal: {
+            role: 'VIEWER',
+            sessionId: 'current-session',
+            userId: 'user-1',
+          },
+        }),
+        sessionByToken: vi.fn().mockResolvedValue({
+          id: 'other-session',
+          userId: 'user-1',
+        }),
+        sessionExists: vi.fn().mockResolvedValue(false),
+        trustedWebOrigin: 'http://localhost:3000',
+      } as unknown as BetterAuthService,
+      { reserveIdentity: vi.fn(), releaseIdentity: vi.fn() },
+      { verify: vi.fn() },
+      {
+        publishControl,
+        subscribeControl: vi.fn(),
+        subscribeReconnect: vi.fn(),
+      },
+    );
+
+    try {
+      for (const [path, body] of [
+        ['revoke-session', { token: 'opaque-token' }],
+        ['revoke-other-sessions', {}],
+        ['revoke-sessions', {}],
+        ['change-password', { revokeOtherSessions: true }],
+      ] as const) {
+        expect(
+          (
+            await server.inject({
+              headers: { origin: 'http://localhost:3000' },
+              method: 'POST',
+              payload: body,
+              url: `/api/v1/auth/${path}`,
+            })
+          ).statusCode,
+        ).toBe(200);
+      }
+      expect(publishControl.mock.calls.map(([event]) => event)).toEqual([
+        { type: 'session.revoked', sessionId: 'other-session' },
+        {
+          type: 'user.sessions.revoked',
+          userId: 'user-1',
+          exceptSessionId: 'current-session',
+        },
+        { type: 'user.sessions.revoked', userId: 'user-1' },
+        { type: 'user.sessions.revoked', userId: 'user-1' },
+      ]);
+    } finally {
+      await server.close();
+    }
+  });
   it('challenges the eleventh failed attempt in a ten-minute window', async () => {
     vi.stubEnv('NODE_ENV', 'test');
     vi.stubEnv('REDIS_URL', undefined);

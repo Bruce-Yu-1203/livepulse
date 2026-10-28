@@ -1,7 +1,7 @@
 # 实时消息路径缓存实施方案
 
 日期：2026-10-28
-状态：待评审；本文不代表功能已经实现。
+状态：已按本文实现；短时验证见 [`benchmark-results/message-path-cache-2026-10-28/README.md`](benchmark-results/message-path-cache-2026-10-28/README.md)。五分钟 MST 和 PostgreSQL 精确语句计数尚待复测。
 
 ## 1. 目标与当前路径
 
@@ -70,7 +70,7 @@ Redis 未命中时，读取对应版本键、查询 PostgreSQL 的 `(roomId, use
 
 ## 7. 实施顺序与涉及文件
 
-每一步独立提交，随实现新增相应单元及集成测试；提交前按仓库要求运行校验。本文只规定顺序，不实施代码。
+每一步独立提交，随实现新增相应单元及集成测试；提交前按仓库要求运行校验。以下为实施顺序与验收记录。
 
 1. **观测与接口准备**：扩展 [`apps/api/src/realtime/realtime-metrics.service.ts`](apps/api/src/realtime/realtime-metrics.service.ts) 的各层命中、回源、失效失败和重校验指标。建立可注入的 room 与 mute 缓存接口，保留当前数据库源作回退。
 2. **Room 本地缓存**：在 [`apps/api/src/realtime/realtime-room-source.ts`](apps/api/src/realtime/realtime-room-source.ts) 外包装状态缓存；[`room-realtime-hub.ts`](apps/api/src/realtime/room-realtime-hub.ts) 在 `room.ended` 到达时设置终态，加入房间时执行新鲜检查。
