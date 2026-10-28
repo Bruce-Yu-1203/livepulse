@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import { clientApiRequest } from '../lib/client-api';
+import { optimisticFollowState } from '../lib/follow-state';
 import { AuthEntryLink } from './auth-dialog-provider';
 import { useAuthSession } from './auth-session-provider';
 
@@ -46,15 +47,21 @@ export function FollowButton({
 
   async function toggle() {
     if (!state || pending) return;
+    const previous = state;
+    const optimistic = optimisticFollowState(previous);
+    setState(optimistic);
+    onChange?.(optimistic);
     setPending(true);
     setError(undefined);
     try {
       const next = await clientApiRequest(path, FollowStateResponseSchema, {
-        method: state.following ? 'DELETE' : 'PUT',
+        method: previous.following ? 'DELETE' : 'PUT',
       });
       setState(next);
       onChange?.(next);
     } catch (caught) {
+      setState(previous);
+      onChange?.(previous);
       setError(
         caught instanceof Error
           ? caught.message
@@ -82,13 +89,17 @@ export function FollowButton({
     <div>
       <button
         aria-label={`${state?.following ? 'Unfollow' : 'Follow'} ${userName}`}
+        aria-busy={pending}
         aria-pressed={state?.following ?? false}
         className={`${classes} ${state?.following ? 'bg-surface text-accent hover:bg-accent-soft' : 'bg-accent text-on-accent hover:bg-accent-hover'} disabled:cursor-wait disabled:opacity-60`}
         disabled={!state || pending}
         onClick={() => void toggle()}
         type="button"
       >
-        {pending ? 'Saving…' : state?.following ? 'Unfollow' : 'Follow'}
+        {state?.following ? 'Unfollow' : 'Follow'}
+        {pending ? (
+          <span className="ml-2 text-xs opacity-70">Saving…</span>
+        ) : null}
       </button>
       {error ? (
         <p className="mt-2 text-xs text-danger" role="status">
