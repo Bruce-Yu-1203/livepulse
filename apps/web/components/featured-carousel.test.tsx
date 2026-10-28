@@ -34,6 +34,8 @@ describe('FeaturedCarousel', () => {
     expect(markup).toContain('1 of 2');
     expect(markup).toContain('Previous featured room');
     expect(markup).toContain('Next featured room');
+    expect(markup).toContain('Watch live');
+    expect(markup).toContain('class="featured-watch" href="/rooms/one"');
   });
 
   it('hides navigation when only one room is featured', () => {
@@ -67,6 +69,18 @@ describe('FeaturedCarousel', () => {
     expect(markup).toContain('height="720"');
     expect(markup).toContain('width="640"');
     expect(markup).toContain('height="360"');
+  });
+
+  it('uses an accurate destination label for ended rooms', () => {
+    const markup = renderToStaticMarkup(
+      <FeaturedCarousel
+        rooms={[{ ...room('ended', 'Archive'), status: 'ENDED' }]}
+      />,
+    );
+
+    expect(markup).toContain('View room');
+    expect(markup).not.toContain('Watch live');
+    expect(markup).not.toContain('View replay');
   });
 
   it('renders nothing without rooms', () => {

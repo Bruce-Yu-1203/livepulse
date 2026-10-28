@@ -79,9 +79,21 @@ export function FeaturedCarousel({ rooms }: { rooms: VisibleRoom[] }) {
           <div className="featured-info">
             <h2>{current.title}</h2>
             <p>{current.description}</p>
-            <span className="featured-likes">
-              {formatLikeCount(current.likeCount)} likes
-            </span>
+            <div className="featured-actions">
+              <span className="featured-likes">
+                {formatLikeCount(current.likeCount)} likes
+              </span>
+              <Link className="featured-watch" href={`/rooms/${current.id}`}>
+                {current.status === 'LIVE' ? 'Watch live' : 'View room'}
+                {current.status === 'LIVE' ? (
+                  <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
+                    <path d="m9 5 8 7-8 7V5Z" fill="currentColor" />
+                  </svg>
+                ) : (
+                  <Chevron direction="next" />
+                )}
+              </Link>
+            </div>
           </div>
         </article>
 
