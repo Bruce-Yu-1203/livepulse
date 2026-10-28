@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { createClient, type RedisClientType } from 'redis';
 
@@ -14,8 +15,7 @@ return 1
 `;
 
 const invalidateScript = `
-redis.call('INCR', KEYS[2])
-redis.call('PEXPIRE', KEYS[2], 60000)
+redis.call('SET', KEYS[2], ARGV[1], 'PX', 60000)
 redis.call('DEL', KEYS[1])
 return 1
 `;
@@ -121,10 +121,10 @@ export class RedisMuteStore
   public async invalidate(roomId: string, userId: string): Promise<void> {
     const key = this.valueKey(roomId, userId);
     const versionKey = this.versionKey(roomId, userId);
+    const nextVersion = randomUUID();
     if (this.useInMemory) {
-      const next = Number(this.memoryGet(versionKey) ?? '0') + 1;
       this.memory.set(versionKey, {
-        value: String(next),
+        value: nextVersion,
         expiresAt: Date.now() + 60_000,
       });
       this.memory.delete(key);
@@ -132,7 +132,7 @@ export class RedisMuteStore
     }
     await this.client.eval(invalidateScript, {
       keys: [key, versionKey],
-      arguments: [],
+      arguments: [nextVersion],
     });
   }
 

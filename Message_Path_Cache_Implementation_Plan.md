@@ -17,7 +17,7 @@
 | --- | --- | --- | --- | --- |
 | Session principal | `socket.data.auth`，每条连接独立 | `userId`、`role`、`sessionId`、真实 `expiresAt`、`validUntil` | 最多 15 秒，且不超过 session 到期时间 | 登出/撤销时通过内部控制频道通知各实例断开对应 socket；15 秒回源兜底 |
 | Room status | API 进程内 `Map<roomId, entry>` | `LIVE` 或终态 `ENDED` | `LIVE` 10 秒；`ENDED` 最多 10 分钟 | 收到现有 `room.ended` 事件即写入终态；失联或漏通知时由 TTL 回源 |
-| Mute status | Redis `${REDIS_KEY_PREFIX}:chat:mute:v1:${roomId}:${userId}` | `none`，或 `{effectiveAt, expiresAt}` | 15 秒；有记录时不得越过 `expiresAt` | 数据库 mute 事务提交后，原子递增该键版本并删除缓存值；下一次读取回源 |
+| Mute status | Redis `${REDIS_KEY_PREFIX}:chat:mute:v1:${roomId}:${userId}` | `none`，或 `{effectiveAt, expiresAt}` | 15 秒；有记录时不得越过 `expiresAt` | 数据库 mute 事务提交后，原子替换唯一版本标记并删除缓存值；下一次读取回源 |
 
 PostgreSQL 是事实来源。当前服务只允许 `DRAFT → LIVE → ENDED`，因此 `ENDED` 在内存里可作为终态；`DRAFT` 和不存在的房间不进入可发送缓存，加入房间时始终进行新鲜的数据库检查。禁言键按 `(roomId, userId)` 分开，避免每个 API 实例加载并持有整间房的 mute 表。
 
@@ -48,7 +48,7 @@ Redis 订阅连接重连后清空本地 room 缓存。若结束事件未能送�
 
 Redis 未命中时，读取对应版本键、查询 PostgreSQL 的 `(roomId, userId)` 记录，然后通过一段原子 Redis 操作执行以下条件：版本没有变化且缓存值仍不存在，才写入 15 秒缓存；否则重新读取 Redis。版本键例如 `${REDIS_KEY_PREFIX}:chat:mute-version:v1:${roomId}:${userId}`，过期时间设为 60 秒，并确保数据库查询超时明显短于它。一个实例内对同一键的并发未命中合并为一次数据库查询，跨实例由 Redis 条件写入防止陈旧结果回填。
 
-房主禁言仍先执行现有的数据库 upsert 与审计事务。提交成功后，在响应前通过原子 Redis 操作递增版本并删除对应 mute 缓存值。随后任何新开始的读取都会在未命中时查询最新数据库记录；旧的、在事务前启动的查询因版本变化无法写回缓存。并发重复禁言的最终 Redis 状态仍由数据库最新记录重新加载决定，无需按 API 实例的墙钟时间排序。未来若增加解除禁言、修改时长或其他 mute 写入入口，必须复用同一失效操作。
+房主禁言仍先执行现有的数据库 upsert 与审计事务。提交成功后，在响应前通过原子 Redis 操作用随机唯一标记替换版本并删除对应 mute 缓存值。随后任何新开始的读取都会在未命中时查询最新数据库记录；旧的、在事务前启动的查询因版本变化无法写回缓存。随机标记避免版本键过期后数字重新从 1 开始而与在途旧版本相同。并发重复禁言的最终 Redis 状态仍由数据库最新记录重新加载决定，无需按 API 实例的墙钟时间排序。未来若增加解除禁言、修改时长或其他 mute 写入入口，必须复用同一失效操作。
 
 如果数据库已提交，而 Redis 失效操作失败，接口仍按数据库已成功写入返回，但记录高优先级错误并短间隔重试删除该键。已有的 Redis 旧值最多再保留 15 秒。这是明确接受的故障降级；它不能满足 Redis 部分故障时的严格即时禁言要求。Redis 故障期间的发送直接查 PostgreSQL；Redis 恢复后仍可能短暂读到旧键，TTL 是最终兜底。
 
