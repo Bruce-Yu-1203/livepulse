@@ -8,6 +8,61 @@ import type { BetterAuthService } from './better-auth.service.js';
 import type { TurnstileVerifier } from './turnstile-verifier.js';
 
 describe('Better Auth email sign-in challenge', () => {
+  it('publishes a committed sign-out and ignores an unsuccessful revocation', async () => {
+    const publishControl = vi.fn().mockResolvedValue(undefined);
+    const sessionExists = vi.fn().mockResolvedValue(false);
+    const server = Fastify();
+    mountBetterAuth(
+      server,
+      {
+        apiOrigin: 'http://localhost:3001',
+        auth: {
+          handler: vi
+            .fn()
+            .mockResolvedValueOnce(new Response('{}', { status: 200 }))
+            .mockResolvedValueOnce(new Response('{}', { status: 401 })),
+        },
+        sessionPrincipalFromHeaders: vi.fn().mockResolvedValue({
+          expiresAt: new Date(Date.now() + 60_000),
+          principal: {
+            role: 'VIEWER',
+            sessionId: 'session-1',
+            userId: 'user-1',
+          },
+        }),
+        sessionExists,
+        trustedWebOrigin: 'http://localhost:3000',
+      } as unknown as BetterAuthService,
+      {
+        reserveIdentity: vi.fn(),
+        releaseIdentity: vi.fn(),
+      },
+      { verify: vi.fn() },
+      {
+        publishControl,
+        subscribeControl: vi.fn(),
+        subscribeReconnect: vi.fn(),
+      },
+    );
+
+    try {
+      const request = {
+        headers: { origin: 'http://localhost:3000' },
+        method: 'POST' as const,
+        url: '/api/v1/auth/sign-out',
+      };
+      expect((await server.inject(request)).statusCode).toBe(200);
+      expect(publishControl).toHaveBeenCalledWith({
+        type: 'session.revoked',
+        sessionId: 'session-1',
+      });
+      expect(sessionExists).toHaveBeenCalledWith('session-1');
+      expect((await server.inject(request)).statusCode).toBe(401);
+      expect(publishControl).toHaveBeenCalledOnce();
+    } finally {
+      await server.close();
+    }
+  });
   it('challenges the eleventh failed attempt in a ten-minute window', async () => {
     vi.stubEnv('NODE_ENV', 'test');
     vi.stubEnv('REDIS_URL', undefined);

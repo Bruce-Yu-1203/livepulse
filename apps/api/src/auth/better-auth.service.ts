@@ -31,7 +31,7 @@ export class BetterAuthService {
   public readonly registrationSecret: string;
   public readonly trustedWebOrigin: string;
 
-  public constructor(database: DatabaseService) {
+  public constructor(private readonly database: DatabaseService) {
     const config = resolveAuthConfig({
       apiOrigin: process.env.BETTER_AUTH_URL,
       authSecret: process.env.BETTER_AUTH_SECRET,
@@ -77,6 +77,24 @@ export class BetterAuthService {
         userId: result.user.id,
       },
     };
+  }
+
+  public async sessionByToken(
+    token: string,
+  ): Promise<{ id: string; userId: string } | null> {
+    return this.database.client.session.findUnique({
+      select: { id: true, userId: true },
+      where: { token },
+    });
+  }
+
+  public async sessionExists(id: string): Promise<boolean> {
+    return (
+      (await this.database.client.session.findUnique({
+        select: { id: true },
+        where: { id },
+      })) !== null
+    );
   }
 }
 

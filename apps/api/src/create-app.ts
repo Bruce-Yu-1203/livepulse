@@ -18,6 +18,8 @@ import {
 } from './rate-limit/http-rate-limit-hook.js';
 import { HttpRateLimiter } from './rate-limit/http-rate-limiter.js';
 import { RoomSocketIoServer } from './realtime/room-socket-io.server.js';
+import type { RealtimeControl } from './realtime/realtime-coordination.js';
+import { REALTIME_CONTROL } from './realtime/realtime.tokens.js';
 
 export async function createApp(
   options: NestApplicationOptions = {},
@@ -49,6 +51,7 @@ export async function createApp(
     app.get(BetterAuthService),
     app.get(HttpRateLimiter),
     app.get(TurnstileVerifier),
+    app.get<RealtimeControl>(REALTIME_CONTROL),
   );
   app.get(RoomSocketIoServer).attach(app.getHttpServer() as Server);
 

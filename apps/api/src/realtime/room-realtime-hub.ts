@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ApiErrorCode, ClientRealtimeEventSchema } from '@livepulse/contracts';
 import type {
@@ -18,6 +18,7 @@ import type {
   RealtimeEventBus,
   RealtimePresence,
   RealtimeRateLimiter,
+  RealtimeControl,
 } from './realtime-coordination.js';
 import type { RealtimeRoomSource } from './realtime-room-source.js';
 import { RealtimeMetricsService } from './realtime-metrics.service.js';
@@ -27,6 +28,7 @@ import {
   REALTIME_PRESENCE,
   REALTIME_RATE_LIMITER,
   REALTIME_ROOM_SOURCE,
+  REALTIME_CONTROL,
 } from './realtime.tokens.js';
 
 export interface RealtimePeer {
@@ -65,6 +67,7 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
   private readonly acceptedMessages = new Map<string, AcceptedMessage>();
   private readonly unsubscribeFromBus: () => void;
   private readonly unsubscribeFromRoomEnded: () => void;
+  private readonly unsubscribeFromReconnect: () => void;
   private presenceTimer: ReturnType<typeof setInterval> | undefined;
   private roomBroadcaster: RealtimeRoomBroadcaster | undefined;
 
@@ -83,6 +86,7 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
     @Inject(RealtimeMetricsService)
     private readonly metrics: RealtimeMetricsService,
     private readonly contentFilter: ProhibitedContentFilter = new ProhibitedContentFilter(),
+    @Optional() @Inject(REALTIME_CONTROL) control?: RealtimeControl,
   ) {
     this.unsubscribeFromBus = this.eventBus.subscribe((event) => {
       this.handleDistributedEvent(event);
@@ -90,6 +94,9 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
     this.unsubscribeFromRoomEnded = roomLifecycle.subscribeToRoomEnded(
       ({ endedAt, roomId }) => this.endRoom(roomId, endedAt),
     );
+    this.unsubscribeFromReconnect =
+      control?.subscribeReconnect(() => this.rooms.clearRoomCache?.()) ??
+      (() => undefined);
   }
 
   public onModuleInit(): void {
@@ -109,6 +116,7 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
     }
     this.unsubscribeFromBus();
     this.unsubscribeFromRoomEnded();
+    this.unsubscribeFromReconnect();
   }
 
   public async handle(peer: RealtimePeer, input: unknown): Promise<void> {

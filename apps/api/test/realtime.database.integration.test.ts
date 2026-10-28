@@ -453,6 +453,25 @@ describe('room Socket.IO gateway', () => {
     );
   });
 
+  it('disconnects a remote socket after sign-out commits', async () => {
+    const viewer = await connect(accessCookie, 'http://localhost:3000', true);
+    const disconnected = new Promise<void>((resolve) => {
+      viewer.once('disconnect', () => resolve());
+    });
+    const response = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        headers: { cookie: accessCookie, origin: 'http://localhost:3000' },
+        method: 'POST',
+        url: '/api/v1/auth/sign-out',
+      });
+
+    expect(response.statusCode).toBe(200);
+    await disconnected;
+    expect(viewer.connected).toBe(false);
+  });
+
   async function login(email: string): Promise<{
     cookie: string;
     headers: Record<string, string>;

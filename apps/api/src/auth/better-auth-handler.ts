@@ -10,12 +10,18 @@ import {
   BetterAuthService,
 } from './better-auth.service.js';
 import type { TurnstileVerifier } from './turnstile-verifier.js';
+import type {
+  RealtimeControl,
+  RealtimeControlEvent,
+} from '../realtime/realtime-coordination.js';
+import type { AuthenticatedPrincipal } from './authenticated-request.js';
 
 export function mountBetterAuth(
   fastify: FastifyInstance,
   authentication: BetterAuthService,
   rateLimiter: Pick<HttpRateLimiter, 'reserveIdentity' | 'releaseIdentity'>,
   turnstile: Pick<TurnstileVerifier, 'verify'>,
+  control?: RealtimeControl,
 ): void {
   fastify.route({
     handler: (request, reply) =>
@@ -25,6 +31,7 @@ export function mountBetterAuth(
         authentication,
         rateLimiter,
         turnstile,
+        control,
       ),
     method: ['GET', 'POST'],
     url: `${betterAuthBasePath}/*`,
@@ -37,6 +44,7 @@ async function handleBetterAuthRequest(
   authentication: BetterAuthService,
   rateLimiter: Pick<HttpRateLimiter, 'reserveIdentity' | 'releaseIdentity'>,
   turnstile: Pick<TurnstileVerifier, 'verify'>,
+  control?: RealtimeControl,
 ): Promise<void> {
   if (
     request.method === 'POST' &&
@@ -109,6 +117,16 @@ async function handleBetterAuthRequest(
     headers.set('content-type', 'application/json');
   }
 
+  let revocation:
+    { event: RealtimeControlEvent; verifyGone?: string } | undefined;
+  if (control) {
+    try {
+      revocation = await revocationForRequest(request, authentication, headers);
+    } catch (error) {
+      request.log.error(error, 'Could not prepare session revocation notice');
+    }
+  }
+
   let response: Response;
   try {
     response = await authentication.auth.handler(
@@ -131,6 +149,19 @@ async function handleBetterAuthRequest(
     await releaseLoginReservation(rateLimiter, email, reservationId, request);
   }
 
+  if (control && revocation && response.ok) {
+    try {
+      if (
+        !revocation.verifyGone ||
+        !(await authentication.sessionExists(revocation.verifyGone))
+      ) {
+        await control.publishControl(revocation.event);
+      }
+    } catch (error) {
+      request.log.error(error, 'Could not publish session revocation notice');
+    }
+  }
+
   for (const [name, value] of response.headers.entries()) {
     if (name !== 'set-cookie') {
       void reply.header(name, value);
@@ -143,6 +174,90 @@ async function handleBetterAuthRequest(
   }
 
   void reply.status(response.status).send(await response.text());
+}
+
+async function revocationForRequest(
+  request: FastifyRequest,
+  authentication: BetterAuthService,
+  headers: Headers,
+): Promise<{ event: RealtimeControlEvent; verifyGone?: string } | undefined> {
+  if (request.method !== 'POST') return undefined;
+  const path = new URL(request.url, authentication.apiOrigin).pathname;
+  const routes = new Set([
+    `${betterAuthBasePath}/sign-out`,
+    `${betterAuthBasePath}/revoke-session`,
+    `${betterAuthBasePath}/revoke-sessions`,
+    `${betterAuthBasePath}/revoke-other-sessions`,
+    `${betterAuthBasePath}/change-password`,
+  ]);
+  if (!routes.has(path)) return undefined;
+
+  const principal = (await authentication.sessionPrincipalFromHeaders(headers))
+    ?.principal;
+  if (!principal) return undefined;
+  return revocationForPath(path, request.body, principal, authentication);
+}
+
+async function revocationForPath(
+  path: string,
+  body: unknown,
+  principal: AuthenticatedPrincipal,
+  authentication: BetterAuthService,
+): Promise<{ event: RealtimeControlEvent; verifyGone?: string } | undefined> {
+  if (path === `${betterAuthBasePath}/sign-out`) {
+    return {
+      event: { type: 'session.revoked', sessionId: principal.sessionId },
+      verifyGone: principal.sessionId,
+    };
+  }
+  if (path === `${betterAuthBasePath}/revoke-session`) {
+    const token = readBodyString(body, 'token');
+    if (!token) return undefined;
+    const target = await authentication.sessionByToken(token);
+    return target?.userId === principal.userId
+      ? {
+          event: { type: 'session.revoked', sessionId: target.id },
+          verifyGone: target.id,
+        }
+      : undefined;
+  }
+  if (path === `${betterAuthBasePath}/revoke-other-sessions`) {
+    return {
+      event: {
+        type: 'user.sessions.revoked',
+        userId: principal.userId,
+        exceptSessionId: principal.sessionId,
+      },
+    };
+  }
+  if (
+    path === `${betterAuthBasePath}/revoke-sessions` ||
+    (path === `${betterAuthBasePath}/change-password` &&
+      readBodyBoolean(body, 'revokeOtherSessions'))
+  ) {
+    return {
+      event: { type: 'user.sessions.revoked', userId: principal.userId },
+    };
+  }
+  return undefined;
+}
+
+function readBodyString(body: unknown, name: string): string | undefined {
+  return typeof body === 'object' &&
+    body !== null &&
+    name in body &&
+    typeof body[name as keyof typeof body] === 'string'
+    ? (body[name as keyof typeof body] as string)
+    : undefined;
+}
+
+function readBodyBoolean(body: unknown, name: string): boolean {
+  return (
+    typeof body === 'object' &&
+    body !== null &&
+    name in body &&
+    body[name as keyof typeof body] === true
+  );
 }
 
 function signInEmail(request: FastifyRequest): string | undefined {

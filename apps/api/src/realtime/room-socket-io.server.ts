@@ -13,6 +13,11 @@ import {
 import { RoomRealtimeHub, type RealtimePeer } from './room-realtime-hub.js';
 import { RealtimeMetricsService } from './realtime-metrics.service.js';
 import { SocketSessionState } from './socket-session-state.js';
+import type {
+  RealtimeControl,
+  RealtimeControlEvent,
+} from './realtime-coordination.js';
+import { REALTIME_CONTROL } from './realtime.tokens.js';
 
 const maxPacketBytes = 4 * 1_024;
 export const heartbeatIntervalMs = 15_000;
@@ -30,6 +35,10 @@ export function hasBetterAuthSessionCookie(
 @Injectable()
 export class RoomSocketIoServer implements OnModuleDestroy {
   private io: Server | undefined;
+  private readonly socketsBySession = new Map<string, Set<Socket>>();
+  private readonly socketsByUser = new Map<string, Set<Socket>>();
+  private readonly unsubscribeControl: () => void;
+  private readonly unsubscribeReconnect: () => void;
 
   public constructor(
     @Inject(BetterAuthService)
@@ -37,7 +46,17 @@ export class RoomSocketIoServer implements OnModuleDestroy {
     @Inject(RoomRealtimeHub) private readonly hub: RoomRealtimeHub,
     @Inject(RealtimeMetricsService)
     private readonly metrics: RealtimeMetricsService,
-  ) {}
+    @Inject(REALTIME_CONTROL) control: RealtimeControl,
+  ) {
+    this.unsubscribeControl = control.subscribeControl((event) =>
+      this.handleControl(event),
+    );
+    this.unsubscribeReconnect = control.subscribeReconnect(() => {
+      for (const socket of this.io?.sockets.sockets.values() ?? []) {
+        (socket.data.auth as SocketSessionState).invalidate();
+      }
+    });
+  }
 
   public attach(httpServer: HttpServer): void {
     if (this.io) {
@@ -86,6 +105,10 @@ export class RoomSocketIoServer implements OnModuleDestroy {
   }
 
   public async onModuleDestroy(): Promise<void> {
+    this.unsubscribeControl();
+    this.unsubscribeReconnect();
+    this.socketsBySession.clear();
+    this.socketsByUser.clear();
     const io = this.io;
     this.io = undefined;
     if (io) {
@@ -127,6 +150,7 @@ export class RoomSocketIoServer implements OnModuleDestroy {
     };
     let disconnected = false;
     this.metrics.connectionOpened();
+    this.indexSocket(socket);
 
     socket.onAny((name, event: unknown) => {
       const input =
@@ -144,6 +168,7 @@ export class RoomSocketIoServer implements OnModuleDestroy {
       if (!disconnected) {
         disconnected = true;
         this.metrics.connectionClosed();
+        this.unindexSocket(socket);
         void this.hub.disconnect(peer);
       }
     });
@@ -155,6 +180,7 @@ export class RoomSocketIoServer implements OnModuleDestroy {
     event: unknown,
   ): Promise<void> {
     const state = socket.data.auth as SocketSessionState;
+    const previous = peer.principal;
     try {
       if (state.isCached()) {
         this.metrics.cacheEvent('sessionCacheHits');
@@ -171,8 +197,72 @@ export class RoomSocketIoServer implements OnModuleDestroy {
       return;
     }
 
+    if (
+      previous?.sessionId !== peer.principal?.sessionId ||
+      previous?.userId !== peer.principal?.userId
+    ) {
+      this.unindexSocket(socket, previous);
+      this.indexSocket(socket);
+    }
+
     await this.hub.handle(peer, event);
   }
+
+  private indexSocket(socket: Socket): void {
+    const principal = (socket.data.auth as SocketSessionState).principal;
+    if (!principal) return;
+    socket.data.indexedPrincipal = principal;
+    addSocket(this.socketsBySession, principal.sessionId, socket);
+    addSocket(this.socketsByUser, principal.userId, socket);
+  }
+
+  private unindexSocket(
+    socket: Socket,
+    principal = socket.data.indexedPrincipal as RealtimePeer['principal'],
+  ): void {
+    if (!principal) return;
+    removeSocket(this.socketsBySession, principal.sessionId, socket);
+    removeSocket(this.socketsByUser, principal.userId, socket);
+    socket.data.indexedPrincipal = undefined;
+  }
+
+  private handleControl(event: RealtimeControlEvent): void {
+    const sockets =
+      event.type === 'session.revoked'
+        ? this.socketsBySession.get(event.sessionId)
+        : this.socketsByUser.get(event.userId);
+    for (const socket of [...(sockets ?? [])]) {
+      const state = socket.data.auth as SocketSessionState;
+      if (
+        event.type === 'user.sessions.revoked' &&
+        state.principal?.sessionId === event.exceptSessionId
+      ) {
+        continue;
+      }
+      state.invalidate();
+      socket.disconnect(true);
+    }
+  }
+}
+
+function addSocket(
+  index: Map<string, Set<Socket>>,
+  key: string,
+  socket: Socket,
+): void {
+  const sockets = index.get(key) ?? new Set<Socket>();
+  sockets.add(socket);
+  index.set(key, sockets);
+}
+
+function removeSocket(
+  index: Map<string, Set<Socket>>,
+  key: string,
+  socket: Socket,
+): void {
+  const sockets = index.get(key);
+  sockets?.delete(socket);
+  if (sockets?.size === 0) index.delete(key);
 }
 
 function readCookie(

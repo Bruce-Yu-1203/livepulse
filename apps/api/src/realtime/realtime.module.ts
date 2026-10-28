@@ -17,6 +17,7 @@ import {
   REALTIME_EVENT_BUS,
   REALTIME_PRESENCE,
   REALTIME_RATE_LIMITER,
+  REALTIME_CONTROL,
   REALTIME_ROOM_SOURCE,
 } from './realtime.tokens.js';
 
@@ -51,7 +52,16 @@ import {
       provide: REALTIME_RATE_LIMITER,
       useExisting: RedisRealtimeCoordinator,
     },
+    {
+      provide: REALTIME_CONTROL,
+      useExisting: RedisRealtimeCoordinator,
+    },
   ],
-  exports: [REALTIME_EVENT_BUS, RealtimeCacheModule, RoomSocketIoServer],
+  exports: [
+    REALTIME_EVENT_BUS,
+    REALTIME_CONTROL,
+    RealtimeCacheModule,
+    RoomSocketIoServer,
+  ],
 })
 export class RealtimeModule {}

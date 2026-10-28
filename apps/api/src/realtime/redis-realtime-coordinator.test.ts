@@ -93,6 +93,25 @@ describe('message rate limiting without a Redis URL', () => {
       coordinator.consumeMessageToken('room-2', 'user-1'),
     ).resolves.toBeUndefined();
   });
+
+  it('delivers session control notices on a separate local subscription', async () => {
+    const coordinator = new RedisRealtimeCoordinator();
+    const notice = vi.fn();
+    const roomEvent = vi.fn();
+    coordinator.subscribeControl(notice);
+    coordinator.subscribe(roomEvent);
+
+    await coordinator.publishControl({
+      type: 'session.revoked',
+      sessionId: 'session-1',
+    });
+
+    expect(notice).toHaveBeenCalledWith({
+      type: 'session.revoked',
+      sessionId: 'session-1',
+    });
+    expect(roomEvent).not.toHaveBeenCalled();
+  });
 });
 
 describe('presence counting', () => {

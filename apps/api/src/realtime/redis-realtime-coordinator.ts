@@ -19,6 +19,8 @@ import type {
   RealtimeEventBus,
   RealtimePresence,
   RealtimeRateLimiter,
+  RealtimeControl,
+  RealtimeControlEvent,
 } from './realtime-coordination.js';
 
 const presenceLeaseMilliseconds = 45_000;
@@ -32,6 +34,7 @@ export class RedisRealtimeCoordinator
     RealtimeEventBus,
     RealtimePresence,
     RealtimeRateLimiter,
+    RealtimeControl,
     OnModuleInit,
     OnModuleDestroy
 {
@@ -41,7 +44,13 @@ export class RedisRealtimeCoordinator
   private readonly listeners = new Set<
     (event: DistributedRealtimeEvent) => void
   >();
+  private readonly controlListeners = new Set<
+    (event: RealtimeControlEvent) => void
+  >();
+  private readonly reconnectListeners = new Set<() => void>();
   private readonly channel: string;
+  private readonly controlChannel: string;
+  private subscriptionsReady = false;
   private readonly keyPrefix: string;
   private readonly useInMemory: boolean;
   private readonly inMemoryPresence = new Map<string, Map<string, string>>();
@@ -58,6 +67,7 @@ export class RedisRealtimeCoordinator
     });
     this.keyPrefix = configuration.keyPrefix;
     this.channel = `${this.keyPrefix}:room-events`;
+    this.controlChannel = `${this.keyPrefix}:realtime-control`;
     this.useInMemory =
       process.env.NODE_ENV === 'test' && process.env.REDIS_URL === undefined;
     this.commands = createClient({
@@ -71,6 +81,11 @@ export class RedisRealtimeCoordinator
     this.subscriber.on('error', (error) =>
       this.logger.error('Redis subscriber connection error', error),
     );
+    this.subscriber.on('ready', () => {
+      if (this.subscriptionsReady) {
+        for (const listener of this.reconnectListeners) listener();
+      }
+    });
   }
 
   public async onModuleInit(): Promise<void> {
@@ -82,6 +97,10 @@ export class RedisRealtimeCoordinator
     await this.subscriber.subscribe(this.channel, (value) => {
       this.receive(value);
     });
+    await this.subscriber.subscribe(this.controlChannel, (value) => {
+      this.receiveControl(value);
+    });
+    this.subscriptionsReady = true;
   }
 
   public async onModuleDestroy(): Promise<void> {
@@ -121,6 +140,43 @@ export class RedisRealtimeCoordinator
   ): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  public async publishControl(event: RealtimeControlEvent): Promise<void> {
+    for (const listener of this.controlListeners) listener(event);
+    if (this.useInMemory) return;
+    if (!this.commands.isReady || !this.subscriber.isReady) {
+      throw new Error('Redis realtime control is not ready');
+    }
+    const receivers = await this.commands.publish(
+      this.controlChannel,
+      JSON.stringify(event),
+    );
+    if (receivers < 1) {
+      throw new Error('Redis realtime control has no subscribers');
+    }
+  }
+
+  public subscribeControl(
+    listener: (event: RealtimeControlEvent) => void,
+  ): () => void {
+    this.controlListeners.add(listener);
+    return () => this.controlListeners.delete(listener);
+  }
+
+  public subscribeReconnect(listener: () => void): () => void {
+    this.reconnectListeners.add(listener);
+    return () => this.reconnectListeners.delete(listener);
+  }
+
+  private receiveControl(value: string): void {
+    try {
+      const candidate: unknown = JSON.parse(value);
+      if (!isControlEvent(candidate)) return;
+      for (const listener of this.controlListeners) listener(candidate);
+    } catch {
+      this.logger.warn('Ignored malformed realtime control event');
+    }
   }
 
   public async consumeMessageToken(
@@ -306,6 +362,21 @@ export function countPresence(
     connections: connections.size,
     uniqueUsers: new Set(connections.values()).size,
   };
+}
+
+function isControlEvent(value: unknown): value is RealtimeControlEvent {
+  if (typeof value !== 'object' || value === null || !('type' in value)) {
+    return false;
+  }
+  if (value.type === 'session.revoked') {
+    return 'sessionId' in value && typeof value.sessionId === 'string';
+  }
+  return (
+    value.type === 'user.sessions.revoked' &&
+    'userId' in value &&
+    typeof value.userId === 'string' &&
+    (!('exceptSessionId' in value) || typeof value.exceptSessionId === 'string')
+  );
 }
 
 export { resolveRedisConfiguration } from '../rate-limit/redis-configuration.js';
