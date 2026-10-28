@@ -8,6 +8,14 @@ export interface RealtimeMetricsSnapshot {
   activeConnections: number;
   deliveryAttempts: number;
   redisFailures: number;
+  sessionCacheHits: number;
+  sessionRefreshes: number;
+  roomCacheHits: number;
+  roomCacheMisses: number;
+  muteCacheHits: number;
+  muteCacheMisses: number;
+  muteDbFallbacks: number;
+  muteInvalidationFailures: number;
   startedAt: string;
 }
 
@@ -19,6 +27,20 @@ export class RealtimeMetricsService {
   private activeConnections = 0;
   private deliveryAttempts = 0;
   private redisFailures = 0;
+  private readonly cacheCounters = {
+    sessionCacheHits: 0,
+    sessionRefreshes: 0,
+    roomCacheHits: 0,
+    roomCacheMisses: 0,
+    muteCacheHits: 0,
+    muteCacheMisses: 0,
+    muteDbFallbacks: 0,
+    muteInvalidationFailures: 0,
+  };
+
+  public cacheEvent(name: keyof typeof this.cacheCounters): void {
+    this.cacheCounters[name] += 1;
+  }
 
   public connectionOpened(): void {
     this.activeConnections += 1;
@@ -50,6 +72,7 @@ export class RealtimeMetricsService {
       activeConnections: this.activeConnections,
       deliveryAttempts: this.deliveryAttempts,
       redisFailures: this.redisFailures,
+      ...this.cacheCounters,
       startedAt: new Date(this.startedAt).toISOString(),
     };
   }

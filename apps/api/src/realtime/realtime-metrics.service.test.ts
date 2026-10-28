@@ -43,4 +43,20 @@ describe('RealtimeMetricsService', () => {
       acceptedMessagesLastMinute: 1,
     });
   });
+
+  it('counts cache activity by layer', () => {
+    const metrics = new RealtimeMetricsService();
+    metrics.cacheEvent('sessionCacheHits');
+    metrics.cacheEvent('sessionRefreshes');
+    metrics.cacheEvent('roomCacheMisses');
+    metrics.cacheEvent('muteInvalidationFailures');
+
+    expect(metrics.snapshot()).toMatchObject({
+      sessionCacheHits: 1,
+      sessionRefreshes: 1,
+      roomCacheHits: 0,
+      roomCacheMisses: 1,
+      muteInvalidationFailures: 1,
+    });
+  });
 });
