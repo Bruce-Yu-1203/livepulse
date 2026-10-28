@@ -153,7 +153,11 @@ export function LiveRoomExperience({
                 <img
                   alt=""
                   className="h-full w-full object-cover opacity-45"
+                  decoding="async"
+                  height={720}
+                  loading="eager"
                   src={room.coverImageUrl}
+                  width={1280}
                 />
               ) : null}
               <div className="absolute inset-0 grid place-items-center bg-black/55 text-center">

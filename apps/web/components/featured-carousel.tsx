@@ -56,7 +56,15 @@ export function FeaturedCarousel({ rooms }: { rooms: VisibleRoom[] }) {
             href={`/rooms/${current.id}`}
           >
             {current.coverImageUrl ? (
-              <img alt="" src={current.coverImageUrl} />
+              <img
+                alt=""
+                decoding="async"
+                fetchPriority="high"
+                height={720}
+                loading="eager"
+                src={current.coverImageUrl}
+                width={1280}
+              />
             ) : (
               <div aria-hidden="true" className="signal-artwork">
                 <BrandMark className="signal-artwork-mark" />
@@ -106,7 +114,14 @@ function Peek({
   return (
     <div aria-hidden="true" className={`featured-peek featured-peek-${side}`}>
       {room.coverImageUrl ? (
-        <img alt="" src={room.coverImageUrl} />
+        <img
+          alt=""
+          decoding="async"
+          height={360}
+          loading="lazy"
+          src={room.coverImageUrl}
+          width={640}
+        />
       ) : (
         <div className="signal-artwork" />
       )}

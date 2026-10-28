@@ -49,7 +49,11 @@ export function BroadcastHostCard({
         <span
           className={`broadcast-host-avatar-wrap ${isLive ? 'broadcast-host-avatar-wrap--live' : ''}`}
         >
-          <SearchUserAvatar className="broadcast-host-avatar" user={host} />
+          <SearchUserAvatar
+            className="broadcast-host-avatar"
+            loading="eager"
+            user={host}
+          />
           {isLive ? (
             <span aria-label="Live" className="broadcast-host-live-badge">
               LIVE

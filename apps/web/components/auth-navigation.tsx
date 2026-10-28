@@ -84,6 +84,7 @@ export function AuthNavigation() {
             <AccountAvatar
               email={session.user.email}
               large
+              loading="lazy"
               name={displayName}
               url={session.user.avatarUrl}
             />
@@ -167,11 +168,13 @@ function AccountIcon({
 export function AccountAvatar({
   email,
   large = false,
+  loading = 'eager',
   name,
   url,
 }: {
   email: string;
   large?: boolean;
+  loading?: 'eager' | 'lazy';
   name: string;
   url?: string | null;
 }) {
@@ -181,7 +184,14 @@ export function AccountAvatar({
       className={`account-avatar ${large ? 'account-avatar-large' : ''}`}
     >
       {url ? (
-        <img alt="" src={url} />
+        <img
+          alt=""
+          decoding="async"
+          height={large ? 88 : 48}
+          loading={loading}
+          src={url}
+          width={large ? 88 : 48}
+        />
       ) : (
         name.charAt(0).toUpperCase() || accountInitial(email)
       )}

@@ -44,6 +44,31 @@ describe('FeaturedCarousel', () => {
     expect(markup).not.toContain('Next featured room');
   });
 
+  it('prioritizes the visible cover and defers neighboring covers', () => {
+    const markup = renderToStaticMarkup(
+      <FeaturedCarousel
+        rooms={[
+          {
+            ...room('one', 'First'),
+            coverImageUrl: 'https://cdn.example.com/one.jpg',
+          },
+          {
+            ...room('two', 'Second'),
+            coverImageUrl: 'https://cdn.example.com/two.jpg',
+          },
+        ]}
+      />,
+    );
+
+    expect(markup).toContain('fetchPriority="high"');
+    expect(markup).toContain('loading="eager"');
+    expect(markup).toContain('loading="lazy"');
+    expect(markup).toContain('width="1280"');
+    expect(markup).toContain('height="720"');
+    expect(markup).toContain('width="640"');
+    expect(markup).toContain('height="360"');
+  });
+
   it('renders nothing without rooms', () => {
     expect(renderToStaticMarkup(<FeaturedCarousel rooms={[]} />)).toBe('');
   });

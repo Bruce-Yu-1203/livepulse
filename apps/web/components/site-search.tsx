@@ -198,7 +198,14 @@ export function SiteSearch({ searchQuery = '' }: { searchQuery?: string }) {
                                 className="site-search-avatar"
                               >
                                 {user.avatarUrl ? (
-                                  <img alt="" src={user.avatarUrl} />
+                                  <img
+                                    alt=""
+                                    decoding="async"
+                                    height={44}
+                                    loading="lazy"
+                                    src={user.avatarUrl}
+                                    width={44}
+                                  />
                                 ) : (
                                   user.name.charAt(0).toUpperCase()
                                 )}

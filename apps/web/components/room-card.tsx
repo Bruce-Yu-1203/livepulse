@@ -19,8 +19,10 @@ export function RoomCard({ room }: { room: VisibleRoom }) {
             <img
               alt=""
               decoding="async"
+              height={360}
               loading="lazy"
               src={room.coverImageUrl}
+              width={640}
             />
           ) : (
             <div className="room-card-placeholder" />

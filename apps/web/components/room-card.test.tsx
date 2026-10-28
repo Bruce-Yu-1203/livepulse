@@ -28,6 +28,9 @@ describe('RoomCard', () => {
     expect(html).toContain('Learn distributed systems');
     expect(html).toContain('24');
     expect(html).toContain('loading="lazy"');
+    expect(html).toContain('decoding="async"');
+    expect(html).toContain('width="640"');
+    expect(html).toContain('height="360"');
     expect(html).toContain('dateTime="2026-10-09T15:30:00.000Z"');
     expect(html).toContain('room-card-avatar');
     expect(html).toContain('room-card-live');

@@ -46,7 +46,11 @@ export default async function PublicUserPage({
             ← Discover
           </Link>
           <section className="mt-10 flex flex-wrap items-center gap-6 rounded-[2rem] border border-fg/8 bg-surface p-6 sm:p-9">
-            <SearchUserAvatar className="profile-avatar" user={user} />
+            <SearchUserAvatar
+              className="profile-avatar"
+              loading="eager"
+              user={user}
+            />
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-accent">
                 LivePulse member
