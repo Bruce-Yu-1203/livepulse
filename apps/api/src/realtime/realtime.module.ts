@@ -4,7 +4,10 @@ import { AuthModule } from '../auth/auth.module.js';
 import { DatabaseModule } from '../database/database.module.js';
 import { MessagesModule } from '../messages/messages.module.js';
 import { RoomLifecycleModule } from '../room-lifecycle/room-lifecycle.module.js';
-import { DatabaseRealtimeRoomSource } from './realtime-room-source.js';
+import {
+  CachedRealtimeRoomSource,
+  DatabaseRealtimeRoomSource,
+} from './realtime-room-source.js';
 import { RedisRealtimeCoordinator } from './redis-realtime-coordinator.js';
 import { ProhibitedContentFilter } from './prohibited-content.filter.js';
 import { RealtimeMetricsService } from './realtime-metrics.service.js';
@@ -24,10 +27,12 @@ import {
     RoomSocketIoServer,
     RedisRealtimeCoordinator,
     RealtimeMetricsService,
+    DatabaseRealtimeRoomSource,
+    CachedRealtimeRoomSource,
     ProhibitedContentFilter,
     {
       provide: REALTIME_ROOM_SOURCE,
-      useClass: DatabaseRealtimeRoomSource,
+      useExisting: CachedRealtimeRoomSource,
     },
     {
       provide: REALTIME_EVENT_BUS,

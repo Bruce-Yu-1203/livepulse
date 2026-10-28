@@ -148,6 +148,7 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
   }
 
   public async endRoom(roomId: string, endedAt: Date): Promise<void> {
+    this.rooms.markEnded?.(roomId);
     const event: DistributedRealtimeEvent = {
       payload: { endedAt: endedAt.toISOString(), roomId },
       requestId: randomUUID(),
@@ -168,7 +169,7 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
     requestId: string,
     roomId: string,
   ): Promise<void> {
-    const live = await this.roomIsLive(peer, requestId, roomId);
+    const live = await this.roomIsLive(peer, requestId, roomId, true);
 
     if (live === undefined) {
       return;
@@ -433,9 +434,10 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
     peer: RealtimePeer,
     requestId: string,
     roomId: string,
+    fresh = false,
   ): Promise<boolean | undefined> {
     try {
-      return await this.rooms.isLive(roomId);
+      return await this.rooms.isLive(roomId, fresh);
     } catch {
       this.sendError(
         peer,
@@ -476,6 +478,7 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
 
     if (members?.size === 0) {
       this.roomMembers.delete(roomId);
+      this.rooms.releaseRoom?.(roomId);
     }
 
     this.joinedRoomByPeer.delete(peer.id);
@@ -576,6 +579,7 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
     }
 
     if (event.type === 'room.ended') {
+      this.rooms.markEnded?.(event.payload.roomId);
       for (const [key, accepted] of this.acceptedMessages) {
         if (accepted.event.payload.roomId === event.payload.roomId) {
           this.acceptedMessages.delete(key);
