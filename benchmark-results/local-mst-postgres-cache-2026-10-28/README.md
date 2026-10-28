@@ -10,7 +10,16 @@ Comparison: [2026-10-27 pre-cache baseline](../local-mst-postgres-2026-10-27/REA
 
 - The controlled local MST is **275 messages/s**, at the same 25 messages/s search resolution and SLO as the 2026-10-27 baseline. Three valid, independent, five-minute 275/275 runs passed. A fourth 275/275 attempt is retained but invalid because the generator's maximum dispatch delay exceeded the preexisting 250 ms validity limit. At 300/300, one valid run passed and one valid run failed; 325/325 failed. The previous controlled estimate was 200 messages/s, so the confirmed local rate increased by **37.5%** under this workload.
 - At 200/200, the post-cache run issued **11,083 PostgreSQL SELECTs for 60,000 sends**, or 0.185 SELECT/send. The comparable pre-cache 200/200 run issued exactly 240,000 SELECTs, or 4.000/send. This is a **95.4% reduction** in SELECT calls. All 60,000 messages still had one INSERT each. The 275/275 passing runs used 0.185–0.187 SELECT/send.
-- Sender ACK p95/p99 at 200/200 was **6.32/18.52 ms** after caching. The three valid passing pre-cache 200/200 runs had p95 **6.45–7.13 ms** and p99 **16.32–43.57 ms**. This is comparable low-load latency, not a large ACK improvement; the main measured benefit is lower SQL read volume and a higher rate that meets the same SLO.
+- At 200/200, sender ACK p95 was **6.32 ms** after caching versus **6.45–7.13 ms** in the three valid pre-cache runs. Those values overlap, so this low-load p95 does not demonstrate an ACK improvement. The stronger ACK comparison is at the same offered rate of 275/275, where the old path overloaded and the cached path passed in three valid runs.
+
+## Rate-matched ACK comparison
+
+| Offered rate | Pre-cache result | Post-cache result | What the comparison supports |
+| --- | --- | --- | --- |
+| 200/200 | Three valid passes; ACK p95 6.45–7.13 ms | One run; ACK p95 6.32 ms | Low-load ACK latency is similar. The p95 difference is too small and the ranges overlap. |
+| 275/275 | One run; ACK p95 2,672.23 ms, p99 5,222.74 ms, worst 10 s p95 5,666.76 ms; 275 attempts were rate limited and 75,625 expected recipient events were missing as a result | Three valid passes; ACK p95 6.64, 9.21, and 11.36 ms; all 82,500 sends were ACKed and all 22,687,500 recipient events arrived in each run | At the same offered rate, the cached path repeatedly meets the latency and delivery SLO where the pre-cache run failed with backlog and rate limits. |
+
+The 275/275 p95 is supporting evidence, not a standalone causal estimate: the pre-cache side has one run and its ACK histogram contains only successful ACKs (82,225 samples out of 82,500 attempts), while each post-cache histogram contains all 82,500 ACKs. The stronger claim is the SLO outcome at the matched offered rate, backed by three valid post-cache runs. To make a p95-only claim, repeat the pre-cache 275/275 test several times under the same five-minute setup and compare the distributions, not one run against one run.
 
 ## Method and thresholds
 
@@ -64,4 +73,4 @@ The [persisted row counts](mst/) equal the accepted formal messages plus one war
 
 ## Data and verification
 
-The [raw API and generator JSON files](mst/) are retained for every formal attempt, including failures and the invalid-schedule run. [Result assertions](benchmark-results.test.mjs) verify duration, offered rate, ACK and delivery accounting, SQL writes, persisted rows, schedule validity, SLO verdicts, and three valid 275/275 passes. `pnpm validate` passed with 457 tests, and all 58 database integration tests passed on a separate cloned database with the project environment loaded. PostgreSQL's global `shared_preload_libraries` setting was restored to its original empty value after collection.
+The [raw API and generator JSON files](mst/) are retained for every formal attempt, including failures and the invalid-schedule run. [Result assertions](benchmark-results.test.mjs) verify duration, offered rate, ACK and delivery accounting, SQL writes, persisted rows, schedule validity, SLO verdicts, three valid 275/275 passes, and the rate-matched baseline values above. `pnpm validate` passed with 457 tests, and all 58 database integration tests passed on a separate cloned database with the project environment loaded. PostgreSQL's global `shared_preload_libraries` setting was restored to its original empty value after collection.

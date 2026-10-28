@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
 import { test } from 'vitest';
 
@@ -18,6 +19,11 @@ const expectedVerdicts = {
 
 function readJson(name) {
   return JSON.parse(readFileSync(`${directory}${name}`, 'utf8'));
+}
+
+function readPreCacheJson(name) {
+  const path = resolve(directory, '../../local-mst-postgres-2026-10-27/mst', name);
+  return JSON.parse(readFileSync(path, 'utf8'));
 }
 
 function verdict(generator) {
@@ -84,4 +90,23 @@ test('cache reduces SELECT calls below one quarter per send', () => {
       `${run} used too many SELECT calls`,
     );
   }
+});
+
+test('rate-matched 275 messages/s ACK comparison matches the report', () => {
+  const before = readPreCacheJson('generator-275a.json');
+  const after = ['275a', '275b', '275d'].map((run) =>
+    readJson(`generator-${run}.json`),
+  );
+
+  assert.equal(before.settings.messagesPerSecond, 275);
+  assert.equal(before.endToEndAckMs.p95, 2672.23);
+  assert.equal(before.endToEndAckMs.count, 82225);
+  assert.equal(before.failures, 275);
+  assert.equal(before.deliveryVerification.missing, 75625);
+  assert.deepEqual(
+    after.map((run) => run.endToEndAckMs.p95),
+    [6.64, 9.21, 11.36],
+  );
+  assert.ok(after.every((run) => run.endToEndAckMs.count === 82500));
+  assert.ok(after.every((run) => run.deliveryVerification.missing === 0));
 });
