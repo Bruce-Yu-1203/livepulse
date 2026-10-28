@@ -1,0 +1,190 @@
+{
+  "workload": "local-realtime-api-profile-v2",
+  "broadcastMode": "socketio-room",
+  "durationSeconds": 300.03,
+  "stageMs": {
+    "sessionCheckMs": {
+      "count": 5203,
+      "p50": 1.26,
+      "p95": 27.83,
+      "p99": 773.9,
+      "max": 968.85
+    },
+    "roomLiveCheckMs": {
+      "count": 82500,
+      "p50": 0,
+      "p95": 0,
+      "p99": 0,
+      "max": 19.32
+    },
+    "muteCheckMs": {
+      "count": 82500,
+      "p50": 0.28,
+      "p95": 2.09,
+      "p99": 18.04,
+      "max": 709.84
+    },
+    "postgresInsertMs": {
+      "count": 82500,
+      "p50": 0.79,
+      "p95": 2.78,
+      "p99": 101.57,
+      "max": 693.74
+    },
+    "redisRateLimitMs": {
+      "count": 82500,
+      "p50": 0.25,
+      "p95": 1.68,
+      "p99": 17.08,
+      "max": 128.05
+    },
+    "redisMessagePublishMs": {
+      "count": 82500,
+      "p50": 0.23,
+      "p95": 2.16,
+      "p99": 11.44,
+      "max": 130.84
+    },
+    "hubHandleMs": {
+      "count": 82500,
+      "p50": 1.92,
+      "p95": 8.17,
+      "p99": 161.25,
+      "max": 1083.08
+    },
+    "localBroadcastMs": {
+      "count": 82500,
+      "p50": 0.95,
+      "p95": 1.57,
+      "p99": 2.41,
+      "max": 111.18
+    }
+  },
+  "cacheMetrics": {
+    "acceptedMessages": 82775,
+    "acceptedMessagesLastMinute": 16448,
+    "activeConnections": 275,
+    "deliveryAttempts": 22817707,
+    "redisFailures": 0,
+    "sessionCacheHits": 77847,
+    "sessionRefreshes": 5478,
+    "roomCacheHits": 82740,
+    "roomCacheMisses": 310,
+    "muteCacheHits": 77340,
+    "muteCacheMisses": 5435,
+    "muteDbFallbacks": 0,
+    "muteInvalidationFailures": 0,
+    "startedAt": "2026-10-28T17:39:32.334Z"
+  },
+  "postgresStatements": {
+    "readCalls": 15249,
+    "writeCalls": 82500,
+    "otherCalls": 0,
+    "statements": [
+      {
+        "queryId": "10:45237:1453240350524841371",
+        "kind": "write",
+        "calls": 82500,
+        "query": "INSERT INTO \"public\".\"danmaku_messages\" (\"id\",\"room_id\",\"author_id\",\"client_message_id\",\"text\",\"accepted_at\",\"payload_hash\",\"expires_at\") VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING \"public\".\"danmaku_messages\".\"id\", \"public\".\"danmaku_messages\".\"room_id\", \"public\".\"danmaku_messages\".\"author_id\", \"public\".\"danmaku_messages\".\"client_message_id\", \"public\".\"danmaku_messages\".\"text\", \"public\".\"danmaku_messages\".\"accepted_at\", \"public\".\"danmaku_messages\".\"payload_hash\", \"public\".\"danmaku_messages\".\"kafka_partition\", \"public\".\"danmaku_messages\".\"kafka_offset\", \"public\".\"danmaku_messages\".\"deleted_at\", \"public\".\"danmaku_messages\".\"expires_at\""
+      },
+      {
+        "queryId": "10:45237:8089153025925782850",
+        "kind": "read",
+        "calls": 5203,
+        "query": "SELECT \"public\".\"auth_sessions\".\"id\", \"public\".\"auth_sessions\".\"expires_at\", \"public\".\"auth_sessions\".\"token\", \"public\".\"auth_sessions\".\"created_at\", \"public\".\"auth_sessions\".\"updated_at\", \"public\".\"auth_sessions\".\"ip_address\", \"public\".\"auth_sessions\".\"user_agent\", \"public\".\"auth_sessions\".\"user_id\" FROM \"public\".\"auth_sessions\" WHERE \"public\".\"auth_sessions\".\"token\" = $1 LIMIT $2 OFFSET $3"
+      },
+      {
+        "queryId": "10:45237:4976333828332293520",
+        "kind": "read",
+        "calls": 5203,
+        "query": "SELECT \"public\".\"users\".\"id\", \"public\".\"users\".\"name\", \"public\".\"users\".\"username\", \"public\".\"users\".\"email\", \"public\".\"users\".\"email_verified\", \"public\".\"users\".\"image\", \"public\".\"users\".\"avatar_key\", \"public\".\"users\".\"role\"::text, \"public\".\"users\".\"created_at\", \"public\".\"users\".\"updated_at\" FROM \"public\".\"users\" WHERE \"public\".\"users\".\"id\" = $1 LIMIT $2 OFFSET $3"
+      },
+      {
+        "queryId": "10:45237:3804043197520641540",
+        "kind": "read",
+        "calls": 4679,
+        "query": "SELECT \"public\".\"room_mutes\".\"room_id\", \"public\".\"room_mutes\".\"user_id\", \"public\".\"room_mutes\".\"effective_at\", \"public\".\"room_mutes\".\"expires_at\" FROM \"public\".\"room_mutes\" WHERE ((\"public\".\"room_mutes\".\"room_id\" = $1 AND \"public\".\"room_mutes\".\"user_id\" = $2) AND $5=$6) LIMIT $3 OFFSET $4"
+      },
+      {
+        "queryId": "10:45237:-8650352051566246927",
+        "kind": "read",
+        "calls": 84,
+        "query": "SELECT \"public\".\"room_mutes\".\"room_id\", \"public\".\"room_mutes\".\"user_id\", \"public\".\"room_mutes\".\"effective_at\", \"public\".\"room_mutes\".\"expires_at\" FROM \"public\".\"room_mutes\" WHERE ((\"public\".\"room_mutes\".\"room_id\" = $1 AND \"public\".\"room_mutes\".\"user_id\" = $2) OR (\"public\".\"room_mutes\".\"room_id\" = $3 AND \"public\".\"room_mutes\".\"user_id\" = $4)) OFFSET $5"
+      },
+      {
+        "queryId": "10:45237:-8979894504847546373",
+        "kind": "read",
+        "calls": 30,
+        "query": "SELECT \"public\".\"rooms\".\"id\", \"public\".\"rooms\".\"status\"::text FROM \"public\".\"rooms\" WHERE (\"public\".\"rooms\".\"id\" = $1 AND $4=$5) LIMIT $2 OFFSET $3"
+      },
+      {
+        "queryId": "10:45237:-380792819951330925",
+        "kind": "read",
+        "calls": 22,
+        "query": "SELECT \"public\".\"room_mutes\".\"room_id\", \"public\".\"room_mutes\".\"user_id\", \"public\".\"room_mutes\".\"effective_at\", \"public\".\"room_mutes\".\"expires_at\" FROM \"public\".\"room_mutes\" WHERE ((\"public\".\"room_mutes\".\"room_id\" = $1 AND \"public\".\"room_mutes\".\"user_id\" = $2) OR (\"public\".\"room_mutes\".\"room_id\" = $3 AND \"public\".\"room_mutes\".\"user_id\" = $4) OR (\"public\".\"room_mutes\".\"room_id\" = $5 AND \"public\".\"room_mutes\".\"user_id\" = $6)) OFFSET $7"
+      },
+      {
+        "queryId": "10:45237:5797510751427472859",
+        "kind": "read",
+        "calls": 12,
+        "query": "SELECT \"public\".\"room_mutes\".\"room_id\", \"public\".\"room_mutes\".\"user_id\", \"public\".\"room_mutes\".\"effective_at\", \"public\".\"room_mutes\".\"expires_at\" FROM \"public\".\"room_mutes\" WHERE ((\"public\".\"room_mutes\".\"room_id\" = $1 AND \"public\".\"room_mutes\".\"user_id\" = $2) OR (\"public\".\"room_mutes\".\"room_id\" = $3 AND \"public\".\"room_mutes\".\"user_id\" = $4) OR (\"public\".\"room_mutes\".\"room_id\" = $5 AND \"public\".\"room_mutes\".\"user_id\" = $6) OR (\"public\".\"room_mutes\".\"room_id\" = $7 AND \"public\".\"room_mutes\".\"user_id\" = $8)) OFFSET $9"
+      },
+      {
+        "queryId": "10:45237:5821904374273760667",
+        "kind": "read",
+        "calls": 5,
+        "query": "SELECT \"public\".\"room_mutes\".\"room_id\", \"public\".\"room_mutes\".\"user_id\", \"public\".\"room_mutes\".\"effective_at\", \"public\".\"room_mutes\".\"expires_at\" FROM \"public\".\"room_mutes\" WHERE ((\"public\".\"room_mutes\".\"room_id\" = $1 AND \"public\".\"room_mutes\".\"user_id\" = $2) OR (\"public\".\"room_mutes\".\"room_id\" = $3 AND \"public\".\"room_mutes\".\"user_id\" = $4) OR (\"public\".\"room_mutes\".\"room_id\" = $5 AND \"public\".\"room_mutes\".\"user_id\" = $6) OR (\"public\".\"room_mutes\".\"room_id\" = $7 AND \"public\".\"room_mutes\".\"user_id\" = $8) OR (\"public\".\"room_mutes\".\"room_id\" = $9 AND \"public\".\"room_mutes\".\"user_id\" = $10)) OFFSET $11"
+      },
+      {
+        "queryId": "10:45237:529205824571879334",
+        "kind": "read",
+        "calls": 3,
+        "query": "SELECT \"public\".\"room_mutes\".\"room_id\", \"public\".\"room_mutes\".\"user_id\", \"public\".\"room_mutes\".\"effective_at\", \"public\".\"room_mutes\".\"expires_at\" FROM \"public\".\"room_mutes\" WHERE ((\"public\".\"room_mutes\".\"room_id\" = $1 AND \"public\".\"room_mutes\".\"user_id\" = $2) OR (\"public\".\"room_mutes\".\"room_id\" = $3 AND \"public\".\"room_mutes\".\"user_id\" = $4) OR (\"public\".\"room_mutes\".\"room_id\" = $5 AND \"public\".\"room_mutes\".\"user_id\" = $6) OR (\"public\".\"room_mutes\".\"room_id\" = $7 AND \"public\".\"room_mutes\".\"user_id\" = $8) OR (\"public\".\"room_mutes\".\"room_id\" = $9 AND \"public\".\"room_mutes\".\"user_id\" = $10) OR (\"public\".\"room_mutes\".\"room_id\" = $11 AND \"public\".\"room_mutes\".\"user_id\" = $12) OR (\"public\".\"room_mutes\".\"room_id\" = $13 AND \"public\".\"room_mutes\".\"user_id\" = $14)) OFFSET $15"
+      },
+      {
+        "queryId": "10:45237:1941647871645589033",
+        "kind": "read",
+        "calls": 2,
+        "query": "SELECT \"public\".\"room_mutes\".\"room_id\", \"public\".\"room_mutes\".\"user_id\", \"public\".\"room_mutes\".\"effective_at\", \"public\".\"room_mutes\".\"expires_at\" FROM \"public\".\"room_mutes\" WHERE ((\"public\".\"room_mutes\".\"room_id\" = $1 AND \"public\".\"room_mutes\".\"user_id\" = $2) OR (\"public\".\"room_mutes\".\"room_id\" = $3 AND \"public\".\"room_mutes\".\"user_id\" = $4) OR (\"public\".\"room_mutes\".\"room_id\" = $5 AND \"public\".\"room_mutes\".\"user_id\" = $6) OR (\"public\".\"room_mutes\".\"room_id\" = $7 AND \"public\".\"room_mutes\".\"user_id\" = $8) OR (\"public\".\"room_mutes\".\"room_id\" = $9 AND \"public\".\"room_mutes\".\"user_id\" = $10) OR (\"public\".\"room_mutes\".\"room_id\" = $11 AND \"public\".\"room_mutes\".\"user_id\" = $12)) OFFSET $13"
+      },
+      {
+        "queryId": "10:45237:-9209298914374970569",
+        "kind": "read",
+        "calls": 2,
+        "query": "SELECT \"public\".\"room_mutes\".\"room_id\", \"public\".\"room_mutes\".\"user_id\", \"public\".\"room_mutes\".\"effective_at\", \"public\".\"room_mutes\".\"expires_at\" FROM \"public\".\"room_mutes\" WHERE ((\"public\".\"room_mutes\".\"room_id\" = $1 AND \"public\".\"room_mutes\".\"user_id\" = $2) OR (\"public\".\"room_mutes\".\"room_id\" = $3 AND \"public\".\"room_mutes\".\"user_id\" = $4) OR (\"public\".\"room_mutes\".\"room_id\" = $5 AND \"public\".\"room_mutes\".\"user_id\" = $6) OR (\"public\".\"room_mutes\".\"room_id\" = $7 AND \"public\".\"room_mutes\".\"user_id\" = $8) OR (\"public\".\"room_mutes\".\"room_id\" = $9 AND \"public\".\"room_mutes\".\"user_id\" = $10) OR (\"public\".\"room_mutes\".\"room_id\" = $11 AND \"public\".\"room_mutes\".\"user_id\" = $12) OR (\"public\".\"room_mutes\".\"room_id\" = $13 AND \"public\".\"room_mutes\".\"user_id\" = $14) OR (\"public\".\"room_mutes\".\"room_id\" = $15 AND \"public\".\"room_mutes\".\"user_id\" = $16)) OFFSET $17"
+      },
+      {
+        "queryId": "10:45237:7052040094420897358",
+        "kind": "read",
+        "calls": 1,
+        "query": "SELECT \"public\".\"room_mutes\".\"room_id\", \"public\".\"room_mutes\".\"user_id\", \"public\".\"room_mutes\".\"effective_at\", \"public\".\"room_mutes\".\"expires_at\" FROM \"public\".\"room_mutes\" WHERE ((\"public\".\"room_mutes\".\"room_id\" = $1 AND \"public\".\"room_mutes\".\"user_id\" = $2) OR (\"public\".\"room_mutes\".\"room_id\" = $3 AND \"public\".\"room_mutes\".\"user_id\" = $4) OR (\"public\".\"room_mutes\".\"room_id\" = $5 AND \"public\".\"room_mutes\".\"user_id\" = $6) OR (\"public\".\"room_mutes\".\"room_id\" = $7 AND \"public\".\"room_mutes\".\"user_id\" = $8) OR (\"public\".\"room_mutes\".\"room_id\" = $9 AND \"public\".\"room_mutes\".\"user_id\" = $10) OR (\"public\".\"room_mutes\".\"room_id\" = $11 AND \"public\".\"room_mutes\".\"user_id\" = $12) OR (\"public\".\"room_mutes\".\"room_id\" = $13 AND \"public\".\"room_mutes\".\"user_id\" = $14) OR (\"public\".\"room_mutes\".\"room_id\" = $15 AND \"public\".\"room_mutes\".\"user_id\" = $16) OR (\"public\".\"room_mutes\".\"room_id\" = $17 AND \"public\".\"room_mutes\".\"user_id\" = $18) OR (\"public\".\"room_mutes\".\"room_id\" = $19 AND \"public\".\"room_mutes\".\"user_id\" = $20)) OFFSET $21"
+      },
+      {
+        "queryId": "10:45237:2237948067159316133",
+        "kind": "read",
+        "calls": 1,
+        "query": "SELECT \"public\".\"room_mutes\".\"room_id\", \"public\".\"room_mutes\".\"user_id\", \"public\".\"room_mutes\".\"effective_at\", \"public\".\"room_mutes\".\"expires_at\" FROM \"public\".\"room_mutes\" WHERE ((\"public\".\"room_mutes\".\"room_id\" = $1 AND \"public\".\"room_mutes\".\"user_id\" = $2) OR (\"public\".\"room_mutes\".\"room_id\" = $3 AND \"public\".\"room_mutes\".\"user_id\" = $4) OR (\"public\".\"room_mutes\".\"room_id\" = $5 AND \"public\".\"room_mutes\".\"user_id\" = $6) OR (\"public\".\"room_mutes\".\"room_id\" = $7 AND \"public\".\"room_mutes\".\"user_id\" = $8) OR (\"public\".\"room_mutes\".\"room_id\" = $9 AND \"public\".\"room_mutes\".\"user_id\" = $10) OR (\"public\".\"room_mutes\".\"room_id\" = $11 AND \"public\".\"room_mutes\".\"user_id\" = $12) OR (\"public\".\"room_mutes\".\"room_id\" = $13 AND \"public\".\"room_mutes\".\"user_id\" = $14) OR (\"public\".\"room_mutes\".\"room_id\" = $15 AND \"public\".\"room_mutes\".\"user_id\" = $16) OR (\"public\".\"room_mutes\".\"room_id\" = $17 AND \"public\".\"room_mutes\".\"user_id\" = $18) OR (\"public\".\"room_mutes\".\"room_id\" = $19 AND \"public\".\"room_mutes\".\"user_id\" = $20) OR (\"public\".\"room_mutes\".\"room_id\" = $21 AND \"public\".\"room_mutes\".\"user_id\" = $22)) OFFSET $23"
+      },
+      {
+        "queryId": "10:45237:-1379612331962538805",
+        "kind": "read",
+        "calls": 1,
+        "query": "SELECT \"public\".\"room_mutes\".\"room_id\", \"public\".\"room_mutes\".\"user_id\", \"public\".\"room_mutes\".\"effective_at\", \"public\".\"room_mutes\".\"expires_at\" FROM \"public\".\"room_mutes\" WHERE ((\"public\".\"room_mutes\".\"room_id\" = $1 AND \"public\".\"room_mutes\".\"user_id\" = $2) OR (\"public\".\"room_mutes\".\"room_id\" = $3 AND \"public\".\"room_mutes\".\"user_id\" = $4) OR (\"public\".\"room_mutes\".\"room_id\" = $5 AND \"public\".\"room_mutes\".\"user_id\" = $6) OR (\"public\".\"room_mutes\".\"room_id\" = $7 AND \"public\".\"room_mutes\".\"user_id\" = $8) OR (\"public\".\"room_mutes\".\"room_id\" = $9 AND \"public\".\"room_mutes\".\"user_id\" = $10) OR (\"public\".\"room_mutes\".\"room_id\" = $11 AND \"public\".\"room_mutes\".\"user_id\" = $12) OR (\"public\".\"room_mutes\".\"room_id\" = $13 AND \"public\".\"room_mutes\".\"user_id\" = $14) OR (\"public\".\"room_mutes\".\"room_id\" = $15 AND \"public\".\"room_mutes\".\"user_id\" = $16) OR (\"public\".\"room_mutes\".\"room_id\" = $17 AND \"public\".\"room_mutes\".\"user_id\" = $18) OR (\"public\".\"room_mutes\".\"room_id\" = $19 AND \"public\".\"room_mutes\".\"user_id\" = $20) OR (\"public\".\"room_mutes\".\"room_id\" = $21 AND \"public\".\"room_mutes\".\"user_id\" = $22) OR (\"public\".\"room_mutes\".\"room_id\" = $23 AND \"public\".\"room_mutes\".\"user_id\" = $24)) OFFSET $25"
+      },
+      {
+        "queryId": "10:45237:-3644953254261030078",
+        "kind": "read",
+        "calls": 1,
+        "query": "SELECT \"public\".\"room_mutes\".\"room_id\", \"public\".\"room_mutes\".\"user_id\", \"public\".\"room_mutes\".\"effective_at\", \"public\".\"room_mutes\".\"expires_at\" FROM \"public\".\"room_mutes\" WHERE ((\"public\".\"room_mutes\".\"room_id\" = $1 AND \"public\".\"room_mutes\".\"user_id\" = $2) OR (\"public\".\"room_mutes\".\"room_id\" = $3 AND \"public\".\"room_mutes\".\"user_id\" = $4) OR (\"public\".\"room_mutes\".\"room_id\" = $5 AND \"public\".\"room_mutes\".\"user_id\" = $6) OR (\"public\".\"room_mutes\".\"room_id\" = $7 AND \"public\".\"room_mutes\".\"user_id\" = $8) OR (\"public\".\"room_mutes\".\"room_id\" = $9 AND \"public\".\"room_mutes\".\"user_id\" = $10) OR (\"public\".\"room_mutes\".\"room_id\" = $11 AND \"public\".\"room_mutes\".\"user_id\" = $12) OR (\"public\".\"room_mutes\".\"room_id\" = $13 AND \"public\".\"room_mutes\".\"user_id\" = $14) OR (\"public\".\"room_mutes\".\"room_id\" = $15 AND \"public\".\"room_mutes\".\"user_id\" = $16) OR (\"public\".\"room_mutes\".\"room_id\" = $17 AND \"public\".\"room_mutes\".\"user_id\" = $18) OR (\"public\".\"room_mutes\".\"room_id\" = $19 AND \"public\".\"room_mutes\".\"user_id\" = $20) OR (\"public\".\"room_mutes\".\"room_id\" = $21 AND \"public\".\"room_mutes\".\"user_id\" = $22) OR (\"public\".\"room_mutes\".\"room_id\" = $23 AND \"public\".\"room_mutes\".\"user_id\" = $24) OR (\"public\".\"room_mutes\".\"room_id\" = $25 AND \"public\".\"room_mutes\".\"user_id\" = $26) OR (\"public\".\"room_mutes\".\"room_id\" = $27 AND \"public\".\"room_mutes\".\"user_id\" = $28) OR (\"public\".\"room_mutes\".\"room_id\" = $29 AND \"public\".\"room_mutes\".\"user_id\" = $30) OR (\"public\".\"room_mutes\".\"room_id\" = $31 AND \"public\".\"room_mutes\".\"user_id\" = $32)) OFFSET $33"
+      }
+    ]
+  },
+  "apiProcess": {
+    "cpuUserMs": 73804.84,
+    "cpuSystemMs": 58838.96,
+    "rssStartMiB": 401.08,
+    "rssEndMiB": 221.88,
+    "eventLoopDelayP95Ms": 21.1,
+    "eventLoopDelayMaxMs": 325.32
+  }
+}

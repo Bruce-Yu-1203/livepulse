@@ -1,0 +1,132 @@
+{
+  "workload": "local-authenticated-socketio-message-roundtrip-v2",
+  "target": "isolated local PostgreSQL + Redis",
+  "settings": {
+    "connections": 20,
+    "distinctUsers": 20,
+    "messagesPerSecond": 20,
+    "durationSeconds": 30,
+    "plannedMessages": 600,
+    "roomId": "44444444-4444-4444-8444-444444444444",
+    "roomIds": [
+      "44444444-4444-4444-8444-444444444444"
+    ],
+    "apiOrigins": [
+      "http://127.0.0.1:3101"
+    ],
+    "connectionsPerApi": {
+      "http://127.0.0.1:3101": 20
+    }
+  },
+  "sentDuringWindow": 600,
+  "acceptedMessages": 600,
+  "acceptedDuringWindow": 600,
+  "acceptedPerSecond": 20,
+  "failures": 0,
+  "errorCounts": {},
+  "endToEndAckMs": {
+    "count": 600,
+    "p50": 9.48,
+    "p95": 12.93,
+    "p99": 21.08,
+    "max": 32.72
+  },
+  "dispatchLagMs": {
+    "count": 600,
+    "p50": 0.44,
+    "p95": 1.2,
+    "p99": 1.42,
+    "max": 1.75
+  },
+  "tenSecondWindows": [
+    {
+      "fromSecond": 0,
+      "toSecond": 10,
+      "sentMessages": 201,
+      "acceptedMessages": 201,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 201,
+        "p50": 9.56,
+        "p95": 12.85,
+        "p99": 16.46,
+        "max": 32.72
+      }
+    },
+    {
+      "fromSecond": 10,
+      "toSecond": 20,
+      "sentMessages": 199,
+      "acceptedMessages": 199,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 199,
+        "p50": 9.55,
+        "p95": 16.74,
+        "p99": 24.58,
+        "max": 28.07
+      }
+    },
+    {
+      "fromSecond": 20,
+      "toSecond": 30,
+      "sentMessages": 200,
+      "acceptedMessages": 200,
+      "failures": 0,
+      "endToEndAckMs": {
+        "count": 200,
+        "p50": 9.27,
+        "p95": 11.21,
+        "p99": 15.08,
+        "max": 26.58
+      }
+    }
+  ],
+  "deliveryVerification": {
+    "expected": 12000,
+    "received": 12000,
+    "uniqueReceived": 12000,
+    "missing": 0,
+    "duplicates": 0,
+    "wrongRoomDeliveries": 0,
+    "invalidMessageIndexes": 0,
+    "complete": true,
+    "minPerSocket": 600,
+    "maxPerSocket": 600,
+    "minUniquePerSocket": 600,
+    "maxUniquePerSocket": 600,
+    "recipientLatencyMs": {
+      "count": 12000,
+      "p50": 9,
+      "p95": 12,
+      "p99": 21,
+      "max": 33.03,
+      "withinOneSecond": 12000
+    },
+    "fanout99LatencyMs": {
+      "count": 600,
+      "p50": 9,
+      "p95": 13,
+      "p99": 21,
+      "max": 33.03,
+      "withinOneSecond": 600
+    },
+    "fanoutAllLatencyMs": {
+      "count": 600,
+      "p50": 9,
+      "p95": 13,
+      "p99": 21,
+      "max": 33.03,
+      "withinOneSecond": 600
+    }
+  },
+  "generatorProcess": {
+    "cpuUserMs": 1262.7,
+    "cpuSystemMs": 194.62,
+    "rssStartMiB": 284.06,
+    "rssEndMiB": 74.95,
+    "eventLoopDelayP95Ms": 21.53,
+    "eventLoopDelayMaxMs": 28.56
+  },
+  "durationObservedSeconds": 30
+}

@@ -1,0 +1,124 @@
+{
+  "workload": "local-realtime-api-profile-v2",
+  "broadcastMode": "socketio-room",
+  "durationSeconds": 30.03,
+  "stageMs": {
+    "sessionCheckMs": {
+      "count": 20,
+      "p50": 5.16,
+      "p95": 10.65,
+      "p99": 18.89,
+      "max": 18.89
+    },
+    "roomLiveCheckMs": {
+      "count": 600,
+      "p50": 0.01,
+      "p95": 0.02,
+      "p99": 0.04,
+      "max": 5.31
+    },
+    "muteCheckMs": {
+      "count": 600,
+      "p50": 1.84,
+      "p95": 3.17,
+      "p99": 4.51,
+      "max": 6.12
+    },
+    "postgresInsertMs": {
+      "count": 600,
+      "p50": 3.44,
+      "p95": 4.34,
+      "p99": 6.18,
+      "max": 17.4
+    },
+    "redisRateLimitMs": {
+      "count": 600,
+      "p50": 1.1,
+      "p95": 1.84,
+      "p99": 2.44,
+      "max": 13.24
+    },
+    "redisMessagePublishMs": {
+      "count": 600,
+      "p50": 0.68,
+      "p95": 1.24,
+      "p99": 2.23,
+      "max": 5.26
+    },
+    "hubHandleMs": {
+      "count": 600,
+      "p50": 7.63,
+      "p95": 9.49,
+      "p99": 13.75,
+      "max": 31.05
+    },
+    "localBroadcastMs": {
+      "count": 600,
+      "p50": 0.46,
+      "p95": 0.64,
+      "p99": 1.05,
+      "max": 2.31
+    }
+  },
+  "cacheMetrics": {
+    "acceptedMessages": 620,
+    "acceptedMessagesLastMinute": 620,
+    "activeConnections": 0,
+    "deliveryAttempts": 12730,
+    "redisFailures": 0,
+    "sessionCacheHits": 620,
+    "sessionRefreshes": 40,
+    "roomCacheHits": 618,
+    "roomCacheMisses": 22,
+    "muteCacheHits": 580,
+    "muteCacheMisses": 40,
+    "muteDbFallbacks": 0,
+    "muteInvalidationFailures": 0,
+    "startedAt": "2026-10-28T16:56:41.373Z"
+  },
+  "postgresStatements": {
+    "readCalls": 62,
+    "writeCalls": 600,
+    "otherCalls": 0,
+    "statements": [
+      {
+        "queryId": "10:45170:1453240350524841371",
+        "kind": "write",
+        "calls": 600,
+        "query": "INSERT INTO \"public\".\"danmaku_messages\" (\"id\",\"room_id\",\"author_id\",\"client_message_id\",\"text\",\"accepted_at\",\"payload_hash\",\"expires_at\") VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING \"public\".\"danmaku_messages\".\"id\", \"public\".\"danmaku_messages\".\"room_id\", \"public\".\"danmaku_messages\".\"author_id\", \"public\".\"danmaku_messages\".\"client_message_id\", \"public\".\"danmaku_messages\".\"text\", \"public\".\"danmaku_messages\".\"accepted_at\", \"public\".\"danmaku_messages\".\"payload_hash\", \"public\".\"danmaku_messages\".\"kafka_partition\", \"public\".\"danmaku_messages\".\"kafka_offset\", \"public\".\"danmaku_messages\".\"deleted_at\", \"public\".\"danmaku_messages\".\"expires_at\""
+      },
+      {
+        "queryId": "10:45170:3804043197520641540",
+        "kind": "read",
+        "calls": 20,
+        "query": "SELECT \"public\".\"room_mutes\".\"room_id\", \"public\".\"room_mutes\".\"user_id\", \"public\".\"room_mutes\".\"effective_at\", \"public\".\"room_mutes\".\"expires_at\" FROM \"public\".\"room_mutes\" WHERE ((\"public\".\"room_mutes\".\"room_id\" = $1 AND \"public\".\"room_mutes\".\"user_id\" = $2) AND $5=$6) LIMIT $3 OFFSET $4"
+      },
+      {
+        "queryId": "10:45170:8089153025925782850",
+        "kind": "read",
+        "calls": 20,
+        "query": "SELECT \"public\".\"auth_sessions\".\"id\", \"public\".\"auth_sessions\".\"expires_at\", \"public\".\"auth_sessions\".\"token\", \"public\".\"auth_sessions\".\"created_at\", \"public\".\"auth_sessions\".\"updated_at\", \"public\".\"auth_sessions\".\"ip_address\", \"public\".\"auth_sessions\".\"user_agent\", \"public\".\"auth_sessions\".\"user_id\" FROM \"public\".\"auth_sessions\" WHERE \"public\".\"auth_sessions\".\"token\" = $1 LIMIT $2 OFFSET $3"
+      },
+      {
+        "queryId": "10:45170:4976333828332293520",
+        "kind": "read",
+        "calls": 20,
+        "query": "SELECT \"public\".\"users\".\"id\", \"public\".\"users\".\"name\", \"public\".\"users\".\"username\", \"public\".\"users\".\"email\", \"public\".\"users\".\"email_verified\", \"public\".\"users\".\"image\", \"public\".\"users\".\"avatar_key\", \"public\".\"users\".\"role\"::text, \"public\".\"users\".\"created_at\", \"public\".\"users\".\"updated_at\" FROM \"public\".\"users\" WHERE \"public\".\"users\".\"id\" = $1 LIMIT $2 OFFSET $3"
+      },
+      {
+        "queryId": "10:45170:-8979894504847546373",
+        "kind": "read",
+        "calls": 2,
+        "query": "SELECT \"public\".\"rooms\".\"id\", \"public\".\"rooms\".\"status\"::text FROM \"public\".\"rooms\" WHERE (\"public\".\"rooms\".\"id\" = $1 AND $4=$5) LIMIT $2 OFFSET $3"
+      }
+    ]
+  },
+  "apiProcess": {
+    "cpuUserMs": 2221.72,
+    "cpuSystemMs": 383.74,
+    "rssStartMiB": 354.89,
+    "rssEndMiB": 127.59,
+    "eventLoopDelayP95Ms": 21.53,
+    "eventLoopDelayMaxMs": 23.54
+  }
+}
