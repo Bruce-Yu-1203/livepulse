@@ -51,6 +51,18 @@ describe('design tokens', () => {
     }
   });
 
+  it('uses semantic colours for shared feedback tones', () => {
+    expect(block(".status-notice[data-tone='error']")).toContain(
+      'var(--lp-danger)',
+    );
+    expect(block(".status-notice[data-tone='success']")).toContain(
+      'var(--lp-success)',
+    );
+    expect(block(".status-notice[data-tone='warning']")).toContain(
+      'var(--lp-warning)',
+    );
+  });
+
   it('exposes the tokens to Tailwind utilities', () => {
     for (const token of tokens) {
       expect(css).toContain(`--color-${token}: var(--lp-${token});`);

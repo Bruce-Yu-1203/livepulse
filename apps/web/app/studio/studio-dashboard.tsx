@@ -16,6 +16,7 @@ import { useEffect, useState } from 'react';
 
 import { AuthEntryLink } from '../../components/auth-dialog-provider';
 import { HostBroadcastStudio } from '../../components/host-broadcast-studio';
+import { StatusNotice } from '../../components/status-notice';
 import {
   ClientApiError,
   clientApiRequest,
@@ -282,16 +283,9 @@ export function StudioDashboard() {
       </section>
 
       {notice ? (
-        <p
-          className={`mt-8 rounded-2xl border px-5 py-4 text-sm ${
-            notice.kind === 'error'
-              ? 'border-danger/20 bg-danger/10 text-danger'
-              : 'border-success/20 bg-success/10 text-success'
-          }`}
-          role="status"
-        >
+        <StatusNotice className="mt-8" tone={notice.kind}>
           {notice.message}
-        </p>
+        </StatusNotice>
       ) : null}
 
       <div className="mt-10 grid gap-8 xl:grid-cols-[16rem_minmax(0,1fr)]">

@@ -9,6 +9,7 @@ import { clientApiRequest } from '../lib/client-api';
 import { optimisticFollowState } from '../lib/follow-state';
 import { AuthEntryLink } from './auth-dialog-provider';
 import { useAuthSession } from './auth-session-provider';
+import { StatusNotice } from './status-notice';
 
 export function FollowButton({
   onChange,
@@ -102,9 +103,9 @@ export function FollowButton({
         ) : null}
       </button>
       {error ? (
-        <p className="mt-2 text-xs text-danger" role="status">
+        <StatusNotice className="mt-2" compact tone="error">
           {error}
-        </p>
+        </StatusNotice>
       ) : null}
     </div>
   );

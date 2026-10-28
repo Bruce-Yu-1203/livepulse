@@ -31,6 +31,7 @@ import { RoomLikeButton } from './room-like-button';
 import { LiveBroadcastPlayer } from './live-broadcast-player';
 import { PlaybackControls, StageIcon, ViewingControls } from './stage-controls';
 import { ChatJumpButton } from './chat-jump-button';
+import { StatusNotice } from './status-notice';
 
 export function LiveRoomExperience({
   host,
@@ -443,14 +444,14 @@ export function LiveRoomExperience({
               </form>
             )}
             {chat.error ? (
-              <p className="mt-3 text-xs leading-5 text-danger" role="status">
+              <StatusNotice className="mt-3" compact tone="error">
                 {chat.error}
-              </p>
+              </StatusNotice>
             ) : null}
             {moderationError ? (
-              <p className="mt-3 text-xs leading-5 text-danger" role="status">
+              <StatusNotice className="mt-3" compact tone="error">
                 {moderationError}
-              </p>
+              </StatusNotice>
             ) : null}
           </div>
         </aside>

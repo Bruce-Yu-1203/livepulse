@@ -16,6 +16,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 
 import { ClientApiError, clientApiRequest } from '../../lib/client-api';
+import { StatusNotice } from '../../components/status-notice';
 import { RegistrationTurnstile } from './registration-turnstile';
 
 const RegistrationCredentialsSchema = RegisterRequestSchema.omit({
@@ -631,12 +632,9 @@ export function AuthPanel({
       )}
 
       {status.kind === 'error' ? (
-        <p
-          className="auth-error mt-4 rounded-xl border border-danger/20 bg-danger/10 px-4 py-3 text-sm"
-          role="alert"
-        >
+        <StatusNotice className="mt-4" role="alert" tone="error">
           {status.message}
-        </p>
+        </StatusNotice>
       ) : null}
     </section>
   );

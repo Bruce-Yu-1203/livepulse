@@ -11,6 +11,7 @@ import { FeaturedCarousel } from '../components/featured-carousel';
 import { HomeAccountAction } from '../components/home-account-action';
 import { RoomCard } from '../components/room-card';
 import { SearchUserCard } from '../components/search-user-card';
+import { StatusNotice } from '../components/status-notice';
 import { listRooms, searchSuggestions } from '../lib/api';
 import { selectFeaturedRooms } from '../lib/featured-carousel';
 import { normalizeSearchQuery } from '../lib/presentation';
@@ -75,9 +76,9 @@ export default async function HomePage({
             Users
           </h2>
           {usersUnavailable ? (
-            <p className="mt-4 text-sm text-muted" role="status">
+            <StatusNotice className="mt-4" tone="error">
               User results are temporarily unavailable.
-            </p>
+            </StatusNotice>
           ) : (
             <div className="home-user-grid">
               {users.map((user) => (
@@ -110,7 +111,10 @@ export default async function HomePage({
         </div>
 
         {roomsUnavailable ? (
-          <div className="home-room-notice" role="status">
+          <div
+            className="home-room-notice home-room-notice-error"
+            role="status"
+          >
             <span aria-hidden="true" className="home-notice-mark">
               !
             </span>

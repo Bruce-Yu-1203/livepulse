@@ -3,6 +3,8 @@
 import Script from 'next/script';
 import { useCallback, useEffect, useRef } from 'react';
 
+import { StatusNotice } from '../../components/status-notice';
+
 interface TurnstileApi {
   render(
     container: HTMLElement,
@@ -83,9 +85,9 @@ export function RegistrationTurnstile({
 
   if (!registrationTurnstileSiteKey) {
     return (
-      <p className="text-sm text-danger" role="status">
+      <StatusNotice compact tone="error">
         Human verification is unavailable.
-      </p>
+      </StatusNotice>
     );
   }
 

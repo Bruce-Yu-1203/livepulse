@@ -22,6 +22,7 @@ import {
   mediaDeviceLabel,
 } from '../lib/livekit-broadcast';
 import { LiveKitVideo } from './livekit-media';
+import { StatusNotice } from './status-notice';
 
 interface PreviewTracks {
   camera?: LocalVideoTrack;
@@ -642,12 +643,9 @@ export function HostBroadcastStudio({
       </div>
 
       {error ? (
-        <p
-          className="mt-4 rounded-2xl border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger"
-          role="status"
-        >
+        <StatusNotice className="mt-4" tone="error">
           {error}
-        </p>
+        </StatusNotice>
       ) : null}
     </section>
   );

@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { accountInitial, displayNameFromEmail } from '../lib/auth-session';
 import { AuthEntryLink } from './auth-dialog-provider';
 import { useAuthSession } from './auth-session-provider';
+import { StatusNotice } from './status-notice';
 
 export function AuthNavigation() {
   const { session, signOut, signingOut, signOutError } = useAuthSession();
@@ -126,7 +127,11 @@ export function AuthNavigation() {
               <AccountIcon name="signout" />
               {signingOut ? 'Signing out…' : 'Sign out'}
             </button>
-            {signOutError ? <p role="status">{signOutError}</p> : null}
+            {signOutError ? (
+              <StatusNotice className="mx-3 mb-3" compact tone="error">
+                {signOutError}
+              </StatusNotice>
+            ) : null}
           </div>
         </div>
       ) : null}

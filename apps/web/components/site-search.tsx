@@ -174,7 +174,10 @@ export function SiteSearch({ searchQuery = '' }: { searchQuery?: string }) {
                   Searching…
                 </p>
               ) : searchError ? (
-                <p className="site-search-state" role="status">
+                <p
+                  className="site-search-state site-search-state-error"
+                  role="status"
+                >
                   Search is temporarily unavailable.
                 </p>
               ) : hasMatches ? (

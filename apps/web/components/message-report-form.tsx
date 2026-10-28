@@ -8,6 +8,7 @@ import type { FormEvent } from 'react';
 import { useState } from 'react';
 
 import { clientApiRequest } from '../lib/client-api';
+import { StatusNotice } from './status-notice';
 
 export const reportReasonOptions: ReadonlyArray<{
   label: string;
@@ -60,7 +61,11 @@ export function MessageReportForm({
   }
 
   if (reported) {
-    return <p className="mt-2 text-xs font-medium text-success">Reported</p>;
+    return (
+      <StatusNotice className="mt-2" compact tone="success">
+        Reported
+      </StatusNotice>
+    );
   }
 
   if (!expanded) {
@@ -126,9 +131,9 @@ export function MessageReportForm({
         </button>
       </div>
       {error ? (
-        <p className="text-xs leading-5 text-danger" role="status">
+        <StatusNotice compact tone="error">
           {error}
-        </p>
+        </StatusNotice>
       ) : null}
     </form>
   );

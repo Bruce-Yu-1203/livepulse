@@ -11,6 +11,7 @@ import {
 } from '@livepulse/contracts';
 import Link from 'next/link';
 import { AuthEntryLink } from '../../components/auth-dialog-provider';
+import { StatusNotice } from '../../components/status-notice';
 import { useEffect, useState } from 'react';
 
 import {
@@ -276,12 +277,9 @@ export function AdminDashboard() {
       </section>
 
       {notice ? (
-        <p
-          className="mt-8 rounded-2xl border border-danger/20 bg-danger/10 px-5 py-4 text-sm text-danger"
-          role="status"
-        >
+        <StatusNotice className="mt-8" tone="error">
           {notice}
-        </p>
+        </StatusNotice>
       ) : null}
 
       {operations ? (

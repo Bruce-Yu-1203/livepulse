@@ -73,6 +73,7 @@ describe('HomePage', () => {
 
     expect(html).toContain('Join LivePulse');
     expect(html).toContain('Rooms are temporarily unavailable');
+    expect(html).toContain('home-room-notice-error');
     expect(html).not.toContain('aria-roledescription="carousel"');
     expect(html).not.toContain('No rooms yet');
   });
@@ -87,6 +88,7 @@ describe('HomePage', () => {
     const html = await renderHome();
 
     expect(html).toContain('No rooms yet');
+    expect(html).not.toContain('home-room-notice-error');
     expect(html).not.toContain('Rooms are temporarily unavailable');
   });
 

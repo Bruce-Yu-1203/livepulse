@@ -167,6 +167,57 @@
   }
 }
 
+.status-notice {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--lp-line-strong);
+  border-radius: 0.875rem;
+  background: var(--lp-raised);
+  color: var(--lp-fg-soft);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.status-notice::before {
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-right: 0.65rem;
+  border-radius: 50%;
+  background: currentColor;
+  content: '';
+  vertical-align: middle;
+}
+
+.status-notice-compact {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.7rem;
+  font-size: 0.75rem;
+}
+
+.status-notice[data-tone='error'] {
+  border-color: color-mix(in srgb, var(--lp-danger) 25%, transparent);
+  background: color-mix(in srgb, var(--lp-danger) 8%, var(--lp-surface));
+  color: var(--lp-danger);
+}
+
+.status-notice[data-tone='success'] {
+  border-color: color-mix(in srgb, var(--lp-success) 25%, transparent);
+  background: color-mix(in srgb, var(--lp-success) 8%, var(--lp-surface));
+  color: var(--lp-success);
+}
+
+.status-notice[data-tone='warning'] {
+  border-color: color-mix(in srgb, var(--lp-warning) 25%, transparent);
+  background: color-mix(in srgb, var(--lp-warning) 8%, var(--lp-surface));
+  color: var(--lp-warning);
+}
+
+.status-notice[data-tone='info'] {
+  border-color: color-mix(in srgb, var(--lp-accent) 25%, transparent);
+  background: var(--lp-accent-soft);
+  color: var(--lp-fg-soft);
+}
+
 /* Header */
 .site-header {
   background: var(--lp-header);
@@ -474,6 +525,10 @@
   font-size: 0.82rem;
 }
 
+.site-search-state-error {
+  color: var(--lp-danger);
+}
+
 .site-search-all {
   display: block;
   margin-top: 0.35rem;
@@ -733,12 +788,6 @@
   opacity: 0.55;
 }
 
-.account-menu-footer p {
-  padding: 0.3rem 0.8rem 0.7rem;
-  color: var(--lp-danger);
-  font-size: 0.78rem;
-}
-
 /* Sign-in dialog */
 .settings-page {
   width: min(100%, 54rem);
@@ -865,16 +914,6 @@
   background: var(--lp-accent-hover);
 }
 
-.settings-card .settings-error {
-  margin-top: 1rem;
-  color: var(--lp-danger);
-}
-
-.settings-card .settings-success {
-  margin-top: 1rem;
-  color: var(--lp-success);
-}
-
 .settings-hint {
   color: var(--lp-muted);
 }
@@ -966,8 +1005,7 @@ body:has(.auth-modal[open]) {
   cursor: not-allowed;
 }
 
-.auth-field-error,
-.auth-error {
+.auth-field-error {
   color: var(--lp-danger);
 }
 
@@ -1368,6 +1406,16 @@ body:has(.auth-modal[open]) {
   border: 1px dashed var(--lp-line-strong);
   border-radius: 1rem;
   background: var(--lp-surface);
+}
+
+.home-room-notice-error {
+  border-color: color-mix(in srgb, var(--lp-danger) 30%, transparent);
+  background: color-mix(in srgb, var(--lp-danger) 5%, var(--lp-surface));
+}
+
+.home-room-notice-error .home-notice-mark {
+  background: color-mix(in srgb, var(--lp-danger) 10%, var(--lp-surface));
+  color: var(--lp-danger);
 }
 
 .home-notice-mark {

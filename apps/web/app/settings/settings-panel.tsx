@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { AuthEntryLink } from '../../components/auth-dialog-provider';
 import { AccountAvatar } from '../../components/auth-navigation';
 import { useAuthSession } from '../../components/auth-session-provider';
+import { StatusNotice } from '../../components/status-notice';
 import { displayNameFromEmail } from '../../lib/auth-session';
 import { validateAvatarFile, fileToBase64 } from '../../lib/avatar-upload';
 import { clientApiRequest } from '../../lib/client-api';
@@ -134,14 +135,14 @@ export function SettingsPanel() {
           {saving ? 'Saving…' : 'Save photo'}
         </button>
         {error ? (
-          <p className="settings-error" role="alert">
+          <StatusNotice className="mt-4" role="alert" tone="error">
             {error}
-          </p>
+          </StatusNotice>
         ) : null}
         {saved ? (
-          <p className="settings-success" role="status">
+          <StatusNotice className="mt-4" tone="success">
             Photo updated.
-          </p>
+          </StatusNotice>
         ) : null}
       </section>
     </>

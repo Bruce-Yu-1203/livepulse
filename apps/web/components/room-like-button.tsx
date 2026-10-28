@@ -10,6 +10,7 @@ import {
   optimisticRoomLikeState,
   type RoomLikeState,
 } from '../lib/room-likes';
+import { StatusNotice } from './status-notice';
 
 export function RoomLikeButton({
   authChecked,
@@ -136,9 +137,9 @@ export function RoomLikeButton({
         {pending ? 'Saving…' : label}
       </button>
       {error ? (
-        <p className="mt-2 max-w-56 text-xs text-danger" role="status">
+        <StatusNotice className="mt-2 max-w-56" compact tone="error">
           {error}
-        </p>
+        </StatusNotice>
       ) : null}
     </div>
   );
