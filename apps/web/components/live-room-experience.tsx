@@ -7,8 +7,9 @@ import {
 } from '@livepulse/contracts';
 import { AuthEntryLink } from './auth-dialog-provider';
 import type { FormEvent } from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
+import { appendedChatMessageCount, isNearChatBottom } from '../lib/chat-scroll';
 import { clientApiRequest } from '../lib/client-api';
 import { danmakuLayout, type DanmakuDensity } from '../lib/danmaku';
 import {
@@ -29,6 +30,7 @@ import { BroadcastHostCard } from './broadcast-host-card';
 import { RoomLikeButton } from './room-like-button';
 import { LiveBroadcastPlayer } from './live-broadcast-player';
 import { PlaybackControls, StageIcon, ViewingControls } from './stage-controls';
+import { ChatJumpButton } from './chat-jump-button';
 
 export function LiveRoomExperience({
   host,
@@ -52,7 +54,71 @@ export function LiveRoomExperience({
   const [reloadKey, setReloadKey] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
   const [chatCollapsed, setChatCollapsed] = useState(false);
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const stageRef = useRef<HTMLDivElement>(null);
+  const chatListRef = useRef<HTMLDivElement>(null);
+  const lastMessageIdRef = useRef<string>(undefined);
+  const nearChatBottomRef = useRef(true);
+  const historyScrollRef = useRef<{ scrollHeight: number; scrollTop: number }>(
+    undefined,
+  );
+  const previousRoomIdRef = useRef(room.id);
+
+  useLayoutEffect(() => {
+    const list = chatListRef.current;
+    if (!list) return;
+
+    if (previousRoomIdRef.current !== room.id) {
+      previousRoomIdRef.current = room.id;
+      lastMessageIdRef.current = undefined;
+      nearChatBottomRef.current = true;
+      historyScrollRef.current = undefined;
+      setUnreadMessageCount(0);
+    }
+
+    const appended = appendedChatMessageCount(
+      lastMessageIdRef.current,
+      chat.messages,
+    );
+    lastMessageIdRef.current = chat.messages.at(-1)?.clientMessageId;
+
+    if (historyScrollRef.current) {
+      if (!chat.historyLoading) {
+        list.scrollTop =
+          historyScrollRef.current.scrollTop +
+          list.scrollHeight -
+          historyScrollRef.current.scrollHeight;
+        historyScrollRef.current = undefined;
+      }
+      return;
+    }
+
+    if (nearChatBottomRef.current) {
+      list.scrollTop = list.scrollHeight;
+      setUnreadMessageCount(0);
+    } else if (appended > 0) {
+      setUnreadMessageCount((count) => Math.min(100, count + appended));
+    }
+  }, [chat.historyLoading, chat.messages, room.id]);
+
+  function jumpToLatest() {
+    const list = chatListRef.current;
+    if (!list) return;
+    list.scrollTop = list.scrollHeight;
+    nearChatBottomRef.current = true;
+    setUnreadMessageCount(0);
+  }
+
+  function loadEarlierMessages() {
+    const list = chatListRef.current;
+    if (list) {
+      historyScrollRef.current = {
+        scrollHeight: list.scrollHeight,
+        scrollTop: list.scrollTop,
+      };
+    }
+    chat.loadEarlier();
+  }
 
   useEffect(() => {
     try {
@@ -103,6 +169,7 @@ export function LiveRoomExperience({
 
     if (chat.sendMessage(String(data.get('message') ?? ''))) {
       form.reset();
+      jumpToLatest();
     }
   }
 
@@ -295,45 +362,55 @@ export function LiveRoomExperience({
             </div>
           </div>
 
-          <div
-            aria-live="polite"
-            className="flex-1 space-y-1 overflow-y-auto px-3 py-4 lg:max-h-[31rem]"
-          >
-            {chat.canLoadEarlier ? (
-              <button
-                className="mx-auto block rounded-full border border-fg/10 px-3 py-1.5 text-xs font-semibold text-muted transition hover:border-accent/40 hover:text-accent disabled:cursor-wait disabled:opacity-50"
-                disabled={chat.historyLoading}
-                onClick={chat.loadEarlier}
-                type="button"
-              >
-                {chat.historyLoading ? 'Loading…' : 'Load earlier messages'}
-              </button>
-            ) : null}
-            {chat.messages.length > 0 ? (
-              chat.messages.map((message) => (
-                <ChatMessageRow
-                  currentUserId={chat.userId}
-                  key={message.id}
-                  message={message}
-                  moderationEnabled={canModerate}
-                  muted={mutedUserIds.has(message.authorId)}
-                  muting={mutingUserId === message.authorId}
-                  onMute={muteUser}
-                  roomId={room.id}
-                />
-              ))
-            ) : (
-              <div className="grid h-full min-h-48 place-items-center text-center">
-                <div>
-                  <p className="text-sm font-medium text-fg-soft">
-                    The chat is ready.
-                  </p>
-                  <p className="mt-2 text-xs leading-5 text-subtle">
-                    Be the first to say something useful.
-                  </p>
+          <div className="relative min-h-0 flex-1">
+            <div
+              aria-live="polite"
+              className="h-full space-y-1 overflow-y-auto px-3 py-4 lg:max-h-[31rem]"
+              onScroll={(event) => {
+                nearChatBottomRef.current = isNearChatBottom(
+                  event.currentTarget,
+                );
+                if (nearChatBottomRef.current) setUnreadMessageCount(0);
+              }}
+              ref={chatListRef}
+            >
+              {chat.canLoadEarlier ? (
+                <button
+                  className="mx-auto block rounded-full border border-fg/10 px-3 py-1.5 text-xs font-semibold text-muted transition hover:border-accent/40 hover:text-accent disabled:cursor-wait disabled:opacity-50"
+                  disabled={chat.historyLoading}
+                  onClick={loadEarlierMessages}
+                  type="button"
+                >
+                  {chat.historyLoading ? 'Loading…' : 'Load earlier messages'}
+                </button>
+              ) : null}
+              {chat.messages.length > 0 ? (
+                chat.messages.map((message) => (
+                  <ChatMessageRow
+                    currentUserId={chat.userId}
+                    key={message.id}
+                    message={message}
+                    moderationEnabled={canModerate}
+                    muted={mutedUserIds.has(message.authorId)}
+                    muting={mutingUserId === message.authorId}
+                    onMute={muteUser}
+                    roomId={room.id}
+                  />
+                ))
+              ) : (
+                <div className="grid h-full min-h-48 place-items-center text-center">
+                  <div>
+                    <p className="text-sm font-medium text-fg-soft">
+                      The chat is ready.
+                    </p>
+                    <p className="mt-2 text-xs leading-5 text-subtle">
+                      Be the first to say something useful.
+                    </p>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+            <ChatJumpButton count={unreadMessageCount} onClick={jumpToLatest} />
           </div>
 
           <div className="border-t border-fg/8 p-4">
