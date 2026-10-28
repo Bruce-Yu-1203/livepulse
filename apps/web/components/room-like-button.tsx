@@ -104,7 +104,7 @@ export function RoomLikeButton({
 
   const label = `${formatLikeCount(state.likeCount)} ${state.likeCount === 1 ? 'like' : 'likes'}`;
   const classes =
-    'inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold backdrop-blur transition';
+    'inline-flex min-h-11 items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold backdrop-blur transition';
 
   if (authChecked && !userId) {
     return (

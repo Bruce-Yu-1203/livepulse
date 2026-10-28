@@ -1268,6 +1268,7 @@ body:has(.auth-modal[open]) {
 
 @media (max-width: 480px) {
   .broadcast-host-card {
+    grid-template-columns: minmax(0, 1fr);
     gap: 0.5rem;
     padding: 1rem;
   }
@@ -1287,7 +1288,10 @@ body:has(.auth-modal[open]) {
   }
 
   .broadcast-host-actions {
-    min-height: 4.5rem;
+    min-height: 0;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
   }
 
   .broadcast-host-stats {
@@ -2214,6 +2218,44 @@ body:has(.auth-modal[open]) {
 .stage-select option {
   background: var(--lp-surface);
   color: var(--lp-fg);
+}
+
+@media (max-width: 640px) {
+  .room-stage:not(:fullscreen) .stage-controls {
+    position: relative;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.5rem;
+    padding: 0.35rem 0.5rem;
+    background: var(--lp-stage);
+    opacity: 1;
+  }
+
+  .stage-control-group {
+    gap: 0.5rem;
+  }
+
+  .stage-button {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .stage-select {
+    max-width: 8rem;
+    height: 2.75rem;
+  }
+
+  .stage-volume input {
+    display: none;
+  }
+
+  .room-chat-panel {
+    min-height: 0;
+  }
+
+  .room-chat-list {
+    max-height: min(48dvh, 26rem);
+    overscroll-behavior: contain;
+  }
 }
 
 .stage-status {

@@ -20,6 +20,7 @@ describe('RoomLikeButton', () => {
     expect(html).toContain('href="/auth"');
     expect(html).toContain('Sign in to like this room. 5 likes');
     expect(html).toContain('5 likes');
+    expect(html).toContain('min-h-11');
   });
 
   it('disables mutation while authentication is loading', () => {

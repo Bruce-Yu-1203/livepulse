@@ -308,7 +308,7 @@ export function LiveRoomExperience({
         </div>
 
         <aside
-          className="flex min-h-[30rem] flex-col border-t border-fg/10 bg-surface lg:border-l lg:border-t-0"
+          className="room-chat-panel flex min-h-[30rem] flex-col border-t border-fg/10 bg-surface lg:border-l lg:border-t-0"
           hidden={chatCollapsed}
         >
           <div className="flex items-center justify-between border-b border-fg/8 px-5 py-4">
@@ -326,7 +326,7 @@ export function LiveRoomExperience({
             </div>
             <div className="flex items-center gap-2">
               <button
-                className="rounded-full border border-fg/10 px-2.5 py-1 text-[0.65rem] font-semibold text-muted transition hover:border-accent/40 hover:text-accent disabled:cursor-wait disabled:opacity-50"
+                className="min-h-11 rounded-full border border-fg/10 px-3 py-1 text-[0.65rem] font-semibold text-muted transition hover:border-accent/40 hover:text-accent disabled:cursor-wait disabled:opacity-50"
                 disabled={chat.historyLoading}
                 onClick={chat.synchronize}
                 type="button"
@@ -339,7 +339,7 @@ export function LiveRoomExperience({
               />
               <button
                 aria-label="Collapse chat"
-                className="grid h-8 w-8 place-items-center rounded-lg text-muted transition hover:bg-raised hover:text-fg"
+                className="grid h-11 w-11 place-items-center rounded-lg text-muted transition hover:bg-raised hover:text-fg"
                 onClick={() => setChatOpen(false)}
                 title="Collapse chat"
                 type="button"
@@ -365,7 +365,7 @@ export function LiveRoomExperience({
           <div className="relative min-h-0 flex-1">
             <div
               aria-live="polite"
-              className="h-full space-y-1 overflow-y-auto px-3 py-4 lg:max-h-[31rem]"
+              className="room-chat-list h-full space-y-1 overflow-y-auto px-3 py-4 lg:max-h-[31rem]"
               onScroll={(event) => {
                 nearChatBottomRef.current = isNearChatBottom(
                   event.currentTarget,
@@ -434,7 +434,7 @@ export function LiveRoomExperience({
                   required
                 />
                 <button
-                  className="rounded-2xl bg-accent px-4 py-3 text-sm font-bold text-on-accent transition hover:bg-accent-hover disabled:cursor-wait disabled:opacity-40"
+                  className="min-h-11 rounded-2xl bg-accent px-4 py-3 text-sm font-bold text-on-accent transition hover:bg-accent-hover disabled:cursor-wait disabled:opacity-40"
                   disabled={!chat.userId || chat.connection !== 'connected'}
                   type="submit"
                 >

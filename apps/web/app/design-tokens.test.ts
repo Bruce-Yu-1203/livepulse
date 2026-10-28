@@ -98,6 +98,14 @@ describe('design tokens', () => {
     expect(css).toContain('.chat-message:hover');
   });
 
+  it('keeps mobile room controls reachable and the chat list bounded', () => {
+    expect(css).toContain('.room-stage:not(:fullscreen) .stage-controls');
+    expect(css).toContain('width: 2.75rem');
+    expect(css).toContain('height: 2.75rem');
+    expect(block('.room-chat-list')).toContain('max-height: min(48dvh, 26rem)');
+    expect(block('.room-chat-panel')).toContain('min-height: 0');
+  });
+
   it('styles a collapsed channel rail', () => {
     expect(block('.channel-rail-collapsed')).toContain('width: 3.75rem');
   });
