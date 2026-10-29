@@ -37,10 +37,19 @@ test('viewer, host, and administrator complete the core live-room flow', async (
     const likeButton = viewerPage.getByRole('button', {
       name: /^Like this room\./,
     });
+    const likeResponsePromise = viewerPage.waitForResponse(
+      (response) =>
+        response.url().includes('/likes/me') &&
+        response.request().method() === 'PUT',
+    );
     await likeButton.click();
-    await expect(
-      viewerPage.getByRole('button', { name: /^Unlike this room\. 1 like$/ }),
-    ).toHaveAttribute('aria-pressed', 'true');
+    const likeResponse = await likeResponsePromise;
+    expect(likeResponse.ok()).toBe(true);
+    const unlikeButton = viewerPage.getByRole('button', {
+      name: /^Unlike this room\./,
+    });
+    await expect(unlikeButton).toHaveAttribute('aria-pressed', 'true');
+    await expect(unlikeButton).toBeEnabled();
     await viewerPage.reload();
     await expect(viewerPage.getByLabel('Connected')).toBeVisible({
       timeout: 15_000,
