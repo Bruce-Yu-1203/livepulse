@@ -59,6 +59,38 @@ describe('RoomRealtimeHub', () => {
     expect(eventsOfType(observer, 'message.created')).toHaveLength(1);
   });
 
+  it('acknowledges a Kafka queued message only to its sender', async () => {
+    const queuedPublisher = publisher();
+    vi.mocked(queuedPublisher.publish).mockImplementation(async (message) => ({
+      kind: 'queued',
+      message,
+    }));
+    const bus = eventBus();
+    const hub = new RoomRealtimeHub(
+      roomSource(true),
+      queuedPublisher,
+      bus,
+      presence(),
+      rateLimiter(),
+      roomLifecycle(),
+      metrics(),
+    );
+    const sender = peer('sender', true);
+    const observer = peer('observer', false);
+    await hub.handle(sender, joinEvent(1));
+    await hub.handle(observer, joinEvent(2));
+
+    await hub.handle(sender, sendEvent(3, 1, 'Queued for both consumers'));
+
+    expect(eventsOfType(sender, 'message.created')).toHaveLength(1);
+    expect(eventsOfType(observer, 'message.created')).toHaveLength(0);
+    expect(
+      vi
+        .mocked(bus.publish)
+        .mock.calls.some(([event]) => event.type === 'message.created'),
+    ).toBe(false);
+  });
+
   it('uses a room broadcaster only after admission and stops delivery on leave', async () => {
     const source = roomSource(true);
     const hub = createHub(source);

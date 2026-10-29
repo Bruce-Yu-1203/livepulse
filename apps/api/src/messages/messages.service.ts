@@ -3,6 +3,8 @@ import type { ListRoomMessagesQuery, RoomMessage } from '@livepulse/contracts';
 
 import { RoomsService } from '../rooms/rooms.service.js';
 import { MessageCursorCodec } from './message-cursor.js';
+import { KafkaMessagePublisher } from './kafka-message-publisher.js';
+import { Optional } from '@nestjs/common';
 import type { MessagesRepository } from './messages.repository.js';
 import { MESSAGES_REPOSITORY } from './messages.tokens.js';
 
@@ -13,6 +15,7 @@ export interface RealtimeMessagePublisher {
     | { kind: 'conflict' }
     | { kind: 'created'; message: RoomMessage }
     | { kind: 'duplicate'; message: RoomMessage }
+    | { kind: 'queued'; message: RoomMessage }
   >;
 }
 
@@ -24,18 +27,27 @@ export class MessagesService implements RealtimeMessagePublisher {
     @Inject(MESSAGES_REPOSITORY)
     private readonly messages: MessagesRepository,
     @Inject(RoomsService) private readonly rooms: RoomsService,
+    @Optional() private readonly kafkaPublisher?: KafkaMessagePublisher,
   ) {}
 
   public publish(message: RoomMessage) {
     return this.messages.create(message);
   }
 
-  public findById(roomId: string, messageId: string) {
-    return this.messages.findById(roomId, messageId);
+  public async findById(roomId: string, messageId: string) {
+    const stored = await this.messages.findById(roomId, messageId);
+    if (stored) return stored;
+    const accepted = await this.kafkaPublisher?.findAccepted(messageId);
+    return accepted?.roomId === roomId ? accepted : undefined;
   }
 
-  public delete(roomId: string, messageId: string, deletedAt: Date) {
-    return this.messages.delete(roomId, messageId, deletedAt);
+  public async delete(roomId: string, messageId: string, deletedAt: Date) {
+    const stored = await this.messages.delete(roomId, messageId, deletedAt);
+    if (stored) return stored;
+    const accepted = await this.kafkaPublisher?.findAccepted(messageId);
+    if (accepted?.roomId !== roomId || !this.messages.deletePending)
+      return undefined;
+    return this.messages.deletePending(accepted, deletedAt);
   }
 
   public async list(

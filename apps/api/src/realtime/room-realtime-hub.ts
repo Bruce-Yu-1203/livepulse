@@ -362,7 +362,7 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
         peer,
         event.requestId,
         ApiErrorCode.ServiceUnavailable,
-        'Message persistence is temporarily unavailable',
+        'Message admission is temporarily unavailable',
       );
       return;
     }
@@ -385,6 +385,12 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
     };
 
     if (published.kind === 'duplicate') {
+      peer.send(created);
+      return;
+    }
+
+    if (published.kind === 'queued') {
+      this.metrics.messageAccepted();
       peer.send(created);
       return;
     }

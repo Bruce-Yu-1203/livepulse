@@ -241,6 +241,8 @@ Run the normal quality gate:
 pnpm validate
 ```
 
+Kafka message ingestion, the two worker services, and Railway deployment are described in [Kafka message pipeline](docs/kafka-message-pipeline.md).
+
 Run database integration tests against a dedicated disposable database after
 starting PostgreSQL and Redis. Never point this suite at a database containing
 development or production data because it truncates fixtures between tests.

@@ -126,6 +126,14 @@ export class RedisRealtimeCoordinator
       throw new Error('Redis realtime delivery is not ready');
     }
 
+    if (event.type === 'message.deleted') {
+      await this.commands.set(
+        `${this.keyPrefix}:message-deleted:${event.payload.messageId}`,
+        event.payload.deletedAt,
+        { EX: 7 * 24 * 60 * 60 },
+      );
+    }
+
     const receivers = await this.commands.publish(
       this.channel,
       JSON.stringify(event),

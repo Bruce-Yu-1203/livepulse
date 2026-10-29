@@ -11,6 +11,8 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
     environment:
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-replace-with-at-least-32-random-bytes}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3001}
@@ -31,6 +33,9 @@ services:
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}
       LIVEKIT_URL: ${LIVEKIT_URL:-}
       NODE_ENV: development
+      MESSAGE_PIPELINE: kafka
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_MESSAGES_TOPIC: livepulse.messages.v1
       PORT: 3001
       PROHIBITED_WORDS: ${PROHIBITED_WORDS:-scam-offer,spam-link}
       REDIS_KEY_PREFIX: livepulse
@@ -69,6 +74,96 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://livepulse:livepulse_dev_password@postgres:5432/livepulse?schema=public
+
+  kafka:
+    image: apache/kafka:4.1.2
+    environment:
+      CLUSTER_ID: 4L6g3nShT-eMCtK--X86sw
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+    healthcheck:
+      test:
+        [
+          CMD-SHELL,
+          '/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+    ports:
+      - '9094:9094'
+    volumes:
+      - kafka-data:/tmp/kraft-combined-logs
+
+  kafka-init:
+    image: apache/kafka:4.1.2
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ['/opt/kafka/bin/kafka-topics.sh']
+    command:
+      [
+        '--bootstrap-server',
+        'kafka:9092',
+        '--create',
+        '--if-not-exists',
+        '--topic',
+        'livepulse.messages.v1',
+        '--partitions',
+        '12',
+        '--replication-factor',
+        '1',
+        '--config',
+        'retention.ms=604800000',
+      ]
+
+  broadcast-worker:
+    build:
+      context: ../..
+      dockerfile: infra/compose/Dockerfile
+      target: api
+    command: [node, apps/api/dist/messages/broadcast-main.js]
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_MESSAGES_TOPIC: livepulse.messages.v1
+      NODE_ENV: development
+      REDIS_KEY_PREFIX: livepulse
+      REDIS_URL: redis://redis:6379
+
+  persistence-worker:
+    build:
+      context: ../..
+      dockerfile: infra/compose/Dockerfile
+      target: api
+    command: [node, apps/api/dist/messages/persistence-main.js]
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql://livepulse:livepulse_dev_password@postgres:5432/livepulse?schema=public
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_MESSAGES_TOPIC: livepulse.messages.v1
+      NODE_ENV: development
+      REDIS_KEY_PREFIX: livepulse
+      REDIS_URL: redis://redis:6379
 
   postgres:
     image: postgres:18.6-alpine3.24
@@ -144,3 +239,4 @@ services:
 
 volumes:
   postgres-data:
+  kafka-data:

@@ -161,6 +161,16 @@ model DanmakuMessage {
   @@map("danmaku_messages")
 }
 
+model MessageTombstone {
+  messageId String   @id @map("message_id") @db.Uuid
+  roomId    String   @map("room_id") @db.Uuid
+  deletedAt DateTime @map("deleted_at") @db.Timestamptz(3)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+
+  @@index([expiresAt])
+  @@map("message_tombstones")
+}
+
 model AuditLog {
   id        String   @id @default(uuid()) @db.Uuid
   actorId   String   @map("actor_id") @db.Uuid

@@ -141,6 +141,45 @@ describe('PostgreSQL message history', () => {
       kind: 'conflict',
     });
   });
+
+  it('persists Kafka offsets and preserves deletion before delayed insertion', async () => {
+    const original = message(6, '2026-10-18T20:00:06.000Z');
+    const deletedAt = new Date('2026-10-18T20:01:00.000Z');
+    await repository.deletePending(original, deletedAt);
+    await repository.persistKafka(original, 3, 42n);
+    await repository.persistKafka(original, 3, 42n);
+
+    await expect(
+      database.danmakuMessage.findUniqueOrThrow({
+        where: { id: original.messageId },
+      }),
+    ).resolves.toMatchObject({
+      deletedAt,
+      kafkaOffset: 42n,
+      kafkaPartition: 3,
+      text: 'Message removed by moderation',
+    });
+    await expect(
+      repository.persistKafka({ ...original, text: 'Different' }, 3, 43n),
+    ).rejects.toThrow();
+  });
+
+  it('skips replayed messages whose room or author has been deleted', async () => {
+    const missingRoom = {
+      ...message(7, '2026-10-18T20:00:07.000Z'),
+      roomId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+    };
+    const missingAuthor = {
+      ...message(8, '2026-10-18T20:00:08.000Z'),
+      authorId: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
+    };
+    await expect(
+      repository.persistKafka(missingRoom, 1, 10n),
+    ).resolves.toBeUndefined();
+    await expect(
+      repository.persistKafka(missingAuthor, 1, 11n),
+    ).resolves.toBeUndefined();
+  });
 });
 
 function message(index: number, acceptedAt: string): RoomMessage {
@@ -155,6 +194,7 @@ function message(index: number, acceptedAt: string): RoomMessage {
 }
 
 async function removeFixtures(): Promise<void> {
+  await database.messageTombstone.deleteMany({ where: { roomId } });
   await database.room.deleteMany({ where: { id: roomId } });
   await database.user.deleteMany({
     where: { id: { in: [authorId, hostId] } },

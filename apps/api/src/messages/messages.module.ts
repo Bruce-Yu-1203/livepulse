@@ -5,6 +5,8 @@ import { RoomsModule } from '../rooms/rooms.module.js';
 import { MessagesController } from './messages.controller.js';
 import { PostgresMessagesRepository } from './messages.repository.js';
 import { MessagesService } from './messages.service.js';
+import { KafkaMessagePublisher } from './kafka-message-publisher.js';
+import { kafkaPipelineEnabled } from './kafka-message-config.js';
 import {
   MESSAGES_REPOSITORY,
   REALTIME_MESSAGE_PUBLISHER,
@@ -16,6 +18,7 @@ import {
   imports: [DatabaseModule, RoomsModule],
   providers: [
     MessagesService,
+    ...(kafkaPipelineEnabled() ? [KafkaMessagePublisher] : []),
     PostgresMessagesRepository,
     {
       provide: MESSAGES_REPOSITORY,
@@ -23,7 +26,9 @@ import {
     },
     {
       provide: REALTIME_MESSAGE_PUBLISHER,
-      useExisting: MessagesService,
+      useExisting: kafkaPipelineEnabled()
+        ? KafkaMessagePublisher
+        : MessagesService,
     },
   ],
 })
