@@ -16,7 +16,6 @@ import {
   roomChatIsClosed,
   roomPresenceLabel,
   resolveSocketIoOrigin,
-  visibleDanmakuMessages,
 } from './room-chat';
 
 const clientMessageId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -80,9 +79,6 @@ describe('room chat state', () => {
     expect(markMessageFailed(pending, clientMessageId)[0]?.status).toBe(
       'failed',
     );
-    expect(
-      visibleDanmakuMessages(markMessageFailed(pending, clientMessageId)),
-    ).toEqual([]);
   });
 
   it('removes a rate-limited optimistic message and keeps the retry prompt', () => {

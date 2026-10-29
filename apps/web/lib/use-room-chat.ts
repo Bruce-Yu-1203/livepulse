@@ -13,6 +13,11 @@ import { io, type Socket } from 'socket.io-client';
 
 import { ClientApiError, clientApiRequest } from './client-api';
 import {
+  appendRealtimeDanmaku,
+  type DanmakuMessage,
+  expireDanmakuMessages,
+} from './danmaku';
+import {
   addPendingMessage,
   type ChatMessage,
   markMessageDeleted,
@@ -26,11 +31,16 @@ import {
   type RoomConnectionState,
 } from './room-chat';
 
-export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
+export function useRoomChat(
+  roomId: string,
+  roomStatus: RoomStatus,
+  danmakuVisible: boolean,
+) {
   const [connection, setConnection] = useState<RoomConnectionState>(
     roomStatus === 'LIVE' ? 'connecting' : 'ended',
   );
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [danmakuMessages, setDanmakuMessages] = useState<DanmakuMessage[]>([]);
   const [onlineCount, setOnlineCount] = useState(0);
   const [uniqueUserCount, setUniqueUserCount] = useState(0);
   const [userId, setUserId] = useState<string>();
@@ -43,6 +53,14 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
   const socketRef = useRef<Socket>(undefined);
   const pendingMessagesRef = useRef(new PendingMessageTracker());
   const historyLoadingRef = useRef(false);
+  const danmakuVisibleRef = useRef(danmakuVisible);
+
+  useEffect(() => {
+    danmakuVisibleRef.current = danmakuVisible;
+    if (!danmakuVisible) {
+      setDanmakuMessages([]);
+    }
+  }, [danmakuVisible]);
 
   useEffect(() => {
     const refreshAfterSignIn = () => setAuthRevision((current) => current + 1);
@@ -89,6 +107,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
   useEffect(() => {
     pendingMessagesRef.current.clear();
     setMessages([]);
+    setDanmakuMessages([]);
     setNextCursor(undefined);
     void loadHistory();
   }, [loadHistory]);
@@ -130,6 +149,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
   useEffect(() => {
     if (roomStatus !== 'LIVE') {
       setConnection('ended');
+      setDanmakuMessages([]);
       setOnlineCount(0);
       setUniqueUserCount(0);
       return;
@@ -226,6 +246,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
             ),
           );
           setConnection('ended');
+          setDanmakuMessages([]);
           setOnlineCount(0);
           setUniqueUserCount(0);
           setError(undefined);
@@ -238,6 +259,15 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
         if (parsed.data.type === 'message.created') {
           const createdEvent = parsed.data;
           setMessages((current) => mergeCreatedMessage(current, createdEvent));
+          if (
+            joinedSocket === socket &&
+            socket.connected &&
+            danmakuVisibleRef.current
+          ) {
+            setDanmakuMessages((current) =>
+              appendRealtimeDanmaku(current, createdEvent.payload, Date.now()),
+            );
+          }
           pendingMessagesRef.current.acknowledge(
             createdEvent.payload.clientMessageId,
           );
@@ -246,6 +276,11 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
 
         if (parsed.data.type === 'message.deleted') {
           const deletedEvent = parsed.data;
+          setDanmakuMessages((current) =>
+            current.filter(
+              (message) => message.id !== deletedEvent.payload.messageId,
+            ),
+          );
           setMessages((current) =>
             markMessageDeleted(
               current,
@@ -302,6 +337,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
           return;
         }
         setConnection('reconnecting');
+        setDanmakuMessages([]);
         setOnlineCount(0);
         setUniqueUserCount(0);
         if (!navigator.onLine) {
@@ -321,6 +357,7 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
           return;
         }
         setConnection('reconnecting');
+        setDanmakuMessages([]);
         setError('The live connection was interrupted. Reconnecting…');
       });
     }
@@ -348,6 +385,9 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
     window.addEventListener('online', reconnectWhenOnline);
     window.addEventListener('offline', markOffline);
     const deliverySweepTimer = setInterval(() => {
+      setDanmakuMessages((current) =>
+        expireDanmakuMessages(current, Date.now()),
+      );
       if (joinedSocket?.connected) {
         flushPending(joinedSocket);
       }
@@ -411,6 +451,9 @@ export function useRoomChat(roomId: string, roomStatus: RoomStatus) {
     authChecked,
     canLoadEarlier: nextCursor !== null && nextCursor !== undefined,
     connection,
+    danmakuMessages: danmakuMessages.filter(
+      (message) => message.roomId === roomId,
+    ),
     error,
     historyLoading,
     loadEarlier: () => {

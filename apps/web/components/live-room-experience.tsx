@@ -11,12 +11,15 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { appendedChatMessageCount, isNearChatBottom } from '../lib/chat-scroll';
 import { clientApiRequest } from '../lib/client-api';
-import { danmakuLayout, type DanmakuDensity } from '../lib/danmaku';
+import {
+  danmakuLayout,
+  type DanmakuDensity,
+  type DanmakuMessage,
+} from '../lib/danmaku';
 import {
   type ChatMessage,
   roomChatIsClosed,
   roomPresenceLabel,
-  visibleDanmakuMessages,
 } from '../lib/room-chat';
 import {
   CHAT_COLLAPSED_KEY,
@@ -42,10 +45,10 @@ export function LiveRoomExperience({
   initialNow: number;
   room: VisibleRoom;
 }) {
-  const chat = useRoomChat(room.id, room.status);
   const [danmakuVisible, setDanmakuVisible] = useState(true);
   const [danmakuDensity, setDanmakuDensity] =
     useState<DanmakuDensity>('medium');
+  const chat = useRoomChat(room.id, room.status, danmakuVisible);
   const [mutedUserIds, setMutedUserIds] = useState<Set<string>>(new Set());
   const [mutingUserId, setMutingUserId] = useState<string>();
   const [moderationError, setModerationError] = useState<string>();
@@ -241,7 +244,10 @@ export function LiveRoomExperience({
             </div>
           )}
           {danmakuVisible ? (
-            <DanmakuLayer density={danmakuDensity} messages={chat.messages} />
+            <DanmakuLayer
+              density={danmakuDensity}
+              messages={chat.danmakuMessages}
+            />
           ) : null}
           <div className="stage-overlay absolute left-4 top-14 z-20">
             <RoomLikeButton
@@ -543,7 +549,7 @@ function DanmakuLayer({
   messages,
 }: {
   density: DanmakuDensity;
-  messages: ChatMessage[];
+  messages: DanmakuMessage[];
 }) {
   const layout = danmakuLayout(density);
 
@@ -552,17 +558,15 @@ function DanmakuLayer({
       className="pointer-events-none absolute inset-0 z-10 overflow-hidden"
       aria-hidden="true"
     >
-      {visibleDanmakuMessages(messages)
-        .slice(-layout.limit)
-        .map((message, index) => (
-          <span
-            className="danmaku-message absolute whitespace-nowrap rounded-full bg-black/45 px-3 py-1 text-sm font-medium text-white shadow-lg backdrop-blur-sm"
-            key={`${message.id}:${index}`}
-            style={{ top: `${8 + (index % layout.lanes) * 10}%` }}
-          >
-            {message.text}
-          </span>
-        ))}
+      {messages.slice(-layout.limit).map((message) => (
+        <span
+          className="danmaku-message absolute whitespace-nowrap rounded-full bg-black/45 px-3 py-1 text-sm font-medium text-white shadow-lg backdrop-blur-sm"
+          key={message.id}
+          style={{ top: `${8 + (message.laneIndex % layout.lanes) * 10}%` }}
+        >
+          {message.text}
+        </span>
+      ))}
     </div>
   );
 }

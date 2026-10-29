@@ -255,12 +255,6 @@ export function rejectChatMessage(
   return markMessageFailed(messages, clientMessageId);
 }
 
-export function visibleDanmakuMessages(messages: ChatMessage[]): ChatMessage[] {
-  return messages.filter(
-    (message) => message.status !== 'failed' && !message.deletedAt,
-  );
-}
-
 export function markMessageDeleted(
   messages: ChatMessage[],
   messageId: string,
