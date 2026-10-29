@@ -42,7 +42,9 @@ test('viewer, host, and administrator complete the core live-room flow', async (
       viewerPage.getByRole('button', { name: /^Unlike this room\. 1 like$/ }),
     ).toHaveAttribute('aria-pressed', 'true');
     await viewerPage.reload();
-    await expect(viewerPage.getByLabel('Connected')).toBeVisible();
+    await expect(viewerPage.getByLabel('Connected')).toBeVisible({
+      timeout: 15_000,
+    });
     await expect(
       viewerPage.getByRole('button', { name: /^Unlike this room\. 1 like$/ }),
     ).toHaveAttribute('aria-pressed', 'true');

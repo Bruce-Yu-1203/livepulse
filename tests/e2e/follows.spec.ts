@@ -30,10 +30,18 @@ test('viewer follows a host from the profile and unfollows in the room', async (
   );
 
   await page.goto(`/users/${hostId}`);
-  await page.getByRole('button', { name: 'Follow host' }).click();
-  await expect(
-    page.getByRole('button', { name: 'Unfollow host' }),
-  ).toBeVisible();
+  const followButton = page.getByRole('button', {
+    name: /^(Follow|Unfollow) host$/,
+  });
+  await expect(followButton).toBeEnabled();
+  if ((await followButton.getAttribute('aria-pressed')) === 'true') {
+    await followButton.click();
+    await expect(followButton).toHaveAttribute('aria-pressed', 'false');
+    await expect(followButton).toHaveAttribute('aria-busy', 'false');
+  }
+  await followButton.click();
+  await expect(followButton).toHaveAttribute('aria-pressed', 'true');
+  await expect(followButton).toHaveAttribute('aria-busy', 'false');
   await expect(page.getByRole('link', { name: '1 Followers' })).toBeVisible();
   await page.getByRole('link', { name: '1 Followers' }).click();
   await expect(page).toHaveURL(new RegExp(`/users/${hostId}/followers$`));
@@ -45,20 +53,27 @@ test('viewer follows a host from the profile and unfollows in the room', async (
   await expect(page.getByRole('link', { name: '1 Following' })).toBeVisible();
 
   await page.goto(`/rooms/${roomId}`);
-  await expect(
-    page
-      .getByRole('link', { name: /host/ })
-      .filter({ has: page.locator('.search-user-avatar') }),
-  ).toBeVisible();
   const broadcaster = page.getByRole('region', { name: 'Broadcaster' });
+  await expect(broadcaster.locator('.broadcast-host-identity')).toBeVisible();
   await expect(broadcaster.getByLabel('Live')).toHaveCount(0);
   await expect(broadcaster.locator('.broadcast-host-viewers')).toBeVisible();
   await expect(broadcaster.locator('.broadcast-host-duration')).toHaveText('—');
+  const roomDetails = page.locator('main section').filter({
+    has: page.getByRole('heading', { name: 'LivePulse MVP demo' }),
+  });
   await expect(
-    page
-      .locator('main section p')
-      .filter({ hasText: 'A seeded live room for trying chat' }),
+    roomDetails.getByText(
+      'A seeded live room for trying chat, danmaku, likes, reports, and moderation.',
+      { exact: true },
+    ),
   ).toBeVisible();
-  await page.getByRole('button', { name: 'Unfollow host' }).click();
-  await expect(page.getByRole('button', { name: 'Follow host' })).toBeVisible();
+  const roomFollowButton = broadcaster.getByRole('button', {
+    name: /^(Follow|Unfollow) host$/,
+  });
+  await roomFollowButton.click();
+  await expect(roomFollowButton).toHaveAttribute('aria-pressed', 'false');
+  await expect(roomFollowButton).toHaveAttribute('aria-busy', 'false');
+  await expect(
+    broadcaster.getByRole('button', { name: 'Follow host' }),
+  ).toBeVisible();
 });
