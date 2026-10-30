@@ -7,6 +7,7 @@
 #         separate session holds SHARE lock on danmaku_messages for 40 s.
 # burst:  ten rooms, generator A at 200 msg/s for 180 s plus generator B with
 #         a different source account at 400 msg/s for 30 s starting at t=60 s.
+#         BENCHMARK_SKIP_BURST=1 runs only generator A for calibration.
 #
 # Every run uses a fresh clone of the benchmark template, a unique Redis key
 # prefix, and in Kafka mode a fresh 12-partition topic and consumer groups.
@@ -158,6 +159,12 @@ SELECT pg_sleep($outage_seconds);
 COMMIT;
 SQL
   mark "fault_end"
+elif [[ ${BENCHMARK_SKIP_BURST:-0} == 1 ]]; then
+  # Calibration: the same ten-room steady load without generator B.
+  sleep_until "$fault_ms"
+  mark "burst_start"
+  sleep_until $((fault_ms + ${BENCHMARK_BURST_SECONDS:-30} * 1000))
+  mark "burst_end"
 else
   BENCHMARK_EXTERNAL_API=1 \
     BENCHMARK_EMAIL=${BENCHMARK_BURST_EMAIL:-host@livepulse.local} \

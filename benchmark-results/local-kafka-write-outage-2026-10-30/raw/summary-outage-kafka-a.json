@@ -1,0 +1,77 @@
+{
+  "finalRows": 36200,
+  "duplicateAuthorClientMessageIds": 0,
+  "fault": {
+    "startMs": 1793340721346,
+    "endMs": 1793340761344,
+    "startSecondInWindow": 60.8,
+    "endSecondInWindow": 100.8,
+    "lockSamples": {
+      "firstSeenMs": 1793340721346,
+      "lastSeenMs": 1793340760345,
+      "firstClearMs": 1793340761344
+    }
+  },
+  "generators": [
+    {
+      "pipeline": "kafka",
+      "connections": 200,
+      "messagesPerSecond": 200,
+      "durationSeconds": 180,
+      "windowStartedAtEpochMs": 1793340660547,
+      "planned": 36000,
+      "acked": 36000,
+      "sendSuccessPercent": 100,
+      "failures": 0,
+      "errorCounts": {},
+      "ackMs": {
+        "count": 36000,
+        "p50": 2,
+        "p95": 4.66,
+        "p99": 7.85,
+        "max": 98.19
+      },
+      "worstTenSecondAckP95Ms": 5.5,
+      "tenSecondWindowsWithoutAck": 0,
+      "dispatchLagMs": {
+        "count": 36000,
+        "p50": 0,
+        "p95": 0.57,
+        "p99": 0.92,
+        "max": 26.06
+      },
+      "delivery": {
+        "expected": 7200000,
+        "uniqueReceived": 7200000,
+        "missing": 0,
+        "duplicates": 0,
+        "wrongRoomDeliveries": 0,
+        "deliveredPercent": 100,
+        "recipientMs": {
+          "count": 7200000,
+          "p50": 7,
+          "p95": 11,
+          "p99": 14,
+          "max": 108.89,
+          "withinOneSecond": 7200000
+        }
+      },
+      "persisted": 36000,
+      "persistedDuplicateRows": 0,
+      "ackedNotPersisted": 0,
+      "failedButPersisted": 0
+    }
+  ],
+  "sampler": {
+    "samples": 195,
+    "peakPersistenceLag": 9549,
+    "peakBroadcastLag": 3,
+    "peakPgActive": 2,
+    "peakPgTotal": 9,
+    "peakPgLockWaiters": 1,
+    "baselinePersistenceLag": 5,
+    "baselinePgActive": 1,
+    "persistenceDrainSeconds": 27,
+    "databaseQueueDrainSeconds": 0
+  }
+}

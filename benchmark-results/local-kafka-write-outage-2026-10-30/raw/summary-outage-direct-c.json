@@ -1,0 +1,81 @@
+{
+  "finalRows": 29132,
+  "duplicateAuthorClientMessageIds": 0,
+  "fault": {
+    "startMs": 1793341338311,
+    "endMs": 1793341378310,
+    "startSecondInWindow": 60.7,
+    "endSecondInWindow": 100.7,
+    "lockSamples": {
+      "firstSeenMs": 1793341338311,
+      "lastSeenMs": 1793341377311,
+      "firstClearMs": 1793341378310
+    }
+  },
+  "generators": [
+    {
+      "pipeline": "direct",
+      "connections": 200,
+      "messagesPerSecond": 200,
+      "durationSeconds": 180,
+      "windowStartedAtEpochMs": 1793341277625,
+      "planned": 36000,
+      "acked": 27709,
+      "sendSuccessPercent": 76.969,
+      "failures": 8291,
+      "errorCounts": {
+        "SERVICE_UNAVAILABLE": 16,
+        "ack_timeout": 6076,
+        "REALTIME_RATE_LIMITED": 2199
+      },
+      "ackMs": {
+        "count": 27709,
+        "p50": 3.18,
+        "p95": 5.58,
+        "p99": 10.42,
+        "max": 280.86
+      },
+      "worstTenSecondAckP95Ms": 6.7,
+      "tenSecondWindowsWithoutAck": 3,
+      "dispatchLagMs": {
+        "count": 36000,
+        "p50": 0,
+        "p95": 0.79,
+        "p99": 1.19,
+        "max": 39.55
+      },
+      "delivery": {
+        "expected": 7200000,
+        "uniqueReceived": 5786400,
+        "missing": 1413600,
+        "duplicates": 0,
+        "wrongRoomDeliveries": 0,
+        "deliveredPercent": 80.367,
+        "recipientMs": {
+          "count": 5786400,
+          "p50": 3,
+          "p95": 12,
+          "p99": 39140,
+          "max": 40496.59,
+          "withinOneSecond": 5541800
+        }
+      },
+      "persisted": 28932,
+      "persistedDuplicateRows": 0,
+      "ackedNotPersisted": 0,
+      "failedButPersisted": 1223
+    }
+  ],
+  "sampler": {
+    "samples": 213,
+    "peakPersistenceLag": null,
+    "peakBroadcastLag": null,
+    "peakPgActive": 11,
+    "peakPgTotal": 11,
+    "peakPgLockWaiters": 10,
+    "baselinePersistenceLag": null,
+    "baselinePgActive": 0,
+    "persistenceDrainSeconds": null,
+    "databaseQueueDrainSeconds": 0
+  }
+}

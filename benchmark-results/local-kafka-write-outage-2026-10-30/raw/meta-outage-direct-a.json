@@ -1,0 +1,13 @@
+{
+  "test": "outage",
+  "mode": "direct",
+  "run": "a",
+  "database": "livepulse_benchmark_kp_outage_direct_a_20261030020710",
+  "redisKeyPrefix": "livepulse-benchmark-kp-outage-direct-a-20261030020710",
+  "kafkaTopic": "",
+  "kafkaBroadcastGroup": "",
+  "kafkaPersistenceGroup": "",
+  "postgresNanoCpus": 10000000000,
+  "applicationCommit": "28ca387",
+  "startedAt": "2026-10-30T06:07:10Z"
+}

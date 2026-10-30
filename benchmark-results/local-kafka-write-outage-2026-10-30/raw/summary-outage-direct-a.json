@@ -1,0 +1,81 @@
+{
+  "finalRows": 29151,
+  "duplicateAuthorClientMessageIds": 0,
+  "fault": {
+    "startMs": 1793340499295,
+    "endMs": 1793340539295,
+    "startSecondInWindow": 60.5,
+    "endSecondInWindow": 100.5,
+    "lockSamples": {
+      "firstSeenMs": 1793340499295,
+      "lastSeenMs": 1793340538295,
+      "firstClearMs": 1793340539295
+    }
+  },
+  "generators": [
+    {
+      "pipeline": "direct",
+      "connections": 200,
+      "messagesPerSecond": 200,
+      "durationSeconds": 180,
+      "windowStartedAtEpochMs": 1793340438785,
+      "planned": 36000,
+      "acked": 27719,
+      "sendSuccessPercent": 76.997,
+      "failures": 8281,
+      "errorCounts": {
+        "SERVICE_UNAVAILABLE": 16,
+        "ack_timeout": 6066,
+        "REALTIME_RATE_LIMITED": 2199
+      },
+      "ackMs": {
+        "count": 27719,
+        "p50": 3.2,
+        "p95": 5.32,
+        "p99": 8,
+        "max": 184.65
+      },
+      "worstTenSecondAckP95Ms": 5.76,
+      "tenSecondWindowsWithoutAck": 3,
+      "dispatchLagMs": {
+        "count": 36000,
+        "p50": 0,
+        "p95": 0.47,
+        "p99": 0.67,
+        "max": 26.36
+      },
+      "delivery": {
+        "expected": 7200000,
+        "uniqueReceived": 5790200,
+        "missing": 1409800,
+        "duplicates": 0,
+        "wrongRoomDeliveries": 0,
+        "deliveredPercent": 80.419,
+        "recipientMs": {
+          "count": 5790200,
+          "p50": 3,
+          "p95": 8,
+          "p99": 39130,
+          "max": 40367.24,
+          "withinOneSecond": 5543800
+        }
+      },
+      "persisted": 28951,
+      "persistedDuplicateRows": 0,
+      "ackedNotPersisted": 0,
+      "failedButPersisted": 1232
+    }
+  ],
+  "sampler": {
+    "samples": 211,
+    "peakPersistenceLag": null,
+    "peakBroadcastLag": null,
+    "peakPgActive": 11,
+    "peakPgTotal": 11,
+    "peakPgLockWaiters": 10,
+    "baselinePersistenceLag": null,
+    "baselinePgActive": 1,
+    "persistenceDrainSeconds": null,
+    "databaseQueueDrainSeconds": 0
+  }
+}
