@@ -50,10 +50,16 @@ test('viewer, host, and administrator complete the core live-room flow', async (
     });
     await expect(unlikeButton).toHaveAttribute('aria-pressed', 'true');
     await expect(unlikeButton).toBeEnabled();
+    const reloadErrors: string[] = [];
+    viewerPage.on('pageerror', (error) => reloadErrors.push(error.message));
     await viewerPage.reload();
+    await expect(
+      viewerPage.getByRole('heading', { name: roomTitle }),
+    ).toBeVisible();
     await expect(viewerPage.getByLabel('Connected')).toBeVisible({
       timeout: 15_000,
     });
+    expect(reloadErrors).toEqual([]);
     await expect(
       viewerPage.getByRole('button', { name: /^Unlike this room\. 1 like$/ }),
     ).toHaveAttribute('aria-pressed', 'true');

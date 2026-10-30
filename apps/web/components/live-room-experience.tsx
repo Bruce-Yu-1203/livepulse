@@ -99,7 +99,6 @@ export function LiveRoomExperience({
 
     if (nearChatBottomRef.current) {
       list.scrollTop = list.scrollHeight;
-      setUnreadMessageCount(0);
     } else if (appended > 0) {
       setUnreadMessageCount((count) => Math.min(100, count + appended));
     }
