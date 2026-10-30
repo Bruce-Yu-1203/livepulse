@@ -222,4 +222,20 @@ describe('local realtime benchmark configuration', () => {
       readBenchmarkConfig({ ...localEnvironment, MESSAGE_PIPELINE: 'queue' }),
     ).toThrow(/MESSAGE_PIPELINE must be direct or kafka/u);
   });
+
+  it('accepts an optional wall-clock start for overlapping generators', () => {
+    expect(readBenchmarkConfig(localEnvironment).startAtEpochMs).toBeNull();
+    expect(
+      readBenchmarkConfig({
+        ...localEnvironment,
+        BENCHMARK_START_AT_EPOCH_MS: '1793000000000',
+      }).startAtEpochMs,
+    ).toBe(1793000000000);
+    expect(() =>
+      readBenchmarkConfig({
+        ...localEnvironment,
+        BENCHMARK_START_AT_EPOCH_MS: 'soon',
+      }),
+    ).toThrow(/BENCHMARK_START_AT_EPOCH_MS must be a positive integer/u);
+  });
 });

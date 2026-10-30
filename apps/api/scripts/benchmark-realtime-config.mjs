@@ -45,6 +45,13 @@ export function readBenchmarkConfig(environment) {
   const roomId =
     environment.BENCHMARK_ROOM_ID ?? '44444444-4444-4444-8444-444444444444';
   const messageLabel = environment.BENCHMARK_MESSAGE_LABEL ?? '';
+  const startAtEpochMs = environment.BENCHMARK_START_AT_EPOCH_MS
+    ? positiveInteger(
+        environment.BENCHMARK_START_AT_EPOCH_MS,
+        1,
+        'BENCHMARK_START_AT_EPOCH_MS',
+      )
+    : null;
   const messagePipeline = environment.MESSAGE_PIPELINE || 'direct';
   const roomIds = environment.BENCHMARK_ROOM_IDS
     ? environment.BENCHMARK_ROOM_IDS.split(',').map((value) => value.trim())
@@ -148,6 +155,7 @@ export function readBenchmarkConfig(environment) {
     profilePid,
     profilePids,
     messagePipeline,
+    startAtEpochMs,
     // The Kafka pipeline confirms admission to the sender with its own
     // message.created event before the broadcast worker fans the message out.
     separateAck: messagePipeline === 'kafka',

@@ -44,6 +44,7 @@ const {
   messagePipeline,
   separateAck,
   measurementPrefix,
+  startAtEpochMs,
 } = readBenchmarkConfig(process.env);
 
 const app = externalApi ? null : await createApp({ logger: false });
@@ -347,6 +348,12 @@ async function main() {
   for (const pid of profilePids) process.kill(pid, 'SIGUSR1');
   if (profileReadyFile)
     await waitForProfileReady(profileReadyFile, profilePids);
+  if (startAtEpochMs) {
+    // A delayed generator overlaps another one at a planned wall-clock time.
+    const delayMs = startAtEpochMs - Date.now();
+    if (delayMs > 0)
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
   const startedAt = performance.now();
   const windowStartedAtEpochMs = Date.now();
   windowEnd = startedAt + durationSeconds * 1_000;
@@ -437,6 +444,7 @@ async function main() {
       apiOrigins,
       messagePipeline,
       measurementPrefix,
+      startAtEpochMs,
       connectionsPerApi: Object.fromEntries(
         [...byApiOrigin].map(([origin, stats]) => [origin, stats.connections]),
       ),
