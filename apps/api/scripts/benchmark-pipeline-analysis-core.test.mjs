@@ -84,20 +84,50 @@ describe('benchmark pipeline analysis', () => {
     expect(lockWindow(samples.slice(0, 1))).toBeNull();
   });
 
-  it('reports peak backlog and drain times after the fault ends', () => {
+  it('measures drain until backlog returns to the pre-fault baseline', () => {
+    const samples = parseSamplerCsv(
+      [
+        samplerColumns.join(','),
+        '1000,t0,10,1,5,0,0,6,0,',
+        '2000,t1,20,1,5,0,0,4,0,fault_start',
+        '3000,t2,20,1,5,9,1,300,1,',
+        '4000,t3,20,2,6,0,0,200,0,fault_end',
+        '5000,t4,90,2,6,0,0,20,0,',
+        '6000,t5,99,1,5,0,0,5,0,',
+      ].join('\n'),
+    );
     expect(
-      summarizeSamples(parseSamplerCsv(csv), {
-        faultEndMs: 4000,
-        finalRows: 100,
-      }),
-    ).toMatchObject({
-      samples: 5,
-      peakPersistenceLag: 90,
+      summarizeSamples(samples, { faultStartMs: 2000, faultEndMs: 4000 }),
+    ).toEqual({
+      samples: 6,
+      peakPersistenceLag: 300,
       peakBroadcastLag: 1,
       peakPgActive: 2,
-      peakPgLockWaiters: 4,
-      persistenceLagZeroAfterFaultSeconds: 1,
-      rowsFinalAfterFaultSeconds: 1,
+      peakPgTotal: 6,
+      peakPgLockWaiters: 9,
+      baselinePersistenceLag: 6,
+      baselinePgActive: 1,
+      persistenceDrainSeconds: 2,
+      databaseQueueDrainSeconds: 2,
+    });
+  });
+
+  it('omits Kafka drain for direct-mode samples', () => {
+    const samples = parseSamplerCsv(
+      [
+        samplerColumns.join(','),
+        '1000,t0,10,1,5,0,0,,,',
+        '2000,t1,10,11,11,10,1,,,fault_start',
+        '4000,t3,10,11,11,0,0,,,fault_end',
+        '5000,t4,60,1,5,0,0,,,',
+      ].join('\n'),
+    );
+    expect(
+      summarizeSamples(samples, { faultStartMs: 2000, faultEndMs: 4000 }),
+    ).toMatchObject({
+      peakPersistenceLag: null,
+      persistenceDrainSeconds: null,
+      databaseQueueDrainSeconds: 1,
     });
   });
 

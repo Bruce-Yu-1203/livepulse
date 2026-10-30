@@ -53,33 +53,50 @@ export function lockWindow(samples) {
   };
 }
 
-export function summarizeSamples(samples, { faultEndMs, finalRows }) {
-  const max = (column) =>
-    samples.reduce(
+/**
+ * Summarize sampler peaks and backlog drain. Lag sampled during steady traffic
+ * is rarely exactly zero, so drain is measured until the backlog returns to the
+ * largest value seen in the 30 seconds before the fault started.
+ */
+export function summarizeSamples(samples, { faultStartMs, faultEndMs }) {
+  const max = (rows, column) =>
+    rows.reduce(
       (peak, sample) =>
         sample[column] === null ? peak : Math.max(peak ?? 0, sample[column]),
       null,
     );
+  const baseline = samples.filter(
+    (sample) =>
+      sample.epoch_ms < faultStartMs &&
+      sample.epoch_ms >= faultStartMs - 30_000,
+  );
   const afterFault = samples.filter((sample) => sample.epoch_ms >= faultEndMs);
-  const firstAfter = (predicate) => {
+  const secondsUntil = (predicate) => {
     const sample = afterFault.find(predicate);
     return sample
       ? Number(((sample.epoch_ms - faultEndMs) / 1_000).toFixed(1))
       : null;
   };
   const kafka = samples.some((sample) => sample.persistence_lag !== null);
+  const baselineLag = kafka ? (max(baseline, 'persistence_lag') ?? 0) : null;
+  const baselineActive = max(baseline, 'pg_active') ?? 0;
+  const baselineWaiters = max(baseline, 'pg_lock_waiters') ?? 0;
   return {
     samples: samples.length,
-    peakPersistenceLag: max('persistence_lag'),
-    peakBroadcastLag: max('broadcast_lag'),
-    peakPgActive: max('pg_active'),
-    peakPgTotal: max('pg_total'),
-    peakPgLockWaiters: max('pg_lock_waiters'),
-    persistenceLagZeroAfterFaultSeconds: kafka
-      ? firstAfter((sample) => sample.persistence_lag === 0)
+    peakPersistenceLag: max(samples, 'persistence_lag'),
+    peakBroadcastLag: max(samples, 'broadcast_lag'),
+    peakPgActive: max(samples, 'pg_active'),
+    peakPgTotal: max(samples, 'pg_total'),
+    peakPgLockWaiters: max(samples, 'pg_lock_waiters'),
+    baselinePersistenceLag: baselineLag,
+    baselinePgActive: baselineActive,
+    persistenceDrainSeconds: kafka
+      ? secondsUntil((sample) => sample.persistence_lag <= baselineLag)
       : null,
-    rowsFinalAfterFaultSeconds: firstAfter(
-      (sample) => sample.danmaku_rows >= finalRows,
+    databaseQueueDrainSeconds: secondsUntil(
+      (sample) =>
+        sample.pg_lock_waiters <= baselineWaiters &&
+        sample.pg_active <= baselineActive,
     ),
   };
 }

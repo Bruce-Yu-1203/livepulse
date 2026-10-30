@@ -78,8 +78,8 @@ try {
         },
         generators: summaries,
         sampler: summarizeSamples(samples, {
+          faultStartMs: faultStartMs ?? anchor,
           faultEndMs: faultEndMs ?? anchor,
-          finalRows,
         }),
       },
       null,
