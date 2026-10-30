@@ -2,15 +2,103 @@
 
 LivePulse is a TypeScript full-stack MVP for interactive live rooms. Viewers can register, watch LiveKit broadcasts, join WebSocket chat and danmaku, recover message history, like rooms, and report messages. Hosts manage room lifecycle and mutes, while administrators review reports and preserve an audit trail.
 
+## What you can do
+
+LivePulse brings a broadcast, live conversation, and room moderation into one
+experience. A host prepares a screen or camera preview in Studio, starts a room,
+and shares a LiveKit stream. Viewers watch, send chat messages that can appear as
+danmaku over the video, follow hosts, and return to saved message history after
+reconnecting. Hosts can mute participants; administrators can review reports and
+trace moderation actions in the audit log.
+
+The browser, API, and workers share TypeScript contracts. PostgreSQL is the
+source of truth for accounts, rooms, moderation, and saved messages. LiveKit
+carries the media stream, while Socket.IO carries room events. Redis coordinates
+realtime delivery and presence across API instances. Kafka can decouple message
+acceptance from broadcast and persistence when the message pipeline is enabled.
+
+## Architecture at a glance
+
+```mermaid
+flowchart LR
+  Browser[Browser]
+  Web[Next.js web app]
+  API[NestJS API and Socket.IO gateway]
+  Contracts[Shared Zod contracts]
+  Postgres[(PostgreSQL)]
+  Redis[(Redis)]
+  LiveKit[LiveKit media service]
+  Kafka[(Kafka topic)]
+  Broadcast[Broadcast worker]
+  Persistence[Persistence worker]
+
+  Browser -->|Pages| Web
+  Web -->|REST requests| API
+  Browser <-->|Room events| API
+  Browser <-->|Audio and video| LiveKit
+  API -->|Publish and view tokens| LiveKit
+  Web -.-> Contracts
+  API -.-> Contracts
+  API <-->|Rooms, accounts, history| Postgres
+  API <-->|Presence and room events| Redis
+  API -->|Kafka mode: accepted messages| Kafka
+  Kafka --> Broadcast
+  Kafka --> Persistence
+  Broadcast -->|Fan-out| Redis
+  Persistence -->|Save history| Postgres
+```
+
+The diagram shows Kafka mode, used by the complete Docker Compose stack. A
+separately started API defaults to direct mode: it saves a message to PostgreSQL
+before publishing the room event through Redis. Both modes use PostgreSQL for
+history and LiveKit for media.
+
+### Message path in Kafka mode
+
+```mermaid
+flowchart LR
+  Sender[Sender] -->|message.send| Gateway[Socket.IO gateway]
+  Gateway -->|Validate session, room, mute, content, and rate| Topic[(Kafka topic)]
+  Topic -->|Acknowledged publish| Gateway
+  Gateway -->|message.created acknowledgement| Sender
+  Topic --> Broadcast[Broadcast worker]
+  Topic --> Persistence[Persistence worker]
+  Broadcast --> Redis[(Redis Pub/Sub)]
+  Redis --> Gateway
+  Gateway -->|message.created event| Viewers[Connected viewers]
+  Persistence --> Postgres[(PostgreSQL history)]
+  Postgres -->|Cursor-based recovery| History[History API]
+  History --> Sender
+  History --> Viewers
+```
+
+The gateway acknowledges a message after Kafka accepts it. The broadcast and
+persistence workers consume it independently, so saved history may appear after
+the sender's acknowledgement. Clients can recover missed messages through the
+history API after reconnecting. See the [Kafka message pipeline](docs/kafka-message-pipeline.md)
+for delivery guarantees and worker setup.
+
 ## Stack
 
 - Next.js 16 and React 19 for the web application
 - NestJS 12 and Fastify for REST, with Socket.IO for realtime events
 - PostgreSQL and Prisma for transactional data and message history
 - Redis Pub/Sub and leased presence for cross-instance realtime delivery
+- Kafka and two consumer groups for optional asynchronous message delivery
 - LiveKit for screen, camera, and microphone publishing and playback
 - Zod contracts shared by browser and server
 - Vitest, ESLint, Prettier, and TypeScript for validation
+
+## Repository map
+
+| Path                                       | Purpose                                                        |
+| ------------------------------------------ | -------------------------------------------------------------- |
+| [`apps/web`](apps/web)                     | Next.js pages, Studio, playback, chat, and admin UI            |
+| [`apps/api`](apps/api)                     | REST API, authentication, Socket.IO gateway, and Kafka workers |
+| [`packages/contracts`](packages/contracts) | Shared Zod schemas and event contracts                         |
+| [`packages/db`](packages/db)               | Prisma schema, migrations, database client, and seed data      |
+| [`infra/compose`](infra/compose)           | Local PostgreSQL, Redis, Kafka, API, worker, and web stack     |
+| [`tests`](tests)                           | Repository checks and browser acceptance tests                 |
 
 ## Prerequisites
 
@@ -25,34 +113,6 @@ corepack enable
 corepack prepare pnpm@11.19.0 --activate
 pnpm install --frozen-lockfile
 ```
-
-## CI and deployment
-
-The [CI workflow](.github/workflows/ci.yml) runs for pull requests targeting
-`main`, commits pushed to `main`, and merge queue commits. Its three jobs run
-independently:
-
-- `Quality and build` runs `pnpm validate` (lint, formatting, type checks,
-  unit/component tests, and production builds).
-- `PostgreSQL and Redis integration` starts disposable database services,
-  applies Prisma migrations, and runs `pnpm test:db`.
-- `Browser end-to-end` starts the isolated Docker Compose stack through
-  `pnpm test:e2e` and saves Playwright reports when it fails.
-
-Require all three GitHub Actions checks before merging into `main`. Keep Vercel
-and Railway connected to the `main` branch for production deployments. Enable
-Railway's **Wait for CI** setting on the API service so a failing `main` check
-prevents its deployment. The Railway API service must continue to run Prisma
-`migrate deploy` as its pre-deploy command and check `/health/ready` before it
-receives traffic. CI uses temporary databases; it does not run its integration
-or browser tests against the production database.
-
-Vercel should keep `apps/web` as its root directory, include source files
-outside that directory for `packages/contracts`, and provide the production
-values of `API_ORIGIN` and `NEXT_PUBLIC_SOCKET_IO_URL`. Railway should use the
-repository root as its build directory and keep its existing PostgreSQL,
-Redis, authentication, and LiveKit variables in the API service. No production
-credentials are needed in GitHub Actions for these checks.
 
 ## Run locally for development
 
@@ -268,5 +328,33 @@ pnpm test:e2e
 ```
 
 The end-to-end command builds a dedicated Docker Compose stack, creates random runtime-only secrets, seeds its disposable data volumes, exercises separate viewer, host, and administrator browser sessions, and removes the complete stack afterward. Ports 3000, 3001, 5432, and 6379 must be available while it runs.
+
+## CI and deployment
+
+The [CI workflow](.github/workflows/ci.yml) runs for pull requests targeting
+`main`, commits pushed to `main`, and merge queue commits. Its three jobs run
+independently:
+
+- `Quality and build` runs `pnpm validate` (lint, formatting, type checks,
+  unit/component tests, and production builds).
+- `PostgreSQL and Redis integration` starts disposable database services,
+  applies Prisma migrations, and runs `pnpm test:db`.
+- `Browser end-to-end` starts the isolated Docker Compose stack through
+  `pnpm test:e2e` and saves Playwright reports when it fails.
+
+Require all three GitHub Actions checks before merging into `main`. Keep Vercel
+and Railway connected to the `main` branch for production deployments. Enable
+Railway's **Wait for CI** setting on the API service so a failing `main` check
+prevents its deployment. The Railway API service must continue to run Prisma
+`migrate deploy` as its pre-deploy command and check `/health/ready` before it
+receives traffic. CI uses temporary databases; it does not run its integration
+or browser tests against the production database.
+
+Vercel should keep `apps/web` as its root directory, include source files
+outside that directory for `packages/contracts`, and provide the production
+values of `API_ORIGIN` and `NEXT_PUBLIC_SOCKET_IO_URL`. Railway should use the
+repository root as its build directory and keep its existing PostgreSQL,
+Redis, authentication, and LiveKit variables in the API service. No production
+credentials are needed in GitHub Actions for these checks.
 
 The architecture and scaling path are documented in [LivePulse_Technical_Architecture_EN.md](LivePulse_Technical_Architecture_EN.md). Product behavior and acceptance criteria are in [LivePulse_Requirements_EN.md](LivePulse_Requirements_EN.md).

@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -15,6 +15,34 @@ describe('MVP delivery assets', () => {
     expect(readme).toContain('## MVP demonstration');
     expect(readme).toContain('pnpm validate');
     expect(readme).toContain('livepulse_test');
+  });
+
+  it('keeps the README architecture diagrams and repository links usable', async () => {
+    const readme = await readFile(resolve(process.cwd(), 'README.md'), 'utf8');
+    const diagrams = [...readme.matchAll(/```mermaid\n([\s\S]*?)\n```/g)].map(
+      (match) => match[1],
+    );
+
+    expect(diagrams).toHaveLength(2);
+    expect(diagrams[0]).toContain('Next.js web app');
+    expect(diagrams[0]).toContain('NestJS API and Socket.IO gateway');
+    expect(diagrams[0]).toContain('LiveKit media service');
+    expect(diagrams[1]).toContain('Broadcast worker');
+    expect(diagrams[1]).toContain('Persistence worker');
+    expect(readme).toMatch(
+      /A\s+separately started API defaults to direct mode/,
+    );
+
+    const localLinks = [
+      ...readme.matchAll(/\[[^\]]+\]\((?!https?:\/\/)([^)#]+)\)/g),
+    ].map((match) => match[1]!);
+    expect(localLinks.length).toBeGreaterThan(0);
+    await Promise.all(
+      localLinks.map(async (path) => {
+        const target = await stat(resolve(process.cwd(), path));
+        expect(target.isFile() || target.isDirectory()).toBe(true);
+      }),
+    );
   });
 
   it('provides idempotent seed data without a committed demo password', async () => {
