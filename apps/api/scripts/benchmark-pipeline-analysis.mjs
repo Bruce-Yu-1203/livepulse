@@ -10,6 +10,7 @@ import {
   summarizeGenerator,
   summarizeSamples,
 } from './benchmark-pipeline-analysis-core.mjs';
+import { estimatePersistenceDelays } from './benchmark-pipeline-persistence-delay.mjs';
 import { readSamplerConfig } from './benchmark-pipeline-sampler-core.mjs';
 
 // Usage: node benchmark-pipeline-analysis.mjs SAMPLER_CSV GENERATOR_JSON...
@@ -36,6 +37,7 @@ try {
     ) AS duplicated
   `);
   const summaries = [];
+  const persistedIndexes = [];
   for (const generator of generators) {
     const prefix = generator.settings.measurementPrefix;
     const rows = await database.$queryRawUnsafe(
@@ -45,6 +47,7 @@ try {
     const indexes = new Set(
       rows.map((row) => Number(row.text.slice(prefix.length))),
     );
+    persistedIndexes.push(indexes);
     summaries.push(
       summarizeGenerator(generator, {
         indexes,
@@ -77,6 +80,19 @@ try {
           lockSamples: lock,
         },
         generators: summaries,
+        // Mode-neutral time from send until the row appears in PostgreSQL.
+        persistenceDelay: estimatePersistenceDelays({
+          samples,
+          generators: generators.map((generator, index) => ({
+            windowStartedAtEpochMs: generator.windowStartedAtEpochMs,
+            messagesPerSecond: generator.settings.messagesPerSecond,
+            persistedIndexes: [...persistedIndexes[index]],
+          })),
+          warmupRows: generators.slice(1).map((generator) => ({
+            afterEpochMs: generator.windowStartedAtEpochMs,
+            rows: generator.settings.connections,
+          })),
+        }),
         sampler: summarizeSamples(samples, {
           faultStartMs: faultStartMs ?? anchor,
           faultEndMs: faultEndMs ?? anchor,
