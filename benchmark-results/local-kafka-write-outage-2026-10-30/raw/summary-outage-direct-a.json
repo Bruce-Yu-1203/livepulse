@@ -66,6 +66,17 @@
       "failedButPersisted": 1232
     }
   ],
+  "persistenceDelay": {
+    "messages": 28951,
+    "estimated": 28951,
+    "p50Seconds": 0,
+    "p95Seconds": 0,
+    "p99Seconds": 37,
+    "maxSeconds": 38.4,
+    "worstTenSecondP95Seconds": 38.1,
+    "worstTenSecondFromSecond": 60,
+    "resolutionSeconds": 1
+  },
   "sampler": {
     "samples": 211,
     "peakPersistenceLag": null,

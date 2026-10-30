@@ -64,6 +64,14 @@ for (const [run, values] of Object.entries(expected)) {
     assert.ok(lockSeconds >= 39 && lockSeconds <= 41);
     assert.ok(samples.some((sample) => sample.share_lock_held === 1));
 
+    // Mode-neutral time to persisted: every stored message is estimated, and
+    // the slowest ones were sent at the start of the outage.
+    const delay = summary.persistenceDelay;
+    assert.equal(delay.estimated, result.persisted);
+    assert.ok(delay.maxSeconds >= 38 && delay.maxSeconds <= 43);
+    assert.equal(delay.worstTenSecondFromSecond, 60);
+    assert.ok(mode === 'kafka' ? delay.p95Seconds > 35 : delay.p95Seconds === 0);
+
     if (mode === 'kafka') {
       assert.deepEqual(generator.errorCounts, {});
       assert.equal(summary.sampler.persistenceDrainSeconds, values.drain);

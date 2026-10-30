@@ -8,25 +8,36 @@ Application code: `0f2735c` (includes `86a086a`, the Kafka dual-consumer pipelin
 
 Each run sent 200 messages/s from 200 connections in one room for 180 s. At about t=60 s a separate session held `LOCK TABLE danmaku_messages IN SHARE MODE` for 40 s. That blocks message inserts, while reads of other tables continue to work. There were three runs per mode, interleaved direct/Kafka.
 
+**The two ACKs make different promises, so ACK latency is not a like-for-like comparison.** A direct ACK means the row is in PostgreSQL. A Kafka ACK means the message was written to Kafka with `acks=all`, and a separate worker writes it to PostgreSQL later. The table therefore leads with mode-neutral metrics, which have the same endpoint in both modes:
+
+- Delivery to viewers: each recipient socket receives the message.
+- Time until the row exists in PostgreSQL.
+
+ACK figures follow, labeled by what they promise.
+
 | Metric (3 runs each) | Direct (`MESSAGE_PIPELINE=direct`) | Kafka (`MESSAGE_PIPELINE=kafka`) |
 | --- | --- | --- |
-| Send success, all failures counted | **76.97–77.00%** (27,709–27,719 / 36,000) | **100%** (36,000 / 36,000) |
+| **Mode-neutral: viewer deliveries / expected** | 5,786,400–5,791,200 / 7,200,000 (**80.4%**) | 7,200,000 / 7,200,000 (**100%**) |
+| **Mode-neutral: viewer delivery latency p95 / p99** (send → each recipient) | 8–12 ms / **39.1 s** | 11–14 ms / 14–33 ms |
+| **Mode-neutral: deliveries within 1 s** | 77.0% | 100% |
+| **Mode-neutral: measured messages that ever reached PostgreSQL** | 28,932–28,956 / 36,000 (80.4%) | 36,000 / 36,000 (100%) |
+| **Mode-neutral: time to persisted, p50 / p95 / p99 / max** (stored messages only, ±1 s) | 0 / 0 / 37.0–37.3 / 38.4–38.7 s | 0–1.5 / **35.9–39.5** / 40.9–41.1 / 41.8–42.4 s |
+| **Mode-neutral: worst 10 s send window, time-to-persisted p95** | 38.1–38.4 s (t=60–70 s) | 41.5–41.9 s (t=60–70 s) |
+| ACK = "in PostgreSQL" (direct) or "in Kafka" (Kafka): send success, all failures counted | **76.97–77.00%** (27,709–27,719 / 36,000) | **100%** (36,000 / 36,000) |
 | Send success, `REALTIME_RATE_LIMITED` excluded from the denominator | **81.98–82.01%** (27,709–27,719 / 33,801) | 100% |
 | Failures by code | `ack_timeout` 6,066–6,090; `REALTIME_RATE_LIMITED` 2,199 (every run); `SERVICE_UNAVAILABLE` 0–16 | none |
 | ACK p50 / p95 / p99 of ACKed sends | 3.2 / 5.3–5.7 / 8.0–10.4 ms | 2.0–2.4 / 4.7–7.4 / 7.9–20.3 ms |
 | Worst 10 s ACK p95 | 5.8–6.7 ms over windows that had ACKs; **3 consecutive 10 s windows (t=70–100 s) had zero ACKs** | 5.5–25.4 ms; every window had ACKs |
-| Recipient deliveries / expected | 5,786,400–5,791,200 / 7,200,000 (**80.4%**) | 7,200,000 / 7,200,000 (**100%**) |
-| Recipient p95 / p99 | 8–12 ms / **39.1 s** | 11–14 ms / 14–33 ms |
-| Deliveries within 1 s | 77.0% | 100% |
-| Persisted measured rows | 28,932–28,956 | 36,000 |
 | ACKed but not persisted (loss) | 0 | 0 |
 | Reported failed to the sender but persisted anyway | **1,223–1,245** | 0 |
 | Duplicate rows / duplicate deliveries | 0 / 0 | 0 / 0 |
 | Peak backlog | 10 lock-waiting sessions (the whole Prisma pool, 11 active) | Persistence consumer lag 9,549–10,326; broadcast lag ≤13 |
 | Backlog drain after the lock is released | Blocked inserts completed within one 1 s sample | Persistence lag back to the pre-fault level in **27, 31 and 60 s** |
 
+- **On the mode-neutral metrics, Kafka keeps viewers live but does not make storage faster.** Kafka delivered 100% of messages to viewers with p99 ≤33 ms, against direct's 80.4% and a 39 s p99. Kafka also stored every message, while direct stored 80.4%. The time-to-persisted is about the same for the messages each mode stored: about 38–42 s for messages sent at the start of the outage. Kafka's p95 is higher (36–40 s against 0 s) because it kept all 8,000 outage messages and wrote them late, while direct rejected most of them. The Kafka pipeline trades PostgreSQL write latency for user-visible availability; it does not reduce that latency.
 - **Direct mode cannot accept messages while PostgreSQL rejects writes.** All 8,281–8,291 failures per run fall between t=60 and t=110 s. The 0–60 s and 110–180 s windows had 0 failures and ACK p95 around 5 ms. For 30 s (t=70–100 s) no sender received any ACK.
 - **Kafka mode was not affected on the send or broadcast path.** Admission ACKs and fan-out do not touch PostgreSQL, so every message was ACKed and delivered to every recipient with p95 ≤14 ms throughout the outage. Only the persistence consumer stalled. It built up a ~10,000-message backlog and then wrote every message after the lock was released, with no loss and no duplicates.
+- Time-to-persisted is estimated from the per-second `danmaku_rows` sample against each stored message's scheduled send time, assuming rows arrive in send order (accurate to about ±1 s; see [`benchmark-pipeline-persistence-delay.mjs`](../../apps/api/scripts/benchmark-pipeline-persistence-delay.mjs)). Per-window viewer latency was not recorded in these runs. The verifier reports overall percentiles only, so the worst-window figures above use time-to-persisted and ACK.
 - The cost in Kafka mode is **delayed durability in PostgreSQL**. Messages were ACKed and delivered but appeared in history queries 27–60 s after the lock ended. Kafka is the only durable copy during that time.
 
 ## Method
