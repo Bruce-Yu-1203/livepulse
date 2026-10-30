@@ -115,4 +115,27 @@ describe('benchmark delivery verification', () => {
       complete: false,
     });
   });
+
+  it('ignores another generator that uses a different message label', async () => {
+    const verifier = createDeliveryVerifier(
+      ['a', 'a'],
+      1,
+      undefined,
+      'Local benchmark burst message ',
+    );
+    verifier.record(0, { payload: { text: 'Local benchmark message 0' } });
+    verifier.record(0, {
+      payload: { text: 'Local benchmark burst message 0' },
+    });
+    verifier.record(1, {
+      payload: { text: 'Local benchmark burst message 0' },
+    });
+    expect(await verifier.finish(1)).toMatchObject({
+      expected: 2,
+      received: 2,
+      duplicates: 0,
+      invalidMessageIndexes: 0,
+      complete: true,
+    });
+  });
 });
