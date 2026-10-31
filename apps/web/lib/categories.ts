@@ -1,6 +1,7 @@
 import {
   findRoomCategory,
   roomCategories,
+  type CategorySummary,
   type RoomCategory,
 } from '@livepulse/contracts';
 
@@ -36,4 +37,14 @@ export function formatLiveFor(
   return hours > 0
     ? `${hours}h ${String(minutes % 60).padStart(2, '0')}m`
     : `${minutes}m`;
+}
+
+/** Every category with no live counts, used when the API is unavailable. */
+export function fallbackCategories(): CategorySummary[] {
+  return roomCategories.map(({ description, name, slug }) => ({
+    description,
+    liveCount: 0,
+    name,
+    slug,
+  }));
 }
