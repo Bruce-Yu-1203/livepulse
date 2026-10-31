@@ -38,6 +38,16 @@ describe('RoomCard', () => {
     expect(html).toContain('24 likes');
   });
 
+  it('labels the category without nesting a link inside the card link', () => {
+    const html = renderToStaticMarkup(
+      createElement(RoomCard, { room: { ...room, category: 'gaming' } }),
+    );
+
+    expect(html).toContain('<span class="category-chip">');
+    expect(html).toContain('Gaming');
+    expect(html).not.toContain('href="/browse/gaming"');
+  });
+
   it('shows replay status and artwork when a room has no cover', () => {
     const html = renderToStaticMarkup(
       createElement(RoomCard, {

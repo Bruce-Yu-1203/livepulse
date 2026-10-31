@@ -147,6 +147,19 @@ describe('LiveChannelsNav', () => {
     expect(readRailCollapsed(null)).toBe(false);
   });
 
+  it('shows the host name over the category and links to browsing', () => {
+    const irl = channel('popular-0', {
+      room: { ...channel('popular-0').room, category: 'irl' },
+    });
+    const markup = renderNav([irl], authenticated);
+    expect(markup).toContain('<span class="channel-name">Jamie</span>');
+    expect(markup).toContain('<span class="channel-description">IRL</span>');
+    // The full title appears in the hover preview, not as a native tooltip.
+    expect(markup).not.toContain('title="Room popular-0"');
+    expect(markup).toContain('href="/browse"');
+    expect(markup).toContain('Browse categories');
+  });
+
   it('filters ended rooms before grouping', () => {
     const live = channel('live', { following: true });
     const ended = channel('ended', {

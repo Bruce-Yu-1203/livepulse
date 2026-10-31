@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import { formatBroadcastDuration } from '../lib/broadcast-duration';
+import { CategoryChip } from './category-chip';
 import { FollowButton } from './follow-controls';
 import { SearchUserAvatar } from './search-user-card';
 
@@ -45,23 +46,26 @@ export function BroadcastHostCard({
 
   return (
     <section aria-label="Broadcaster" className="broadcast-host-card">
-      <Link className="broadcast-host-identity" href={`/users/${host.id}`}>
-        <span
-          className={`broadcast-host-avatar-wrap ${isLive ? 'broadcast-host-avatar-wrap--live' : ''}`}
-        >
-          <SearchUserAvatar
-            className="broadcast-host-avatar"
-            loading="eager"
-            user={host}
-          />
-          {isLive ? (
-            <span aria-label="Live" className="broadcast-host-live-badge">
-              LIVE
-            </span>
-          ) : null}
-        </span>
-        <strong className="broadcast-host-name">{host.name}</strong>
-      </Link>
+      <div className="broadcast-host-main">
+        <Link className="broadcast-host-identity" href={`/users/${host.id}`}>
+          <span
+            className={`broadcast-host-avatar-wrap ${isLive ? 'broadcast-host-avatar-wrap--live' : ''}`}
+          >
+            <SearchUserAvatar
+              className="broadcast-host-avatar"
+              loading="eager"
+              user={host}
+            />
+            {isLive ? (
+              <span aria-label="Live" className="broadcast-host-live-badge">
+                LIVE
+              </span>
+            ) : null}
+          </span>
+          <strong className="broadcast-host-name">{host.name}</strong>
+        </Link>
+        <CategoryChip category={room.category} />
+      </div>
 
       <div className="broadcast-host-actions">
         <FollowButton userId={host.id} userName={host.name} />
