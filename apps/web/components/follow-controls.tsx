@@ -6,7 +6,10 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import { clientApiRequest } from '../lib/client-api';
-import { optimisticFollowState } from '../lib/follow-state';
+import {
+  notifyFollowingChanged,
+  optimisticFollowState,
+} from '../lib/follow-state';
 import { AuthEntryLink } from './auth-dialog-provider';
 import { useAuthSession } from './auth-session-provider';
 import { StatusNotice } from './status-notice';
@@ -60,6 +63,7 @@ export function FollowButton({
       });
       setState(next);
       onChange?.(next);
+      notifyFollowingChanged();
     } catch (caught) {
       setState(previous);
       onChange?.(previous);

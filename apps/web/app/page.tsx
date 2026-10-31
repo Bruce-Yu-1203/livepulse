@@ -29,24 +29,18 @@ export default async function HomePage({
     items: [],
     nextCursor: null,
   };
-  let channelRooms: VisibleRoom[] = [];
   let users: SearchUser[] = [];
   let roomsUnavailable = false;
   let usersUnavailable = false;
 
   const [roomResult, userResult] = await Promise.allSettled([
-    Promise.all([
-      listRooms(cursor, searchQuery),
-      searchQuery ? listRooms().catch(() => undefined) : undefined,
-    ]),
+    listRooms(cursor, searchQuery),
     searchQuery
       ? searchSuggestions(searchQuery, 10)
       : Promise.resolve(undefined),
   ]);
   if (roomResult.status === 'fulfilled') {
-    const [searchPage, channelPage] = roomResult.value;
-    page = searchPage;
-    channelRooms = channelPage?.items ?? page.items;
+    page = roomResult.value;
   } else {
     roomsUnavailable = true;
   }
@@ -61,11 +55,7 @@ export default async function HomePage({
   const endedRooms = rooms.filter((room) => room.status !== 'LIVE');
 
   return (
-    <AppShell
-      mainClassName="home-page"
-      rooms={channelRooms}
-      searchQuery={searchQuery}
-    >
+    <AppShell mainClassName="home-page" searchQuery={searchQuery}>
       {searchQuery || roomsUnavailable ? null : (
         <FeaturedCarousel rooms={selectFeaturedRooms(page.items)} />
       )}

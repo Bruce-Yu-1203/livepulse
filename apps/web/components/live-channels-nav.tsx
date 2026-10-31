@@ -1,31 +1,44 @@
 'use client';
 
-import type { VisibleRoom } from '@livepulse/contracts';
+import { LiveChannelsResponseSchema } from '@livepulse/contracts';
+import type { LiveChannel } from '@livepulse/contracts';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-import {
-  avatarTone,
-  orderRoomsForChannels,
-  roomMonogram,
-} from '../lib/presentation';
+import { clientApiRequest } from '../lib/client-api';
+import { FOLLOWING_CHANGED_EVENT } from '../lib/follow-state';
+import { avatarTone } from '../lib/presentation';
 import { formatLikeCount } from '../lib/room-likes';
+import { useAuthSession } from './auth-session-provider';
 
 export const RAIL_COLLAPSED_KEY = 'livepulse-rail-collapsed';
+const popularPageSize = 8;
 
 export function readRailCollapsed(raw: string | null): boolean {
   return raw === 'true';
 }
 
+export function groupLiveChannels(channels: LiveChannel[], signedIn: boolean) {
+  const live = channels.filter((channel) => channel.room.status === 'LIVE');
+  return {
+    following: signedIn ? live.filter((channel) => channel.following) : [],
+    popular: live.filter((channel) => !signedIn || !channel.following),
+  };
+}
+
 export function LiveChannelsNav({
   activeRoomId,
-  rooms,
+  initialChannels = [],
 }: {
   activeRoomId?: string;
-  rooms: VisibleRoom[];
+  initialChannels?: LiveChannel[];
 }) {
-  const channels = orderRoomsForChannels(rooms);
+  const { session } = useAuthSession();
+  const [channels, setChannels] = useState(initialChannels);
   const [collapsed, setCollapsed] = useState(false);
+  const [popularCount, setPopularCount] = useState(popularPageSize);
+  const signedIn = session.status === 'authenticated';
+  const { following, popular } = groupLiveChannels(channels, signedIn);
 
   // Read the saved choice after mount so server and client markup match.
   useEffect(() => {
@@ -35,6 +48,39 @@ export function LiveChannelsNav({
       // Storage unavailable: keep the rail expanded.
     }
   }, []);
+
+  useEffect(() => {
+    if (session.status === 'loading') return;
+    const controller = new AbortController();
+    let latestRequest = 0;
+    const refresh = () => {
+      const request = ++latestRequest;
+      void clientApiRequest(
+        '/api/v1/rooms/channels',
+        LiveChannelsResponseSchema,
+        { signal: controller.signal },
+      )
+        .then((response) => {
+          if (request === latestRequest) setChannels(response.items);
+        })
+        .catch(() => {
+          // Keep the last usable list if the room service is unavailable.
+        });
+    };
+    refresh();
+    window.addEventListener('focus', refresh);
+    window.addEventListener(FOLLOWING_CHANGED_EVENT, refresh);
+    const interval = window.setInterval(refresh, 30_000);
+    return () => {
+      latestRequest += 1;
+      controller.abort();
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener(FOLLOWING_CHANGED_EVENT, refresh);
+    };
+  }, [session.status, signedIn]);
+
+  useEffect(() => setPopularCount(popularPageSize), [session.status]);
 
   const toggle = () => {
     const next = !collapsed;
@@ -79,52 +125,86 @@ export function LiveChannelsNav({
           </svg>
         </button>
       </div>
-      {channels.length > 0 ? (
-        <ul>
-          {channels.map((room) => {
-            const isLive = room.status === 'LIVE';
-            return (
-              <li key={room.id}>
-                <Link
-                  aria-current={room.id === activeRoomId ? 'page' : undefined}
-                  className="channel-link"
-                  title={collapsed ? room.title : undefined}
-                  href={`/rooms/${room.id}`}
-                >
-                  <span
-                    aria-hidden="true"
-                    className={`channel-avatar avatar-tone-${avatarTone(room.title)} ${isLive ? 'channel-avatar-live' : 'channel-avatar-ended'}`}
-                  >
-                    {roomMonogram(room.title)}
-                  </span>
-                  <span className="channel-text">
-                    <span className="channel-name">{room.title}</span>
-                    <span className="channel-description">
-                      {room.description}
-                    </span>
-                  </span>
-                  {isLive ? (
-                    <span className="channel-meta">
-                      <span aria-hidden="true" className="channel-dot" />
-                      <span className="sr-only">Live, </span>
-                      {formatLikeCount(room.likeCount)}
-                      <span className="sr-only"> likes</span>
-                    </span>
-                  ) : (
-                    <span className="channel-meta channel-meta-ended">
-                      Ended
-                    </span>
-                  )}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      ) : (
-        <p className="channel-empty">
-          Rooms appear here when hosts publish them.
-        </p>
-      )}
+      {following.length > 0 ? (
+        <ChannelGroup
+          activeRoomId={activeRoomId}
+          channels={following}
+          title="Following"
+        />
+      ) : null}
+      {following.length > 0 && popular.length > 0 ? (
+        <div aria-hidden="true" className="channel-group-divider" />
+      ) : null}
+      {popular.length > 0 ? (
+        <ChannelGroup
+          activeRoomId={activeRoomId}
+          channels={popular.slice(0, popularCount)}
+          title="Popular"
+        />
+      ) : null}
+      {popular.length > popularCount ? (
+        <button
+          className="channel-show-more"
+          onClick={() => setPopularCount((count) => count + popularPageSize)}
+          type="button"
+        >
+          Show more
+        </button>
+      ) : null}
     </nav>
+  );
+}
+
+function ChannelGroup({
+  activeRoomId,
+  channels,
+  title,
+}: {
+  activeRoomId?: string;
+  channels: LiveChannel[];
+  title: 'Following' | 'Popular';
+}) {
+  return (
+    <section aria-label={title} className="channel-group">
+      <h3 className="channel-group-title">{title}</h3>
+      <ul>
+        {channels.map(({ room, host, following }) => (
+          <li key={room.id}>
+            <Link
+              aria-current={room.id === activeRoomId ? 'page' : undefined}
+              aria-label={`${host.name}: ${room.title}, live`}
+              className="channel-link"
+              href={`/rooms/${room.id}`}
+              title={room.title}
+            >
+              <span
+                aria-hidden="true"
+                className={`channel-avatar avatar-tone-${avatarTone(host.name)} ${following ? 'channel-avatar-following' : ''}`}
+              >
+                {host.avatarUrl ? (
+                  <img
+                    alt=""
+                    decoding="async"
+                    loading="lazy"
+                    src={host.avatarUrl}
+                  />
+                ) : (
+                  host.name.charAt(0).toUpperCase()
+                )}
+              </span>
+              <span className="channel-text">
+                <span className="channel-name">{room.title}</span>
+                <span className="channel-description">{host.name}</span>
+              </span>
+              <span className="channel-meta">
+                <span aria-hidden="true" className="channel-dot" />
+                {formatLikeCount(room.likeCount)}
+                <span className="sr-only"> likes</span>
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

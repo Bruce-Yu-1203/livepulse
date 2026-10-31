@@ -18,9 +18,16 @@ import { RoomsController } from './rooms.controller.js';
 import { PrismaRoomsRepository } from './rooms.repository.js';
 import { RoomsService } from './rooms.service.js';
 import { ROOMS_REPOSITORY } from './rooms.tokens.js';
+import { LiveChannelsController } from './live-channels.controller.js';
+import { LiveChannelsService } from './live-channels.service.js';
 
 @Module({
-  controllers: [RoomsController, RoomLikesController, RoomMutesController],
+  controllers: [
+    RoomsController,
+    LiveChannelsController,
+    RoomLikesController,
+    RoomMutesController,
+  ],
   exports: [RoomsService],
   imports: [
     AuthModule,
@@ -31,6 +38,7 @@ import { ROOMS_REPOSITORY } from './rooms.tokens.js';
   ],
   providers: [
     RoomsService,
+    LiveChannelsService,
     RoomLikesService,
     RoomMutesService,
     RolesGuard,

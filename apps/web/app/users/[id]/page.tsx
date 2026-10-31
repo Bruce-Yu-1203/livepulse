@@ -37,7 +37,7 @@ export default async function PublicUserPage({
     const { user } = await getPublicUser(id);
     const roomPage = await listRooms(cursor, undefined, id);
     return (
-      <AppShell rooms={roomPage.items}>
+      <AppShell>
         <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 sm:py-10">
           <Link
             className="text-sm text-muted transition hover:text-fg"

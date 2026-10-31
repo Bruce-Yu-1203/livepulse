@@ -5,7 +5,6 @@ import {
   avatarToneCount,
   formatRoomDate,
   normalizeSearchQuery,
-  orderRoomsForChannels,
   roomMonogram,
   roomStatusLabel,
   summarizeRooms,
@@ -39,22 +38,6 @@ describe('room presentation', () => {
     );
     expect(normalizeSearchQuery(undefined)).toBe('');
     expect(normalizeSearchQuery('x'.repeat(120))).toHaveLength(80);
-  });
-
-  it('orders the channel list with live rooms first', () => {
-    const rooms = [
-      { id: 'a', status: 'ENDED' as const },
-      { id: 'b', status: 'LIVE' as const },
-      { id: 'c', status: 'ENDED' as const },
-      { id: 'd', status: 'LIVE' as const },
-    ];
-
-    expect(orderRoomsForChannels(rooms).map((room) => room.id)).toEqual([
-      'b',
-      'd',
-      'a',
-      'c',
-    ]);
   });
 
   it('builds a short monogram for room avatars', () => {

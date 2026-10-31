@@ -1,4 +1,3 @@
-import type { VisibleRoom } from '@livepulse/contracts';
 import type { ReactNode } from 'react';
 
 import { LiveChannelsNav } from './live-channels-nav';
@@ -9,20 +8,18 @@ export function AppShell({
   activeRoomId,
   children,
   mainClassName,
-  rooms,
   searchQuery,
 }: {
   activeRoomId?: string;
   children: ReactNode;
   mainClassName?: string;
-  rooms: VisibleRoom[];
   searchQuery?: string;
 }) {
   return (
     <>
       <SiteHeader searchQuery={searchQuery} />
       <div className="app-shell">
-        <LiveChannelsNav activeRoomId={activeRoomId} rooms={rooms} />
+        <LiveChannelsNav activeRoomId={activeRoomId} />
         <main className={`app-shell-main ${mainClassName ?? ''}`}>
           {children}
         </main>

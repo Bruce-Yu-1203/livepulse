@@ -96,6 +96,28 @@ export const ListRoomsResponseSchema = z
 
 export type ListRoomsResponse = z.infer<typeof ListRoomsResponseSchema>;
 
+export const LiveChannelSchema = z
+  .object({
+    room: VisibleRoomSchema,
+    host: z.object({
+      avatarUrl: z.url().nullable(),
+      id: z.uuid(),
+      name: z.string().min(1).max(120),
+    }),
+    following: z.boolean(),
+  })
+  .strict();
+
+export const LiveChannelsResponseSchema = z
+  .object({
+    items: z.array(LiveChannelSchema),
+    requestId: z.string().min(1),
+  })
+  .strict();
+
+export type LiveChannel = z.infer<typeof LiveChannelSchema>;
+export type LiveChannelsResponse = z.infer<typeof LiveChannelsResponseSchema>;
+
 export const GetRoomParamsSchema = z.object({ id: z.uuid() }).strict();
 
 export const GetRoomResponseSchema = z

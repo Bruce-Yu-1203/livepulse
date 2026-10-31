@@ -31,16 +31,6 @@ export function normalizeSearchQuery(value: string | undefined): string {
   return (value ?? '').trim().replace(/\s+/gu, ' ').slice(0, 80);
 }
 
-// Live rooms lead the channel list; within each state the API order is kept.
-export function orderRoomsForChannels<T extends Pick<VisibleRoom, 'status'>>(
-  rooms: T[],
-): T[] {
-  return [
-    ...rooms.filter((room) => room.status === 'LIVE'),
-    ...rooms.filter((room) => room.status !== 'LIVE'),
-  ];
-}
-
 /** Number of avatar colour tones defined in globals.css (.avatar-tone-N). */
 export const avatarToneCount = 6;
 

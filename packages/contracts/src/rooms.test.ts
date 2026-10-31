@@ -11,6 +11,7 @@ import {
   ListBroadcastHistoryResponseSchema,
   ListRoomsQuerySchema,
   ListRoomsResponseSchema,
+  LiveChannelsResponseSchema,
   RoomLikeResponseSchema,
   UpdateRoomRequestSchema,
   UpdateRoomResponseSchema,
@@ -110,6 +111,39 @@ describe('public room queries', () => {
     updatedAt: '2026-10-09T14:30:00.000Z',
     version: 2,
   };
+
+  it('validates live channel host and follow metadata', () => {
+    const response = {
+      items: [
+        {
+          room: visibleRoom,
+          host: {
+            avatarUrl: 'https://example.com/avatar.png',
+            id: visibleRoom.hostId,
+            name: 'Jamie',
+          },
+          following: true,
+        },
+      ],
+      requestId: 'channels-1',
+    };
+    expect(LiveChannelsResponseSchema.parse(response)).toEqual(response);
+    expect(
+      LiveChannelsResponseSchema.safeParse({
+        ...response,
+        items: [
+          {
+            ...response.items[0],
+            host: {
+              avatarUrl: 'https://example.com/avatar.png',
+              id: 'bad-id',
+              name: 'Jamie',
+            },
+          },
+        ],
+      }).success,
+    ).toBe(false);
+  });
 
   it('applies a default limit and accepts an opaque cursor', () => {
     expect(ListRoomsQuerySchema.parse({})).toEqual({ limit: 20 });

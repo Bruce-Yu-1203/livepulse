@@ -111,9 +111,9 @@ describe('HomePage', () => {
     const html = await renderHome(undefined, '  making  ');
 
     expect(listRooms).toHaveBeenCalledWith(undefined, 'making');
-    expect(listRooms).toHaveBeenCalledWith();
+    expect(listRooms).toHaveBeenCalledTimes(1);
     expect(html).toContain('Open The Making Room');
-    expect(html).toContain('class="channel-name">Night Market');
+    expect(html).not.toContain('class="channel-name">Night Market');
     expect(html).not.toContain('Open Night Market');
     expect(html).toContain('Clear search');
     expect(html).toContain('cursor=next-page');

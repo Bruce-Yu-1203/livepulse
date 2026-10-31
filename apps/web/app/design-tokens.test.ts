@@ -120,6 +120,10 @@ describe('design tokens', () => {
 
   it('styles a collapsed channel rail', () => {
     expect(block('.channel-rail-collapsed')).toContain('width: 3.75rem');
+    expect(css).toContain('.channel-rail-collapsed .channel-group-title');
+    expect(css).toContain('.channel-rail-collapsed .channel-show-more');
+    expect(block('.channel-group-divider')).toContain('var(--lp-line)');
+    expect(block('.channel-avatar-following')).toContain('var(--lp-accent)');
   });
 
   it('keeps the registration dialog within the latest shell design', () => {

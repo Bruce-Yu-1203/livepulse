@@ -41,7 +41,7 @@ export default async function FollowListPage({
     ]);
     const title = kind === 'followers' ? 'Followers' : 'Following';
     return (
-      <AppShell rooms={[]}>
+      <AppShell>
         <div className="mx-auto max-w-5xl px-5 py-8 sm:px-8 sm:py-10">
           <Link
             className="text-sm text-muted transition hover:text-fg"

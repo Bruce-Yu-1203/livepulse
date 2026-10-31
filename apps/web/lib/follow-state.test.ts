@@ -1,7 +1,13 @@
 import type { FollowStateResponse } from '@livepulse/contracts';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { optimisticFollowState } from './follow-state';
+import {
+  FOLLOWING_CHANGED_EVENT,
+  notifyFollowingChanged,
+  optimisticFollowState,
+} from './follow-state';
+
+afterEach(() => vi.unstubAllGlobals());
 
 const state: FollowStateResponse = {
   followerCount: 7,
@@ -22,5 +28,14 @@ describe('optimisticFollowState', () => {
     expect(
       optimisticFollowState({ ...state, followerCount: 0, following: true }),
     ).toEqual({ ...state, followerCount: 0, following: false });
+  });
+
+  it('notifies the live sidebar after a follow change', () => {
+    const dispatchEvent = vi.fn();
+    vi.stubGlobal('window', { dispatchEvent });
+    notifyFollowingChanged();
+    expect(dispatchEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: FOLLOWING_CHANGED_EVENT }),
+    );
   });
 });
