@@ -292,7 +292,7 @@ export function AdminDashboard() {
 
       <section className="mt-10 space-y-5">
         {reports.length === 0 ? (
-          <div className="rounded-[2rem] border border-dashed border-fg/10 px-6 py-16 text-center">
+          <div className="rounded-xl border border-dashed border-fg/10 px-6 py-16 text-center">
             <p className="text-lg font-semibold text-fg">Queue cleared</p>
             <p className="mt-2 text-sm text-muted">
               {nextCursor
@@ -303,7 +303,7 @@ export function AdminDashboard() {
         ) : (
           reports.map((report) => (
             <article
-              className="rounded-[2rem] border border-fg/8 bg-fg/[0.035] p-6"
+              className="rounded-xl border border-fg/8 bg-fg/[0.035] p-6"
               key={report.id}
             >
               <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
@@ -323,7 +323,7 @@ export function AdminDashboard() {
                 </Link>
               </div>
 
-              <blockquote className="mt-5 rounded-2xl border border-fg/8 bg-sunken px-5 py-4 text-sm leading-6 text-fg-soft">
+              <blockquote className="mt-5 rounded-lg border border-fg/8 bg-sunken px-5 py-4 text-sm leading-6 text-fg-soft">
                 {report.message?.text ??
                   'The referenced message is unavailable.'}
               </blockquote>
@@ -383,7 +383,7 @@ export function OperationsOverview({
   summary: OperationsSummaryResponse;
 }) {
   return (
-    <section className="mt-10 rounded-[2rem] border border-fg/8 bg-fg/[0.035] p-6 sm:p-8">
+    <section className="mt-10 rounded-xl border border-fg/8 bg-fg/[0.035] p-6 sm:p-8">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
         <div>
           <p className="text-xs font-bold text-success">Operations snapshot</p>
@@ -406,7 +406,7 @@ export function OperationsOverview({
       <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {operationMetricCards(summary).map((metric) => (
           <article
-            className="rounded-2xl border border-fg/8 bg-sunken p-4"
+            className="rounded-lg border border-fg/8 bg-sunken p-4"
             key={metric.label}
           >
             <p className="text-xs font-bold text-muted">{metric.label}</p>
@@ -431,7 +431,7 @@ export function OperationsOverview({
 export function AuditTrail({ logs }: { logs: AuditLog[] }) {
   if (logs.length === 0) {
     return (
-      <p className="mt-6 rounded-2xl border border-dashed border-fg/10 px-5 py-8 text-center text-sm text-muted">
+      <p className="mt-6 rounded-lg border border-dashed border-fg/10 px-5 py-8 text-center text-sm text-muted">
         No moderation activity has been recorded yet.
       </p>
     );
@@ -441,7 +441,7 @@ export function AuditTrail({ logs }: { logs: AuditLog[] }) {
     <ol className="mt-6 space-y-3">
       {logs.map((log) => (
         <li
-          className="rounded-2xl border border-fg/8 bg-fg/[0.025] px-5 py-4"
+          className="rounded-lg border border-fg/8 bg-fg/[0.025] px-5 py-4"
           key={log.id}
         >
           <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
@@ -570,7 +570,7 @@ function AdminMessage({
   title: string;
 }) {
   return (
-    <div className="rounded-[2rem] border border-fg/8 bg-fg/[0.035] px-6 py-16 text-center">
+    <div className="rounded-xl border border-fg/8 bg-fg/[0.035] px-6 py-16 text-center">
       <p className="text-xl font-semibold text-fg">{title}</p>
       {actionHref === '/auth' && actionLabel ? (
         <AuthEntryLink className="mt-6 inline-flex rounded-full bg-fg px-5 py-2.5 text-sm font-bold text-canvas transition hover:bg-accent hover:text-on-accent">

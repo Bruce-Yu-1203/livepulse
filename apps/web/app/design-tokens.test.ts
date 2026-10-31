@@ -129,3 +129,15 @@ describe('design tokens', () => {
     expect(block('.auth-panel')).toContain('background: var(--lp-surface)');
   });
 });
+
+describe('stage framing', () => {
+  it('fills letterboxed streams with a blurred, cropped copy', () => {
+    const fill = block('.stage-fill');
+    expect(fill).toContain('object-fit: cover');
+    expect(fill).toContain('filter: blur(');
+  });
+
+  it('keeps the featured media at 16:9 so covers are not cropped', () => {
+    expect(block('.featured-media')).toContain('aspect-ratio: 16 / 9');
+  });
+});

@@ -89,7 +89,7 @@ export default async function FollowListPage({
               ))}
             </div>
           ) : (
-            <p className="mt-6 rounded-2xl border border-dashed border-fg/10 bg-surface px-6 py-8 text-sm text-muted">
+            <p className="mt-6 rounded-lg border border-dashed border-fg/10 bg-surface px-6 py-8 text-sm text-muted">
               {kind === 'followers'
                 ? 'No followers yet.'
                 : 'Not following anyone yet.'}
