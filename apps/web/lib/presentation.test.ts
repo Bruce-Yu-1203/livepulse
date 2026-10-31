@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  avatarTone,
+  avatarToneCount,
   formatRoomDate,
   normalizeSearchQuery,
   orderRoomsForChannels,
@@ -59,5 +61,16 @@ describe('room presentation', () => {
     expect(roomMonogram('Architecture Lab')).toBe('AL');
     expect(roomMonogram('design critique weekly')).toBe('DC');
     expect(roomMonogram('  ')).toBe('LP');
+  });
+});
+
+describe('avatarTone', () => {
+  it('returns the same tone for the same name and stays in range', () => {
+    expect(avatarTone('Architecture Lab')).toBe(avatarTone('Architecture Lab'));
+    for (const name of ['a', 'Speedrun practice', '水彩', '']) {
+      const tone = avatarTone(name);
+      expect(tone).toBeGreaterThanOrEqual(0);
+      expect(tone).toBeLessThan(avatarToneCount);
+    }
   });
 });

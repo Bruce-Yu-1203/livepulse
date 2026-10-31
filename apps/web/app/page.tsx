@@ -92,11 +92,11 @@ export default async function HomePage({
       <section aria-labelledby="rooms-title" className="home-rooms" id="rooms">
         <div className="home-section-heading">
           <div>
-            <p className="home-section-label">
-              {searchQuery ? 'Search results · Rooms' : 'Find your next room'}
-            </p>
+            {searchQuery ? (
+              <p className="home-section-label">Search results · Rooms</p>
+            ) : null}
             <h2 id="rooms-title">
-              {searchQuery ? `“${searchQuery}”` : "What's happening"}
+              {searchQuery ? `“${searchQuery}”` : 'Browse rooms'}
             </h2>
           </div>
           {searchQuery ? (

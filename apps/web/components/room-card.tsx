@@ -3,6 +3,7 @@ import Link from 'next/link';
 
 import {
   formatRoomDate,
+  avatarTone,
   roomMonogram,
   roomStatusLabel,
 } from '../lib/presentation';
@@ -37,7 +38,10 @@ export function RoomCard({ room }: { room: VisibleRoom }) {
           </span>
         </div>
         <div className="room-card-body">
-          <span aria-hidden="true" className="room-card-avatar">
+          <span
+            aria-hidden="true"
+            className={`room-card-avatar avatar-tone-${avatarTone(room.title)}`}
+          >
             {roomMonogram(room.title)}
           </span>
           <div className="room-card-text">

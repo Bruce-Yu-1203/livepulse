@@ -4,7 +4,11 @@ import type { VisibleRoom } from '@livepulse/contracts';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-import { orderRoomsForChannels, roomMonogram } from '../lib/presentation';
+import {
+  avatarTone,
+  orderRoomsForChannels,
+  roomMonogram,
+} from '../lib/presentation';
 import { formatLikeCount } from '../lib/room-likes';
 
 export const RAIL_COLLAPSED_KEY = 'livepulse-rail-collapsed';
@@ -89,7 +93,7 @@ export function LiveChannelsNav({
                 >
                   <span
                     aria-hidden="true"
-                    className={`channel-avatar ${isLive ? 'channel-avatar-live' : ''}`}
+                    className={`channel-avatar avatar-tone-${avatarTone(room.title)} ${isLive ? 'channel-avatar-live' : 'channel-avatar-ended'}`}
                   >
                     {roomMonogram(room.title)}
                   </span>

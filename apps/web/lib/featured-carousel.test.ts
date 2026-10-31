@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   carouselNeighbors,
+  featuredAutoplayMs,
   selectFeaturedRooms,
   wrapIndex,
 } from './featured-carousel';
@@ -32,5 +33,11 @@ describe('featured carousel', () => {
   it('only exposes neighbors when there is more than one slide', () => {
     expect(carouselNeighbors(0, 1)).toBeUndefined();
     expect(carouselNeighbors(0, 3)).toEqual({ next: 1, previous: 2 });
+  });
+});
+
+describe('featuredAutoplayMs', () => {
+  it('advances slowly enough to read a room', () => {
+    expect(featuredAutoplayMs).toBeGreaterThanOrEqual(5000);
   });
 });
