@@ -1,4 +1,5 @@
 import type { FastifyRequest } from 'fastify';
+import { PATH_METADATA } from '@nestjs/common/constants';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { BetterAuthService } from '../auth/better-auth.service.js';
@@ -6,6 +7,12 @@ import { LiveChannelsController } from './live-channels.controller.js';
 import type { LiveChannelsService } from './live-channels.service.js';
 
 describe('LiveChannelsController', () => {
+  it('uses a top-level route that cannot be captured by rooms/:id', () => {
+    expect(Reflect.getMetadata(PATH_METADATA, LiveChannelsController)).toBe(
+      'live-channels',
+    );
+  });
+
   it('uses the viewer identity when available and includes the request ID', async () => {
     const list = vi.fn().mockResolvedValue([]);
     const principalFromHeaders = vi

@@ -6,6 +6,7 @@ import type { AuthSessionSnapshot } from '../lib/auth-session';
 import { AuthSessionProvider } from './auth-session-provider';
 import {
   groupLiveChannels,
+  LIVE_CHANNELS_ENDPOINT,
   LiveChannelsNav,
   readRailCollapsed,
 } from './live-channels-nav';
@@ -58,6 +59,10 @@ function renderNav(channels: LiveChannel[], session: AuthSessionSnapshot) {
 }
 
 describe('LiveChannelsNav', () => {
+  it('fetches channels from a route outside the room identifier path', () => {
+    expect(LIVE_CHANNELS_ENDPOINT).toBe('/api/v1/live-channels');
+  });
+
   it('shows followed live rooms separately, without repeating them in Popular', () => {
     const followed = channel('followed', {
       following: true,

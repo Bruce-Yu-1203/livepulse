@@ -6,7 +6,7 @@ import type { FastifyRequest } from 'fastify';
 import { BetterAuthService } from '../auth/better-auth.service.js';
 import { LiveChannelsService } from './live-channels.service.js';
 
-@Controller('rooms/channels')
+@Controller('live-channels')
 export class LiveChannelsController {
   public constructor(
     private readonly channels: LiveChannelsService,

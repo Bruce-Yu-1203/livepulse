@@ -12,6 +12,7 @@ import { formatLikeCount } from '../lib/room-likes';
 import { useAuthSession } from './auth-session-provider';
 
 export const RAIL_COLLAPSED_KEY = 'livepulse-rail-collapsed';
+export const LIVE_CHANNELS_ENDPOINT = '/api/v1/live-channels';
 const popularPageSize = 8;
 
 export function readRailCollapsed(raw: string | null): boolean {
@@ -56,7 +57,7 @@ export function LiveChannelsNav({
     const refresh = () => {
       const request = ++latestRequest;
       void clientApiRequest(
-        '/api/v1/rooms/channels',
+        LIVE_CHANNELS_ENDPOINT,
         LiveChannelsResponseSchema,
         { signal: controller.signal },
       )
