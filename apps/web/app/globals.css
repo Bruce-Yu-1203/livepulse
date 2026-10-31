@@ -2901,7 +2901,7 @@ body:has(.auth-modal[open]) {
   font-weight: 700;
 }
 
-.channel-rail-collapsed .channel-popover-host {
+.channel-popover[data-collapsed='true'] .channel-popover-host {
   display: block;
 }
 

@@ -4,6 +4,7 @@ import { LiveChannelsResponseSchema } from '@livepulse/contracts';
 import type { LiveChannel } from '@livepulse/contracts';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { FocusEvent, MouseEvent } from 'react';
 
 import { BROWSE_PATH, categoryName, formatLiveFor } from '../lib/categories';
@@ -188,6 +189,7 @@ export function LiveChannelsNav({
 
 type ChannelPreview = {
   channel: LiveChannel;
+  collapsed: boolean;
   left: number;
   top: number;
 };
@@ -215,11 +217,15 @@ function ChannelGroup({
     delay: number,
   ) => {
     const rect = event.currentTarget.getBoundingClientRect();
+    const collapsed = Boolean(
+      event.currentTarget.closest('.channel-rail-collapsed'),
+    );
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(
       () =>
         setPreview({
           channel,
+          collapsed,
           left: rect.right + 10,
           top: rect.top + rect.height / 2,
         }),
@@ -280,18 +286,31 @@ function ChannelGroup({
           );
         })}
       </ul>
-      {preview ? <ChannelPopover preview={preview} /> : null}
+      {preview
+        ? // Portal out of the rail: its scroll container would clip the card.
+          createPortal(
+            <ChannelPopover collapsed={preview.collapsed} preview={preview} />,
+            document.body,
+          )
+        : null}
     </section>
   );
 }
 
-function ChannelPopover({ preview }: { preview: ChannelPreview }) {
+function ChannelPopover({
+  collapsed,
+  preview,
+}: {
+  collapsed: boolean;
+  preview: ChannelPreview;
+}) {
   const { room, host } = preview.channel;
   const liveFor = formatLiveFor(room.startedAt, Date.now());
   return (
     <div
       aria-hidden="true"
       className="channel-popover"
+      data-collapsed={collapsed}
       style={{ left: preview.left, top: preview.top }}
     >
       <span className="channel-popover-host">{host.name}</span>
