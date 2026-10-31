@@ -389,7 +389,7 @@ describe('POST /api/v1/rooms', () => {
         ),
         roomRecord(
           '11111111-1111-4111-8111-111111111111',
-          otherHosts[0],
+          hostAt(otherHosts, 0),
           'LIVE',
           '2026-10-09T15:00:00.000Z',
         ),
@@ -456,7 +456,7 @@ describe('POST /api/v1/rooms', () => {
         {
           ...roomRecord(
             '22222222-2222-4222-8222-222222222222',
-            otherHosts[0],
+            hostAt(otherHosts, 0),
             'LIVE',
             '2026-10-09T16:00:00.000Z',
           ),
@@ -475,7 +475,7 @@ describe('POST /api/v1/rooms', () => {
         {
           ...roomRecord(
             '44444444-4444-4444-8444-444444444444',
-            otherHosts[1],
+            hostAt(otherHosts, 1),
             'LIVE',
             '2026-10-09T14:00:00.000Z',
           ),
@@ -493,7 +493,7 @@ describe('POST /api/v1/rooms', () => {
         {
           ...roomRecord(
             '66666666-6666-4666-8666-666666666666',
-            otherHosts[2],
+            hostAt(otherHosts, 2),
             'LIVE',
             '2026-10-09T12:00:00.000Z',
           ),
@@ -929,6 +929,12 @@ describe('POST /api/v1/rooms', () => {
 
 function cookiePair(setCookie: string): string {
   return setCookie.split(';', 1)[0] ?? '';
+}
+
+function hostAt(hosts: string[], index: number): string {
+  const id = hosts[index];
+  if (!id) throw new Error(`Missing extra host ${index}`);
+  return id;
 }
 
 async function createHosts(count: number): Promise<string[]> {
