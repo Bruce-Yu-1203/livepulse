@@ -2,12 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { listLiveChannels, listRooms } from './api';
 
-vi.mock('next/headers', () => ({
-  cookies: vi.fn().mockResolvedValue({
-    toString: () => 'better-auth.session_token=abc',
-  }),
-}));
-
 describe('listRooms', () => {
   afterEach(() => vi.unstubAllGlobals());
 
@@ -45,7 +39,9 @@ describe('listLiveChannels', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(listLiveChannels()).resolves.toEqual([]);
+    await expect(
+      listLiveChannels('better-auth.session_token=abc'),
+    ).resolves.toEqual([]);
 
     const [url, init] = fetchMock.mock.calls[0] ?? [];
     expect(url instanceof URL ? url.pathname : url).toBe(

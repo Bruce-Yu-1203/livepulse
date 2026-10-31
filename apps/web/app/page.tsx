@@ -6,13 +6,14 @@ import type {
 import Link from 'next/link';
 
 import { AppShell } from '../components/app-shell';
+import { loadLiveChannels } from '../components/live-channels-loader';
 import { BrandMark } from '../components/brand-mark';
 import { FeaturedCarousel } from '../components/featured-carousel';
 import { HomeAccountAction } from '../components/home-account-action';
 import { RoomCard } from '../components/room-card';
 import { SearchUserCard } from '../components/search-user-card';
 import { StatusNotice } from '../components/status-notice';
-import { listLiveChannels, listRooms, searchSuggestions } from '../lib/api';
+import { listRooms, searchSuggestions } from '../lib/api';
 import { selectFeaturedRooms } from '../lib/featured-carousel';
 import { normalizeSearchQuery } from '../lib/presentation';
 
@@ -33,8 +34,8 @@ export default async function HomePage({
   let roomsUnavailable = false;
   let usersUnavailable = false;
 
-  // listLiveChannels never rejects, so it can load alongside the rooms.
-  const channelsRequest = listLiveChannels();
+  // loadLiveChannels never rejects, so it can load alongside the rooms.
+  const channelsRequest = loadLiveChannels();
   const [roomResult, userResult] = await Promise.allSettled([
     listRooms(cursor, searchQuery),
     searchQuery

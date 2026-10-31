@@ -3,15 +3,11 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { AppShell } from '../../../components/app-shell';
+import { loadLiveChannels } from '../../../components/live-channels-loader';
 import { ProfileFollowControls } from '../../../components/follow-controls';
 import { RoomCard } from '../../../components/room-card';
 import { SearchUserAvatar } from '../../../components/search-user-card';
-import {
-  ApiRequestError,
-  getPublicUser,
-  listLiveChannels,
-  listRooms,
-} from '../../../lib/api';
+import { ApiRequestError, getPublicUser, listRooms } from '../../../lib/api';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,7 +38,7 @@ export default async function PublicUserPage({
     const [{ user }, roomPage, channels] = await Promise.all([
       getPublicUser(id),
       listRooms(cursor, undefined, id),
-      listLiveChannels(),
+      loadLiveChannels(),
     ]);
     return (
       <AppShell channels={channels}>

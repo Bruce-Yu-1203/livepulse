@@ -89,13 +89,14 @@ export async function getRoom(id: string): Promise<GetRoomResponse> {
 }
 
 /**
- * Live channels for the side rail's first render. The viewer's cookies are
- * forwarded so followed hosts are grouped correctly before hydration. A
- * failure returns an empty list; the rail refreshes itself in the browser.
+ * Live channels for the side rail's first render. Pass the viewer's cookie
+ * header so followed hosts are grouped before hydration. A failure returns
+ * an empty list; the rail refreshes itself in the browser.
  */
-export async function listLiveChannels(): Promise<LiveChannel[]> {
+export async function listLiveChannels(
+  cookie?: string,
+): Promise<LiveChannel[]> {
   try {
-    const cookie = await requestCookieHeader();
     const response = await request(
       new URL('/api/v1/live-channels', apiOrigin),
       LiveChannelsResponseSchema,
@@ -104,17 +105,6 @@ export async function listLiveChannels(): Promise<LiveChannel[]> {
     return response.items;
   } catch {
     return [];
-  }
-}
-
-async function requestCookieHeader(): Promise<string | undefined> {
-  try {
-    const { cookies } = await import('next/headers');
-    const header = (await cookies()).toString();
-    return header || undefined;
-  } catch {
-    // Outside a request (tests, static rendering) there are no cookies.
-    return undefined;
   }
 }
 

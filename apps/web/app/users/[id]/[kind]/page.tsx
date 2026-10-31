@@ -3,11 +3,11 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { AppShell } from '../../../../components/app-shell';
+import { loadLiveChannels } from '../../../../components/live-channels-loader';
 import { SearchUserCard } from '../../../../components/search-user-card';
 import {
   ApiRequestError,
   getPublicUser,
-  listLiveChannels,
   listUserFollows,
 } from '../../../../lib/api';
 
@@ -39,7 +39,7 @@ export default async function FollowListPage({
     const [{ user }, list, channels] = await Promise.all([
       getPublicUser(id),
       listUserFollows(id, kind, page),
-      listLiveChannels(),
+      loadLiveChannels(),
     ]);
     const title = kind === 'followers' ? 'Followers' : 'Following';
     return (

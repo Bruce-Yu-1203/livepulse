@@ -4,12 +4,8 @@ import { notFound } from 'next/navigation';
 
 import { LiveRoomExperience } from '../../../components/live-room-experience';
 import { AppShell } from '../../../components/app-shell';
-import {
-  ApiRequestError,
-  getPublicUser,
-  getRoom,
-  listLiveChannels,
-} from '../../../lib/api';
+import { loadLiveChannels } from '../../../components/live-channels-loader';
+import { ApiRequestError, getPublicUser, getRoom } from '../../../lib/api';
 import { formatRoomDate, roomStatusLabel } from '../../../lib/presentation';
 
 export const dynamic = 'force-dynamic';
@@ -40,7 +36,7 @@ export default async function RoomPage({
     const { room } = await getRoom(id);
     const [{ user: host }, channels] = await Promise.all([
       getPublicUser(room.hostId),
-      listLiveChannels(),
+      loadLiveChannels(),
     ]);
     const isLive = room.status === 'LIVE';
 
