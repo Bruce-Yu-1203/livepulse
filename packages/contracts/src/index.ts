@@ -184,3 +184,20 @@ export type {
   ReportReason,
   UpdateReportRequest,
 } from './reports.js';
+
+export {
+  CategorySummarySchema,
+  defaultRoomCategory,
+  findRoomCategory,
+  ListCategoriesResponseSchema,
+  RoomCategorySchema,
+  roomCategories,
+  roomCategorySlugs,
+  toRoomCategory,
+} from './categories.js';
+export type {
+  CategorySummary,
+  ListCategoriesResponse,
+  RoomCategory,
+  RoomCategoryInfo,
+} from './categories.js';

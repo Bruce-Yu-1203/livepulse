@@ -68,6 +68,7 @@ describe('HostBroadcastStudio', () => {
 
 function draftRoom(): Room {
   return {
+    category: 'just-chatting',
     coverImageUrl: null,
     createdAt: '2026-10-19T20:00:00.000Z',
     description: 'A live product demonstration',

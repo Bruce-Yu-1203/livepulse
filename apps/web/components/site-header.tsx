@@ -27,6 +27,12 @@ export function SiteHeader({ searchQuery = '' }: { searchQuery?: string }) {
             >
               Discover
             </Link>
+            <Link
+              className="site-nav-link inline-flex px-3 py-2 text-sm font-semibold"
+              href="/browse"
+            >
+              Browse
+            </Link>
           </nav>
         </div>
 

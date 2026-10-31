@@ -1,9 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type {
   CreateRoomRequest,
+  RoomCategory,
   RoomStatus,
   UpdateRoomRequest,
 } from '@livepulse/contracts';
+import { toRoomCategory } from '@livepulse/contracts';
 import { Prisma } from '@livepulse/db';
 
 import { DatabaseService } from '../database/database.service.js';
@@ -14,7 +16,11 @@ import {
 } from './rooms.errors.js';
 import type { RoomCursor } from './room-cursor.js';
 
-export interface RoomRecord extends Omit<CreateRoomRequest, 'coverImageUrl'> {
+export interface RoomRecord extends Omit<
+  CreateRoomRequest,
+  'category' | 'coverImageUrl'
+> {
+  category: RoomCategory;
   coverImageUrl: string | null;
   createdAt: Date;
   hostId: string;
@@ -54,6 +60,7 @@ export interface RoomsRepository {
     to: Date | undefined;
   }): Promise<RoomRecord[]>;
   listVisible(input: {
+    category?: RoomCategory | undefined;
     cursor: RoomCursor | undefined;
     hostId: string | undefined;
     query: string | undefined;
@@ -76,6 +83,7 @@ export class PrismaRoomsRepository implements RoomsRepository {
     try {
       const room = await this.database.client.room.create({
         data: {
+          ...(input.category ? { category: input.category } : {}),
           coverImageUrl: input.coverImageUrl ?? null,
           description: input.description,
           hostId: input.hostId,
@@ -124,6 +132,7 @@ export class PrismaRoomsRepository implements RoomsRepository {
   }
 
   public async listVisible(input: {
+    category?: RoomCategory | undefined;
     cursor: RoomCursor | undefined;
     hostId: string | undefined;
     query: string | undefined;
@@ -136,6 +145,7 @@ export class PrismaRoomsRepository implements RoomsRepository {
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         take: input.take,
         where: {
+          ...(input.category ? { category: input.category } : {}),
           ...(input.hostId ? { hostId: input.hostId } : {}),
           ...(input.cursor
             ? {
@@ -292,6 +302,9 @@ export class PrismaRoomsRepository implements RoomsRepository {
       const updateRoom = (client: Prisma.TransactionClient) =>
         client.room.update({
           data: {
+            ...(input.changes.category === undefined
+              ? {}
+              : { category: input.changes.category }),
             ...(input.changes.coverImageUrl === undefined
               ? {}
               : { coverImageUrl: input.changes.coverImageUrl }),
@@ -369,10 +382,16 @@ function escapeLikePattern(value: string): string {
   return value.replace(/[\\%_]/gu, '\\$&');
 }
 
-function withLikeCount<T extends { _count: { likes: number } }>(room: T) {
+function withLikeCount<
+  T extends { _count: { likes: number }; category: string },
+>(room: T) {
   const { _count, ...record } = room;
 
-  return { ...record, likeCount: _count.likes };
+  return {
+    ...record,
+    category: toRoomCategory(record.category),
+    likeCount: _count.likes,
+  };
 }
 
 function throwRoomDatabaseError(error: unknown): never {

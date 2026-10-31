@@ -3,16 +3,18 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthSessionProvider } from '../components/auth-session-provider';
-import { listRooms, searchSuggestions } from '../lib/api';
+import { listCategories, listRooms, searchSuggestions } from '../lib/api';
 import HomePage from './page';
 
 vi.mock('../lib/api', () => ({
+  listCategories: vi.fn(),
   listLiveChannels: vi.fn().mockResolvedValue([]),
   listRooms: vi.fn(),
   searchSuggestions: vi.fn(),
 }));
 
 const room: VisibleRoom = {
+  category: 'just-chatting',
   coverImageUrl: null,
   createdAt: '2026-10-09T15:30:00.000Z',
   description: 'A live conversation about making things together.',
@@ -25,9 +27,9 @@ const room: VisibleRoom = {
   version: 1,
 };
 
-async function renderHome(cursor?: string, q?: string) {
+async function renderHome(cursor?: string, q?: string, category?: string) {
   const page = await HomePage({
-    searchParams: Promise.resolve({ cursor, q }),
+    searchParams: Promise.resolve({ category, cursor, q }),
   });
   return renderToStaticMarkup(
     <AuthSessionProvider initialSession={{ status: 'anonymous' }}>
@@ -43,6 +45,29 @@ describe('HomePage', () => {
       requestId: 'test-users',
       rooms: [],
       users: [],
+    });
+    vi.mocked(listCategories).mockResolvedValue({
+      items: [
+        {
+          description: 'Out in the world.',
+          liveCount: 3,
+          name: 'IRL',
+          slug: 'irl',
+        },
+        {
+          description: 'Every kind of game.',
+          liveCount: 1,
+          name: 'Gaming',
+          slug: 'gaming',
+        },
+        {
+          description: 'Workouts and matches.',
+          liveCount: 0,
+          name: 'Sports',
+          slug: 'sports',
+        },
+      ],
+      requestId: 'test-categories',
     });
   });
 
@@ -111,7 +136,13 @@ describe('HomePage', () => {
 
     const html = await renderHome(undefined, '  making  ');
 
-    expect(listRooms).toHaveBeenCalledWith(undefined, 'making');
+    expect(listRooms).toHaveBeenCalledWith(
+      undefined,
+      'making',
+      undefined,
+      undefined,
+    );
+    expect(listCategories).not.toHaveBeenCalled();
     expect(listRooms).toHaveBeenCalledTimes(1);
     expect(html).toContain('Open The Making Room');
     expect(html).not.toContain('class="channel-name">Night Market');
@@ -147,5 +178,57 @@ describe('HomePage', () => {
     expect(html).toContain('Jamie Rivers');
     expect(html).toContain('/users/aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa');
     expect(html).not.toContain('No matching users or rooms');
+  });
+
+  it('shows busy categories and category filters on the landing page', async () => {
+    vi.mocked(listRooms).mockResolvedValue({
+      items: [room],
+      nextCursor: null,
+      requestId: 'test-categories-home',
+    });
+
+    const html = await renderHome();
+
+    expect(html).toContain('Browse by category');
+    expect(html).toContain('href="/browse/irl"');
+    expect(html).toContain('IRL: 3 live');
+    // Categories with nobody live stay off the landing row.
+    expect(html).not.toContain('href="/browse/sports"');
+    expect(html).toContain('href="/browse"');
+    expect(html).toContain('aria-label="Filter rooms by category"');
+    expect(html).toMatch(/aria-current="true"[^>]*href="\/#rooms"/);
+    expect(html).toContain('href="/?category=sports#rooms"');
+  });
+
+  it('filters rooms by a category from the query string', async () => {
+    vi.mocked(listRooms).mockResolvedValue({
+      items: [{ ...room, category: 'gaming' }],
+      nextCursor: 'more',
+      requestId: 'test-gaming',
+    });
+
+    const html = await renderHome(undefined, undefined, 'gaming');
+
+    expect(listRooms).toHaveBeenCalledWith(undefined, '', undefined, 'gaming');
+    expect(listCategories).not.toHaveBeenCalled();
+    expect(html).toContain('<h2 id="rooms-title">Gaming</h2>');
+    expect(html).toMatch(
+      /aria-current="true"[^>]*href="\/\?category=gaming#rooms"/,
+    );
+    expect(html).not.toContain('aria-roledescription="carousel"');
+    expect(html).toContain('category=gaming');
+    expect(html).toContain('cursor=more');
+  });
+
+  it('ignores unknown categories', async () => {
+    vi.mocked(listRooms).mockResolvedValue({
+      items: [room],
+      nextCursor: null,
+      requestId: 'test-unknown',
+    });
+
+    await renderHome(undefined, undefined, 'not-real');
+
+    expect(listRooms).toHaveBeenCalledWith(undefined, '', undefined, undefined);
   });
 });

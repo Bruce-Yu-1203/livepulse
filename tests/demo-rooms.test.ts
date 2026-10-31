@@ -1,6 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { RegistrationUsernameSchema } from '@livepulse/contracts';
+import {
+  RegistrationUsernameSchema,
+  RoomCategorySchema,
+} from '@livepulse/contracts';
 import { describe, expect, it } from 'vitest';
 
 // @ts-expect-error -- plain ESM seed data without type declarations
@@ -8,6 +11,7 @@ import { demoHosts, demoRooms } from '../packages/db/prisma/demo-rooms.mjs';
 
 type DemoHost = { email: string; id: string; name: string; username: string };
 type DemoRoom = {
+  category: string;
   coverImageUrl: string | null;
   description: string;
   hostId: string;
@@ -33,10 +37,22 @@ describe('demo room seed', () => {
       expect(room.title.length).toBeLessThanOrEqual(120);
       expect(room.description.length).toBeLessThanOrEqual(2000);
       expect(['LIVE', 'ENDED']).toContain(room.status);
+      expect(RoomCategorySchema.safeParse(room.category).success).toBe(true);
       if (room.coverImageUrl) {
         expect(room.coverImageUrl).toMatch(/^https:\/\//);
       }
     }
+  });
+
+  it('spreads live rooms across several categories', () => {
+    const liveCategories = new Set(
+      rooms
+        .filter((room) => room.status === 'LIVE')
+        .map((room) => room.category),
+    );
+    expect(liveCategories.size).toBeGreaterThanOrEqual(6);
+    expect(liveCategories.has('irl')).toBe(true);
+    expect(liveCategories.has('gaming')).toBe(true);
   });
 
   it('gives every room a demo host and each host at most one live room', () => {

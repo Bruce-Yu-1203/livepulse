@@ -10,6 +10,7 @@ import {
   GetPublicUserResponseSchema,
   ListOwnedRoomsResponseSchema,
   ListBroadcastHistoryResponseSchema,
+  ListCategoriesResponseSchema,
   ListRoomsResponseSchema,
   MuteRoomUserResponseSchema,
   RoomLikeResponseSchema,
@@ -202,6 +203,81 @@ describe('POST /api/v1/rooms', () => {
     expect(ApiErrorResponseSchema.parse(reverseResponse.json()).code).toBe(
       ApiErrorCode.RoomInvalidTransition,
     );
+  });
+
+  it('stores room categories, filters by them and counts live rooms', async () => {
+    const headers = await authenticatedHeaders('host@example.com');
+    const defaulted = CreateRoomResponseSchema.parse(
+      (await createRoom(headers, roomInput)).json(),
+    ).room;
+    expect(defaulted.category).toBe('just-chatting');
+
+    const invalid = await createRoom(headers, {
+      ...roomInput,
+      category: 'not-a-category',
+    });
+    expect(invalid.statusCode).toBe(400);
+
+    const created = CreateRoomResponseSchema.parse(
+      (await createRoom(headers, { ...roomInput, category: 'irl' })).json(),
+    ).room;
+    expect(created.category).toBe('irl');
+    const live = UpdateRoomResponseSchema.parse(
+      (
+        await updateRoom(headers, created.id, {
+          expectedVersion: created.version,
+          status: 'LIVE',
+        })
+      ).json(),
+    ).room;
+
+    // Hosts can recategorise while live.
+    const moved = UpdateRoomResponseSchema.parse(
+      (
+        await updateRoom(headers, created.id, {
+          category: 'gaming',
+          expectedVersion: live.version,
+        })
+      ).json(),
+    ).room;
+    expect(moved).toMatchObject({ category: 'gaming', status: 'LIVE' });
+
+    const server = app.getHttpAdapter().getInstance();
+    const gaming = ListRoomsResponseSchema.parse(
+      (
+        await server.inject({
+          method: 'GET',
+          url: '/api/v1/rooms?category=gaming',
+        })
+      ).json(),
+    );
+    expect(gaming.items.map(({ id }) => id)).toEqual([created.id]);
+    const irl = ListRoomsResponseSchema.parse(
+      (
+        await server.inject({
+          method: 'GET',
+          url: '/api/v1/rooms?category=irl',
+        })
+      ).json(),
+    );
+    expect(irl.items).toEqual([]);
+    const badFilter = await server.inject({
+      method: 'GET',
+      url: '/api/v1/rooms?category=nope',
+    });
+    expect(badFilter.statusCode).toBe(400);
+
+    const categories = ListCategoriesResponseSchema.parse(
+      (
+        await server.inject({ method: 'GET', url: '/api/v1/categories' })
+      ).json(),
+    );
+    expect(categories.items[0]).toMatchObject({ liveCount: 1, slug: 'gaming' });
+    expect(categories.items).toHaveLength(9);
+
+    await expect(
+      database.$executeRaw`UPDATE rooms SET category = 'bogus' WHERE id = ${created.id}::uuid`,
+    ).rejects.toThrow();
   });
 
   it('rejects a second live room for one host at the database level', async () => {

@@ -1,4 +1,6 @@
+import { roomCategories } from '@livepulse/contracts';
 import type {
+  CategorySummary,
   ListRoomsResponse,
   SearchUser,
   VisibleRoom,
@@ -8,12 +10,18 @@ import Link from 'next/link';
 import { AppShell } from '../components/app-shell';
 import { loadLiveChannels } from '../components/live-channels-loader';
 import { BrandMark } from '../components/brand-mark';
+import { CategoryTile } from '../components/category-tile';
 import { FeaturedCarousel } from '../components/featured-carousel';
 import { HomeAccountAction } from '../components/home-account-action';
 import { RoomCard } from '../components/room-card';
 import { SearchUserCard } from '../components/search-user-card';
 import { StatusNotice } from '../components/status-notice';
-import { listRooms, searchSuggestions } from '../lib/api';
+import { listCategories, listRooms, searchSuggestions } from '../lib/api';
+import {
+  BROWSE_PATH,
+  categoryName,
+  parseCategoryParam,
+} from '../lib/categories';
 import { selectFeaturedRooms } from '../lib/featured-carousel';
 import { normalizeSearchQuery } from '../lib/presentation';
 
@@ -22,10 +30,13 @@ export const dynamic = 'force-dynamic';
 export default async function HomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ cursor?: string; q?: string }>;
+  searchParams: Promise<{ category?: string; cursor?: string; q?: string }>;
 }) {
-  const { cursor, q } = await searchParams;
+  const { category: rawCategory, cursor, q } = await searchParams;
   const searchQuery = normalizeSearchQuery(q);
+  // Search spans every category, so a category filter only applies without one.
+  const category = searchQuery ? undefined : parseCategoryParam(rawCategory);
+  const showDiscovery = !searchQuery && !category;
   let page: Pick<ListRoomsResponse, 'items' | 'nextCursor'> = {
     items: [],
     nextCursor: null,
@@ -36,11 +47,12 @@ export default async function HomePage({
 
   // loadLiveChannels never rejects, so it can load alongside the rooms.
   const channelsRequest = loadLiveChannels();
-  const [roomResult, userResult] = await Promise.allSettled([
-    listRooms(cursor, searchQuery),
+  const [roomResult, userResult, categoryResult] = await Promise.allSettled([
+    listRooms(cursor, searchQuery, undefined, category),
     searchQuery
       ? searchSuggestions(searchQuery, 10)
       : Promise.resolve(undefined),
+    showDiscovery ? listCategories() : Promise.resolve(undefined),
   ]);
   const channels = await channelsRequest;
   if (roomResult.status === 'fulfilled') {
@@ -54,6 +66,13 @@ export default async function HomePage({
     usersUnavailable = true;
   }
 
+  const busyCategories: CategorySummary[] =
+    categoryResult.status === 'fulfilled'
+      ? (categoryResult.value?.items ?? [])
+          .filter((item) => item.liveCount > 0)
+          .slice(0, 6)
+      : [];
+
   const rooms = page.items;
   const liveRooms = rooms.filter((room) => room.status === 'LIVE');
   const endedRooms = rooms.filter((room) => room.status !== 'LIVE');
@@ -64,9 +83,25 @@ export default async function HomePage({
       mainClassName="home-page"
       searchQuery={searchQuery}
     >
-      {searchQuery || roomsUnavailable ? null : (
+      {!showDiscovery || roomsUnavailable ? null : (
         <FeaturedCarousel rooms={selectFeaturedRooms(page.items)} />
       )}
+
+      {showDiscovery && busyCategories.length > 0 ? (
+        <section aria-labelledby="categories-title" className="home-categories">
+          <div className="home-categories-heading">
+            <h2 className="home-shelf-title" id="categories-title">
+              Browse by category
+            </h2>
+            <Link href={BROWSE_PATH}>All categories →</Link>
+          </div>
+          <div className="category-grid">
+            {busyCategories.map((item) => (
+              <CategoryTile category={item} key={item.slug} />
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {searchQuery && (users.length > 0 || usersUnavailable) ? (
         <section aria-labelledby="users-title" className="home-users">
@@ -94,7 +129,11 @@ export default async function HomePage({
               <p className="home-section-label">Search results · Rooms</p>
             ) : null}
             <h2 id="rooms-title">
-              {searchQuery ? `“${searchQuery}”` : 'Browse rooms'}
+              {searchQuery
+                ? `“${searchQuery}”`
+                : category
+                  ? categoryName(category)
+                  : 'Browse rooms'}
             </h2>
           </div>
           {searchQuery ? (
@@ -107,6 +146,31 @@ export default async function HomePage({
             <HomeAccountAction />
           )}
         </div>
+
+        {searchQuery ? null : (
+          <nav
+            aria-label="Filter rooms by category"
+            className="category-filters"
+          >
+            <Link
+              aria-current={category ? undefined : 'true'}
+              className="category-filter"
+              href="/#rooms"
+            >
+              All
+            </Link>
+            {roomCategories.map((item) => (
+              <Link
+                aria-current={item.slug === category ? 'true' : undefined}
+                className="category-filter"
+                href={`/?category=${item.slug}#rooms`}
+                key={item.slug}
+              >
+                {item.name}
+              </Link>
+            ))}
+          </nav>
+        )}
 
         {roomsUnavailable ? (
           <div
@@ -136,12 +200,18 @@ export default async function HomePage({
             </span>
             <div>
               <h3>
-                {searchQuery ? 'No matching users or rooms' : 'No rooms yet'}
+                {searchQuery
+                  ? 'No matching users or rooms'
+                  : category
+                    ? `No rooms in ${categoryName(category)} yet`
+                    : 'No rooms yet'}
               </h3>
               <p>
                 {searchQuery
                   ? 'Try another word, or clear the search to see every room.'
-                  : 'Live and past sessions will appear here when hosts publish them.'}
+                  : category
+                    ? 'Pick another category, or show all rooms.'
+                    : 'Live and past sessions will appear here when hosts publish them.'}
               </p>
             </div>
           </div>
@@ -155,6 +225,7 @@ export default async function HomePage({
                 query: {
                   cursor: page.nextCursor,
                   ...(searchQuery ? { q: searchQuery } : {}),
+                  ...(category ? { category } : {}),
                 },
               }}
             >

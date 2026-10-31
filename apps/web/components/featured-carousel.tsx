@@ -17,6 +17,7 @@ import {
 } from '../lib/presentation';
 import { formatLikeCount } from '../lib/room-likes';
 import { BrandMark } from './brand-mark';
+import { CategoryChip } from './category-chip';
 
 type Direction = 'next' | 'previous';
 
@@ -143,6 +144,7 @@ export function FeaturedCarousel({ rooms }: { rooms: VisibleRoom[] }) {
             </div>
             <h2>{current.title}</h2>
             <p>{current.description}</p>
+            <CategoryChip category={current.category} />
             <div className="featured-actions">
               <span className="featured-likes">
                 {formatLikeCount(current.likeCount)} likes

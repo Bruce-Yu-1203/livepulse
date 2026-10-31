@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { RoomCard } from './room-card';
 
 const room: VisibleRoom = {
+  category: 'just-chatting',
   coverImageUrl: 'https://cdn.example.com/cover.jpg',
   createdAt: '2026-10-09T15:30:00.000Z',
   description: 'Learn distributed systems with a live audience.',
@@ -37,6 +38,16 @@ describe('RoomCard', () => {
     expect(html).toContain('24 likes');
   });
 
+  it('labels the category without nesting a link inside the card link', () => {
+    const html = renderToStaticMarkup(
+      createElement(RoomCard, { room: { ...room, category: 'gaming' } }),
+    );
+
+    expect(html).toContain('<span class="category-chip">');
+    expect(html).toContain('Gaming');
+    expect(html).not.toContain('href="/browse/gaming"');
+  });
+
   it('shows replay status and artwork when a room has no cover', () => {
     const html = renderToStaticMarkup(
       createElement(RoomCard, {
@@ -55,6 +66,7 @@ describe('RoomCard avatar', () => {
     const markup = renderToStaticMarkup(
       <RoomCard
         room={{
+          category: 'just-chatting',
           coverImageUrl: null,
           createdAt: '2026-10-09T15:30:00.000Z',
           description: 'd',
