@@ -399,7 +399,7 @@ export function AuthPanel({
   const pending = status.kind === 'pending';
 
   return (
-    <section className="auth-panel w-full max-w-md rounded-2xl border p-6 sm:p-8">
+    <section className="auth-panel w-full max-w-md rounded-lg border p-6 sm:p-8">
       <div className="auth-tab-list grid grid-cols-2 rounded-full bg-sunken p-1 text-sm">
         <ModeButton
           active={mode === 'login'}
@@ -434,7 +434,7 @@ export function AuthPanel({
       {mode === 'login' ? (
         <>
           <button
-            className="auth-google mt-8 flex w-full items-center justify-center gap-3 rounded-2xl border border-fg/15 bg-fg px-5 py-3.5 font-semibold text-canvas transition hover:bg-fg/85 disabled:cursor-not-allowed disabled:opacity-50"
+            className="auth-google mt-8 flex w-full items-center justify-center gap-3 rounded-lg border border-fg/15 bg-fg px-5 py-3.5 font-semibold text-canvas transition hover:bg-fg/85 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={google.loading || !google.enabled || pending}
             onClick={() => void signInWithGoogle()}
             type="button"
@@ -528,7 +528,7 @@ export function AuthPanel({
               }
               aria-invalid={Boolean(fieldErrors.username)}
               autoComplete="username"
-              className="auth-input mt-2 w-full rounded-2xl border border-fg/10 bg-sunken px-4 py-3.5 text-fg outline-none transition placeholder:text-subtle focus:border-accent/60 focus:ring-4 focus:ring-accent/10"
+              className="auth-input mt-2 w-full rounded-lg border border-fg/10 bg-sunken px-4 py-3.5 text-fg outline-none transition placeholder:text-subtle focus:border-accent/60 focus:ring-4 focus:ring-accent/10"
               maxLength={30}
               minLength={5}
               name="username"
@@ -580,7 +580,7 @@ export function AuthPanel({
               aria-describedby={fieldErrors.code ? codeErrorId : undefined}
               aria-invalid={Boolean(fieldErrors.code)}
               autoComplete="one-time-code"
-              className="auth-input mt-2 w-full rounded-2xl border border-fg/10 bg-sunken px-4 py-3.5 text-center text-xl tracking-[0.3em] text-fg outline-none transition placeholder:text-subtle focus:border-accent/60 focus:ring-4 focus:ring-accent/10"
+              className="auth-input mt-2 w-full rounded-lg border border-fg/10 bg-sunken px-4 py-3.5 text-center text-xl tracking-[0.3em] text-fg outline-none transition placeholder:text-subtle focus:border-accent/60 focus:ring-4 focus:ring-accent/10"
               inputMode="numeric"
               maxLength={6}
               name="code"
@@ -661,7 +661,7 @@ function EmailField({
           aria-describedby={error ? emailErrorId : undefined}
           aria-invalid={Boolean(error)}
           autoComplete="email"
-          className="auth-input mt-2 w-full rounded-2xl border border-fg/10 bg-sunken px-4 py-3.5 text-fg outline-none transition placeholder:text-subtle focus:border-accent/60 focus:ring-4 focus:ring-accent/10"
+          className="auth-input mt-2 w-full rounded-lg border border-fg/10 bg-sunken px-4 py-3.5 text-fg outline-none transition placeholder:text-subtle focus:border-accent/60 focus:ring-4 focus:ring-accent/10"
           name="email"
           onChange={(event) => onChange(event.currentTarget.value)}
           placeholder="you@example.com"
@@ -704,7 +704,7 @@ function PasswordField({
           aria-describedby={error ? errorId : undefined}
           aria-invalid={Boolean(error)}
           autoComplete={registration ? 'new-password' : 'current-password'}
-          className="auth-input w-full rounded-2xl border border-fg/10 bg-sunken px-4 py-3.5 pr-14 text-fg outline-none transition placeholder:text-subtle focus:border-accent/60 focus:ring-4 focus:ring-accent/10"
+          className="auth-input w-full rounded-lg border border-fg/10 bg-sunken px-4 py-3.5 pr-14 text-fg outline-none transition placeholder:text-subtle focus:border-accent/60 focus:ring-4 focus:ring-accent/10"
           id={id}
           name="password"
           onChange={(event) => onChange(event.currentTarget.value)}
@@ -775,7 +775,7 @@ function SubmitButton({
 }) {
   return (
     <button
-      className="auth-submit w-full rounded-2xl bg-accent px-5 py-3.5 font-bold text-on-accent transition hover:bg-accent-hover disabled:cursor-wait disabled:opacity-60"
+      className="auth-submit w-full rounded-lg bg-accent px-5 py-3.5 font-bold text-on-accent transition hover:bg-accent-hover disabled:cursor-wait disabled:opacity-60"
       disabled={pending}
       type="submit"
     >

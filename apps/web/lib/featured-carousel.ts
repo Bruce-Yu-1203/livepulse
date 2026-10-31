@@ -2,6 +2,9 @@ import type { VisibleRoom } from '@livepulse/contracts';
 
 export const featuredRoomLimit = 5;
 
+/** How long each featured room stays before the carousel advances. */
+export const featuredAutoplayMs = 6000;
+
 export function selectFeaturedRooms<T extends Pick<VisibleRoom, 'status'>>(
   rooms: T[],
   limit = featuredRoomLimit,

@@ -49,3 +49,26 @@ describe('RoomCard', () => {
     expect(html).not.toContain('<img');
   });
 });
+
+describe('RoomCard avatar', () => {
+  it('uses a stable colour tone for the monogram', () => {
+    const markup = renderToStaticMarkup(
+      <RoomCard
+        room={{
+          coverImageUrl: null,
+          createdAt: '2026-10-09T15:30:00.000Z',
+          description: 'd',
+          hostId: 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',
+          id: 'one',
+          likeCount: 1,
+          status: 'LIVE',
+          title: 'Architecture Lab',
+          updatedAt: '2026-10-09T15:30:00.000Z',
+          version: 1,
+        }}
+      />,
+    );
+
+    expect(markup).toMatch(/room-card-avatar avatar-tone-\d/);
+  });
+});

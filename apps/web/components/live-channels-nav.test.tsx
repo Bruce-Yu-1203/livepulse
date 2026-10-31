@@ -75,3 +75,17 @@ describe('LiveChannelsNav', () => {
     expect(readRailCollapsed(null)).toBe(false);
   });
 });
+
+describe('LiveChannelsNav avatars', () => {
+  it('colours avatars by room name and dims ended rooms', () => {
+    const markup = renderNav([
+      room({ id: 'live-room' }),
+      room({ id: 'ended-room', status: 'ENDED', title: 'Old Stream' }),
+    ]);
+
+    expect(markup).toMatch(/channel-avatar avatar-tone-\d channel-avatar-live/);
+    expect(markup).toMatch(
+      /channel-avatar avatar-tone-\d channel-avatar-ended/,
+    );
+  });
+});

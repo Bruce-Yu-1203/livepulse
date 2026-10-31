@@ -38,15 +38,35 @@ describe('FeaturedCarousel', () => {
     expect(markup).toContain('class="featured-watch" href="/rooms/one"');
   });
 
+  it('shows a pager with one dot per room and names the next room', () => {
+    const markup = renderToStaticMarkup(
+      <FeaturedCarousel
+        rooms={[
+          room('one', 'First'),
+          room('two', 'Second'),
+          room('three', 'Third'),
+        ]}
+      />,
+    );
+
+    expect(markup).toContain('aria-label="Show First"');
+    expect(markup).toContain('aria-label="Show Third"');
+    expect(markup).toContain('aria-current="true"');
+    expect(markup).toContain('featured-dot-progress');
+    expect(markup).toMatch(/Up next:(?: |<!-- -->)+Second/);
+    expect(markup).toContain('featured-slide-next');
+  });
+
   it('hides navigation when only one room is featured', () => {
     const markup = renderToStaticMarkup(
       <FeaturedCarousel rooms={[room('one', 'First')]} />,
     );
 
     expect(markup).not.toContain('Next featured room');
+    expect(markup).not.toContain('featured-pager');
   });
 
-  it('prioritizes the visible cover and defers neighboring covers', () => {
+  it('loads only the visible cover, at full priority and 16:9 size', () => {
     const markup = renderToStaticMarkup(
       <FeaturedCarousel
         rooms={[
@@ -64,11 +84,9 @@ describe('FeaturedCarousel', () => {
 
     expect(markup).toContain('fetchPriority="high"');
     expect(markup).toContain('loading="eager"');
-    expect(markup).toContain('loading="lazy"');
     expect(markup).toContain('width="1280"');
     expect(markup).toContain('height="720"');
-    expect(markup).toContain('width="640"');
-    expect(markup).toContain('height="360"');
+    expect(markup).not.toContain('two.jpg');
   });
 
   it('uses an accurate destination label for ended rooms', () => {

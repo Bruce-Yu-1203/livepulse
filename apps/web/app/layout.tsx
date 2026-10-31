@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Bricolage_Grotesque, Hanken_Grotesk } from 'next/font/google';
+import { Schibsted_Grotesk } from 'next/font/google';
 import type { ReactNode } from 'react';
 
 import { AuthSessionProvider } from '../components/auth-session-provider';
@@ -7,12 +7,14 @@ import { AuthDialogProvider } from '../components/auth-dialog-provider';
 import { themeInitScript } from '../lib/theme';
 import './globals.css';
 
-const displayFont = Bricolage_Grotesque({
+// One family carries the whole interface; both CSS variables point at it so
+// existing display/body hooks keep working.
+const displayFont = Schibsted_Grotesk({
   subsets: ['latin'],
   variable: '--lp-font-display',
 });
 
-const bodyFont = Hanken_Grotesk({
+const bodyFont = Schibsted_Grotesk({
   subsets: ['latin'],
   variable: '--lp-font-body',
 });

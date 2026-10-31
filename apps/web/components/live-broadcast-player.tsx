@@ -128,11 +128,22 @@ export function LiveBroadcastPlayer({
   return (
     <div className="relative aspect-video min-h-64 overflow-hidden bg-stage">
       {mainTrack ? (
-        <LiveKitVideo
-          className="h-full w-full object-contain"
-          paused={paused}
-          track={mainTrack}
-        />
+        <>
+          {/* A blurred, cropped copy fills the letterbox around streams that are
+              not 16:9 (vertical phones, 4:3 cameras) so the frame never shows
+              hard black bars. The sharp copy is never cropped. */}
+          <LiveKitVideo
+            className="stage-fill"
+            muted
+            paused={paused}
+            track={mainTrack}
+          />
+          <LiveKitVideo
+            className="relative z-[1] h-full w-full object-contain"
+            paused={paused}
+            track={mainTrack}
+          />
+        </>
       ) : (
         <div
           className="absolute inset-0 bg-cover bg-center"
@@ -157,7 +168,7 @@ export function LiveBroadcastPlayer({
       )}
 
       {cameraOverlay ? (
-        <div className="absolute right-4 top-4 z-10 aspect-video w-[28%] min-w-28 max-w-72 overflow-hidden rounded-2xl border border-white/20 bg-black shadow-2xl shadow-black/60">
+        <div className="absolute right-4 top-4 z-10 aspect-video w-[28%] min-w-28 max-w-72 overflow-hidden rounded-lg border border-white/20 bg-black shadow-2xl shadow-black/60">
           <LiveKitVideo
             className="h-full w-full object-cover"
             paused={paused}

@@ -97,7 +97,12 @@ export function FollowButton({
         onClick={() => void toggle()}
         type="button"
       >
-        {state?.following ? 'Unfollow' : 'Follow'}
+        <span
+          className="follow-label"
+          key={state?.following ? 'following' : 'follow'}
+        >
+          {state?.following ? 'Following' : 'Follow'}
+        </span>
         {pending ? (
           <span className="ml-2 text-xs opacity-70">Saving…</span>
         ) : null}

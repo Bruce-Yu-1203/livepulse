@@ -10,6 +10,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { appendedChatMessageCount, isNearChatBottom } from '../lib/chat-scroll';
+import { isChatBurst, recentArrivals } from '../lib/chat-motion';
 import { clientApiRequest } from '../lib/client-api';
 import {
   danmakuLayout,
@@ -62,6 +63,22 @@ export function LiveRoomExperience({
   const stageRef = useRef<HTMLDivElement>(null);
   const chatListRef = useRef<HTMLDivElement>(null);
   const lastMessageIdRef = useRef<string>(undefined);
+  const arrivalTimesRef = useRef<number[]>([]);
+  const [chatBurst, setChatBurst] = useState(false);
+  const messageCount = chat.messages.length;
+
+  // Track how fast messages arrive; entry motion pauses during a burst.
+  useEffect(() => {
+    if (messageCount === 0) {
+      return;
+    }
+    const now = Date.now();
+    arrivalTimesRef.current = [
+      ...recentArrivals(arrivalTimesRef.current, now),
+      now,
+    ];
+    setChatBurst(isChatBurst(arrivalTimesRef.current, now));
+  }, [messageCount]);
   const nearChatBottomRef = useRef(true);
   const historyScrollRef = useRef<{ scrollHeight: number; scrollTop: number }>(
     undefined,
@@ -201,7 +218,7 @@ export function LiveRoomExperience({
   return (
     <>
       <div
-        className={`mt-7 grid overflow-hidden rounded-[2rem] border border-fg/10 bg-surface shadow-2xl shadow-black/20 ${
+        className={`mt-7 grid overflow-hidden rounded-xl border border-fg/10 bg-surface shadow-[var(--lp-shadow)] ${
           chatCollapsed ? '' : 'lg:grid-cols-[minmax(0,1fr)_23rem]'
         }`}
       >
@@ -314,7 +331,7 @@ export function LiveRoomExperience({
         </div>
 
         <aside
-          className="room-chat-panel flex min-h-[30rem] flex-col border-t border-fg/10 bg-surface lg:border-l lg:border-t-0"
+          className="room-chat-panel flex min-h-[30rem] flex-col border-t border-fg/10 bg-surface lg:min-h-0 lg:border-l lg:border-t-0 lg:[contain:size]"
           hidden={chatCollapsed}
         >
           <div className="flex items-center justify-between border-b border-fg/8 px-5 py-4">
@@ -371,7 +388,7 @@ export function LiveRoomExperience({
           <div className="relative min-h-0 flex-1">
             <div
               aria-live="polite"
-              className="room-chat-list h-full space-y-1 overflow-y-auto px-3 py-4 lg:max-h-[31rem]"
+              className={`room-chat-list h-full space-y-1 overflow-y-auto px-3 py-4 lg:max-h-[31rem] ${chatBurst ? 'room-chat-list-busy' : ''}`}
               onScroll={(event) => {
                 nearChatBottomRef.current = isNearChatBottom(
                   event.currentTarget,
@@ -421,18 +438,18 @@ export function LiveRoomExperience({
 
           <div className="border-t border-fg/8 p-4">
             {roomChatIsClosed(room.status, chat.connection) ? (
-              <p className="rounded-2xl bg-fg/5 px-4 py-3 text-center text-sm text-muted">
+              <p className="rounded-lg bg-fg/5 px-4 py-3 text-center text-sm text-muted">
                 Chat closed when this broadcast ended.
               </p>
             ) : chat.authChecked && !chat.userId ? (
-              <AuthEntryLink className="block rounded-2xl bg-fg px-4 py-3 text-center text-sm font-bold text-canvas transition hover:bg-accent hover:text-on-accent">
+              <AuthEntryLink className="block rounded-lg bg-accent px-4 py-3 text-center text-sm font-semibold text-on-accent transition hover:bg-accent-hover">
                 Sign in to chat
               </AuthEntryLink>
             ) : (
               <form className="flex gap-2" onSubmit={submit}>
                 <input
                   aria-label="Chat message"
-                  className="min-w-0 flex-1 rounded-2xl border border-fg/10 bg-sunken px-4 py-3 text-sm text-fg outline-none placeholder:text-subtle focus:border-accent/50"
+                  className="min-w-0 flex-1 rounded-lg border border-fg/10 bg-sunken px-4 py-3 text-sm text-fg outline-none placeholder:text-subtle focus:border-accent/50"
                   disabled={!chat.userId || chat.connection !== 'connected'}
                   maxLength={200}
                   name="message"
@@ -440,7 +457,7 @@ export function LiveRoomExperience({
                   required
                 />
                 <button
-                  className="min-h-11 rounded-2xl bg-accent px-4 py-3 text-sm font-bold text-on-accent transition hover:bg-accent-hover disabled:cursor-wait disabled:opacity-40"
+                  className="min-h-11 rounded-lg bg-accent px-4 py-3 text-sm font-bold text-on-accent transition hover:bg-accent-hover disabled:cursor-wait disabled:opacity-40"
                   disabled={!chat.userId || chat.connection !== 'connected'}
                   type="submit"
                 >

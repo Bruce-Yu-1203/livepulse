@@ -482,7 +482,7 @@ export function HostBroadcastStudio({
         </span>
       </div>
 
-      <div className="grid overflow-hidden rounded-3xl border border-fg/10 bg-surface xl:grid-cols-[minmax(0,1fr)_19rem]">
+      <div className="grid overflow-hidden rounded-xl border border-fg/10 bg-surface xl:grid-cols-[minmax(0,1fr)_19rem]">
         <div className="relative aspect-video min-h-64 bg-stage">
           {mainTrack ? (
             <LiveKitVideo
@@ -518,7 +518,7 @@ export function HostBroadcastStudio({
 
           {cameraOverlay &&
           cameraUsesOverlay({ camera: true, screen: true }) ? (
-            <div className="absolute right-4 top-4 aspect-video w-[28%] min-w-28 max-w-64 overflow-hidden rounded-2xl border border-white/20 bg-black shadow-2xl shadow-black/60">
+            <div className="absolute right-4 top-4 aspect-video w-[28%] min-w-28 max-w-64 overflow-hidden rounded-lg border border-white/20 bg-black shadow-2xl shadow-black/60">
               <LiveKitVideo
                 className="h-full w-full object-cover"
                 muted
@@ -582,7 +582,7 @@ export function HostBroadcastStudio({
           />
 
           <button
-            className="w-full rounded-2xl border border-fg/10 px-4 py-2.5 text-xs font-semibold text-fg-soft transition hover:border-accent/40 hover:text-accent disabled:opacity-50"
+            className="w-full rounded-lg border border-fg/10 px-4 py-2.5 text-xs font-semibold text-fg-soft transition hover:border-accent/40 hover:text-accent disabled:opacity-50"
             disabled={pending || captureTarget !== undefined}
             onClick={() => void loadDevices(true)}
             type="button"
@@ -592,7 +592,7 @@ export function HostBroadcastStudio({
 
           {connected ? (
             <button
-              className="w-full rounded-2xl bg-danger px-4 py-3 text-sm font-bold text-on-accent transition hover:bg-danger-hover disabled:cursor-wait disabled:opacity-50"
+              className="w-full rounded-lg bg-danger px-4 py-3 text-sm font-bold text-on-accent transition hover:bg-danger-hover disabled:cursor-wait disabled:opacity-50"
               disabled={disabled || pending}
               onClick={() => void endBroadcast()}
               type="button"
@@ -602,7 +602,7 @@ export function HostBroadcastStudio({
           ) : (
             <div className="space-y-2">
               <button
-                className="w-full rounded-2xl bg-accent px-4 py-3 text-sm font-bold text-on-accent transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+                className="w-full rounded-lg bg-accent px-4 py-3 text-sm font-bold text-on-accent transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
                 disabled={
                   disabled ||
                   pending ||
@@ -629,7 +629,7 @@ export function HostBroadcastStudio({
               ) : null}
               {room?.status === 'LIVE' ? (
                 <button
-                  className="w-full rounded-2xl border border-danger/25 bg-danger/10 px-4 py-3 text-sm font-bold text-danger transition hover:bg-danger/15 disabled:cursor-wait disabled:opacity-50"
+                  className="w-full rounded-lg border border-danger/25 bg-danger/10 px-4 py-3 text-sm font-bold text-danger transition hover:bg-danger/15 disabled:cursor-wait disabled:opacity-50"
                   disabled={disabled || pending}
                   onClick={() => void endBroadcast()}
                   type="button"

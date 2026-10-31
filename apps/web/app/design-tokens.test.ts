@@ -129,3 +129,34 @@ describe('design tokens', () => {
     expect(block('.auth-panel')).toContain('background: var(--lp-surface)');
   });
 });
+
+describe('stage framing', () => {
+  it('fills letterboxed streams with a blurred, cropped copy', () => {
+    const fill = block('.stage-fill');
+    expect(fill).toContain('object-fit: cover');
+    expect(fill).toContain('filter: blur(');
+  });
+
+  it('keeps the featured media at 16:9 so covers are not cropped', () => {
+    expect(block('.featured-media')).toContain('aspect-ratio: 16 / 9');
+  });
+});
+
+describe('motion', () => {
+  it('animates chat entry but turns it off during bursts and reduced motion', () => {
+    expect(block('.chat-message')).toContain('animation: chat-message-in');
+    expect(block('.room-chat-list-busy .chat-message')).toContain(
+      'animation: none',
+    );
+    const reducedBlocks = css.split('prefers-reduced-motion').slice(1);
+    expect(
+      reducedBlocks.some(
+        (part) => part.includes('.chat-message') && part.includes('.like-plus'),
+      ),
+    ).toBe(true);
+  });
+
+  it('pulses live dots', () => {
+    expect(block('.channel-dot')).toContain('animation: live-dot-pulse');
+  });
+});

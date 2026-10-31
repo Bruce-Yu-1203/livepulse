@@ -36,4 +36,19 @@ describe('RoomLikeButton', () => {
     expect(html).toContain('disabled=""');
     expect(html).toContain('0 likes');
   });
+
+  it('wraps the count so changes can animate without a +1 before any like', () => {
+    const html = renderToStaticMarkup(
+      createElement(RoomLikeButton, {
+        authChecked: false,
+        initialLikeCount: 3,
+        roomId,
+        userId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      }),
+    );
+
+    expect(html).toContain('class="like-count-change"');
+    expect(html).not.toContain('like-plus');
+    expect(html).not.toContain('like-heart-pop');
+  });
 });

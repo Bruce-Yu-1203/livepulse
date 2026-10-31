@@ -41,6 +41,18 @@ export function orderRoomsForChannels<T extends Pick<VisibleRoom, 'status'>>(
   ];
 }
 
+/** Number of avatar colour tones defined in globals.css (.avatar-tone-N). */
+export const avatarToneCount = 6;
+
+/** Picks a stable avatar colour tone for a room or user name. */
+export function avatarTone(seed: string): number {
+  let hash = 0;
+  for (const char of seed) {
+    hash = (hash * 31 + char.codePointAt(0)!) >>> 0;
+  }
+  return hash % avatarToneCount;
+}
+
 export function roomMonogram(title: string): string {
   const letters = title
     .trim()

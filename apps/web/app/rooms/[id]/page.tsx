@@ -58,12 +58,12 @@ export default async function RoomPage({
           </Link>
           <LiveRoomExperience host={host} initialNow={Date.now()} room={room} />
 
-          <div className="py-10 lg:py-14">
+          <div className="py-6 lg:py-8">
             <section>
               <div className="flex flex-wrap items-center gap-3">
                 <span
-                  className={`rounded-full px-3 py-1.5 text-xs font-bold ${
-                    isLive ? 'bg-danger text-on-accent' : 'bg-fg/8 text-fg-soft'
+                  className={`rounded-md px-2 py-1 text-xs font-bold ${
+                    isLive ? 'bg-live text-white' : 'bg-fg/8 text-fg-soft'
                   }`}
                 >
                   {roomStatusLabel(room.status)}
@@ -72,10 +72,10 @@ export default async function RoomPage({
                   Started {formatRoomDate(room.startedAt ?? room.createdAt)}
                 </span>
               </div>
-              <h1 className="mt-6 text-4xl font-semibold tracking-[-0.045em] text-fg sm:text-6xl">
+              <h1 className="mt-3 text-2xl font-bold tracking-[-0.02em] text-fg sm:text-3xl">
                 {room.title}
               </h1>
-              <p className="mt-6 max-w-3xl text-lg leading-8 text-muted">
+              <p className="mt-3 max-w-3xl text-base leading-7 text-muted">
                 {room.description}
               </p>
             </section>

@@ -31,6 +31,6 @@ describe('route loading layouts', () => {
     expect(html).toContain('Loading profile…');
     expect(html).toContain('size-24 shrink-0 rounded-full');
     expect(html).toContain('class="home-room-grid"');
-    expect(html.match(/aspect-video rounded-2xl/g)).toHaveLength(3);
+    expect(html.match(/aspect-video rounded-lg/g)).toHaveLength(3);
   });
 });
