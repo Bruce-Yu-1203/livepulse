@@ -5,7 +5,7 @@ export default function StudioPage() {
   return (
     <>
       <SiteHeader />
-      <main className="mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-16">
+      <main className="mx-auto max-w-7xl px-5 py-6 sm:px-8 sm:py-8">
         <StudioDashboard />
       </main>
     </>
