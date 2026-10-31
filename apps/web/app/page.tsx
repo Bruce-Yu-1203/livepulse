@@ -12,7 +12,7 @@ import { HomeAccountAction } from '../components/home-account-action';
 import { RoomCard } from '../components/room-card';
 import { SearchUserCard } from '../components/search-user-card';
 import { StatusNotice } from '../components/status-notice';
-import { listRooms, searchSuggestions } from '../lib/api';
+import { listLiveChannels, listRooms, searchSuggestions } from '../lib/api';
 import { selectFeaturedRooms } from '../lib/featured-carousel';
 import { normalizeSearchQuery } from '../lib/presentation';
 
@@ -33,12 +33,15 @@ export default async function HomePage({
   let roomsUnavailable = false;
   let usersUnavailable = false;
 
+  // listLiveChannels never rejects, so it can load alongside the rooms.
+  const channelsRequest = listLiveChannels();
   const [roomResult, userResult] = await Promise.allSettled([
     listRooms(cursor, searchQuery),
     searchQuery
       ? searchSuggestions(searchQuery, 10)
       : Promise.resolve(undefined),
   ]);
+  const channels = await channelsRequest;
   if (roomResult.status === 'fulfilled') {
     page = roomResult.value;
   } else {
@@ -55,7 +58,11 @@ export default async function HomePage({
   const endedRooms = rooms.filter((room) => room.status !== 'LIVE');
 
   return (
-    <AppShell mainClassName="home-page" searchQuery={searchQuery}>
+    <AppShell
+      channels={channels}
+      mainClassName="home-page"
+      searchQuery={searchQuery}
+    >
       {searchQuery || roomsUnavailable ? null : (
         <FeaturedCarousel rooms={selectFeaturedRooms(page.items)} />
       )}

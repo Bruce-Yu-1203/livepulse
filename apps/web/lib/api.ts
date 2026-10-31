@@ -4,6 +4,7 @@ import {
   GetRoomResponseSchema,
   GetPublicUserResponseSchema,
   ListRoomsResponseSchema,
+  LiveChannelsResponseSchema,
   SearchSuggestionsResponseSchema,
 } from '@livepulse/contracts';
 import type {
@@ -11,6 +12,7 @@ import type {
   FollowListResponse,
   GetRoomResponse,
   ListRoomsResponse,
+  LiveChannel,
   SearchSuggestionsResponse,
 } from '@livepulse/contracts';
 
@@ -86,13 +88,44 @@ export async function getRoom(id: string): Promise<GetRoomResponse> {
   );
 }
 
+/**
+ * Live channels for the side rail's first render. The viewer's cookies are
+ * forwarded so followed hosts are grouped correctly before hydration. A
+ * failure returns an empty list; the rail refreshes itself in the browser.
+ */
+export async function listLiveChannels(): Promise<LiveChannel[]> {
+  try {
+    const cookie = await requestCookieHeader();
+    const response = await request(
+      new URL('/api/v1/live-channels', apiOrigin),
+      LiveChannelsResponseSchema,
+      cookie ? { cookie } : {},
+    );
+    return response.items;
+  } catch {
+    return [];
+  }
+}
+
+async function requestCookieHeader(): Promise<string | undefined> {
+  try {
+    const { cookies } = await import('next/headers');
+    const header = (await cookies()).toString();
+    return header || undefined;
+  } catch {
+    // Outside a request (tests, static rendering) there are no cookies.
+    return undefined;
+  }
+}
+
 async function request<T>(
   url: URL,
   schema: { parse(value: unknown): T },
+  headers: Record<string, string> = {},
 ): Promise<T> {
   const response = await fetch(url, {
     cache: 'no-store',
-    headers: { accept: 'application/json' },
+    headers: { accept: 'application/json', ...headers },
   });
   const body: unknown = await response.json();
 

@@ -6,7 +6,12 @@ import { AppShell } from '../../../components/app-shell';
 import { ProfileFollowControls } from '../../../components/follow-controls';
 import { RoomCard } from '../../../components/room-card';
 import { SearchUserAvatar } from '../../../components/search-user-card';
-import { ApiRequestError, getPublicUser, listRooms } from '../../../lib/api';
+import {
+  ApiRequestError,
+  getPublicUser,
+  listLiveChannels,
+  listRooms,
+} from '../../../lib/api';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,10 +39,13 @@ export default async function PublicUserPage({
   const { id } = await params;
   const { cursor } = await searchParams;
   try {
-    const { user } = await getPublicUser(id);
-    const roomPage = await listRooms(cursor, undefined, id);
+    const [{ user }, roomPage, channels] = await Promise.all([
+      getPublicUser(id),
+      listRooms(cursor, undefined, id),
+      listLiveChannels(),
+    ]);
     return (
-      <AppShell>
+      <AppShell channels={channels}>
         <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 sm:py-10">
           <Link
             className="text-sm text-muted transition hover:text-fg"
