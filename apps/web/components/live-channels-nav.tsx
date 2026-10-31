@@ -4,7 +4,10 @@ import { LiveChannelsResponseSchema } from '@livepulse/contracts';
 import type { LiveChannel } from '@livepulse/contracts';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import type { FocusEvent, MouseEvent } from 'react';
 
+import { BROWSE_PATH, categoryName, formatLiveFor } from '../lib/categories';
 import { clientApiRequest } from '../lib/client-api';
 import { FOLLOWING_CHANGED_EVENT } from '../lib/follow-state';
 import { avatarTone } from '../lib/presentation';
@@ -137,6 +140,20 @@ export function LiveChannelsNav({
           </svg>
         </button>
       </div>
+      <Link
+        aria-label="Browse categories"
+        className="channel-browse-link"
+        href={BROWSE_PATH}
+        title="Browse categories"
+      >
+        <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
+          <rect height="7" rx="1.5" width="7" x="3" y="3" />
+          <rect height="7" rx="1.5" width="7" x="14" y="3" />
+          <rect height="7" rx="1.5" width="7" x="3" y="14" />
+          <rect height="7" rx="1.5" width="7" x="14" y="14" />
+        </svg>
+        <span className="channel-browse-label">Browse categories</span>
+      </Link>
       {loaded && following.length === 0 && popular.length === 0 ? (
         <p className="channel-empty">No one is live right now.</p>
       ) : null}
@@ -170,6 +187,15 @@ export function LiveChannelsNav({
   );
 }
 
+type ChannelPreview = {
+  channel: LiveChannel;
+  collapsed: boolean;
+  left: number;
+  top: number;
+};
+
+const previewDelayMs = 300;
+
 function ChannelGroup({
   activeRoomId,
   channels,
@@ -179,47 +205,120 @@ function ChannelGroup({
   channels: LiveChannel[];
   title: 'Following' | 'Popular';
 }) {
+  const [preview, setPreview] = useState<ChannelPreview | null>(null);
+  const timer = useRef<number | undefined>(undefined);
+
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+
+  // The rail scrolls, so the preview is fixed to the viewport beside the row.
+  const show = (
+    channel: LiveChannel,
+    event: MouseEvent<HTMLElement> | FocusEvent<HTMLElement>,
+    delay: number,
+  ) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const collapsed = Boolean(
+      event.currentTarget.closest('.channel-rail-collapsed'),
+    );
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(
+      () =>
+        setPreview({
+          channel,
+          collapsed,
+          left: rect.right + 10,
+          top: rect.top + rect.height / 2,
+        }),
+      delay,
+    );
+  };
+  const hide = () => {
+    window.clearTimeout(timer.current);
+    setPreview(null);
+  };
+
   return (
     <section aria-label={title} className="channel-group">
       <h3 className="channel-group-title">{title}</h3>
       <ul>
-        {channels.map(({ room, host, following }) => (
-          <li key={room.id}>
-            <Link
-              aria-current={room.id === activeRoomId ? 'page' : undefined}
-              aria-label={`${host.name}: ${room.title}, live`}
-              className="channel-link"
-              href={`/rooms/${room.id}`}
-              title={room.title}
-            >
-              <span
-                aria-hidden="true"
-                className={`channel-avatar avatar-tone-${avatarTone(host.name)} ${following ? 'channel-avatar-following' : ''}`}
+        {channels.map((channel) => {
+          const { room, host, following } = channel;
+          return (
+            <li key={room.id}>
+              <Link
+                aria-current={room.id === activeRoomId ? 'page' : undefined}
+                aria-label={`${host.name}: ${room.title}, live`}
+                className="channel-link"
+                href={`/rooms/${room.id}`}
+                onBlur={hide}
+                onFocus={(event) => show(channel, event, 0)}
+                onMouseEnter={(event) => show(channel, event, previewDelayMs)}
+                onMouseLeave={hide}
               >
-                {host.avatarUrl ? (
-                  <img
-                    alt=""
-                    decoding="async"
-                    loading="lazy"
-                    src={host.avatarUrl}
-                  />
-                ) : (
-                  host.name.charAt(0).toUpperCase()
-                )}
-              </span>
-              <span className="channel-text">
-                <span className="channel-name">{room.title}</span>
-                <span className="channel-description">{host.name}</span>
-              </span>
-              <span className="channel-meta">
-                <span aria-hidden="true" className="channel-dot" />
-                {formatLikeCount(room.likeCount)}
-                <span className="sr-only"> likes</span>
-              </span>
-            </Link>
-          </li>
-        ))}
+                <span
+                  aria-hidden="true"
+                  className={`channel-avatar avatar-tone-${avatarTone(host.name)} ${following ? 'channel-avatar-following' : ''}`}
+                >
+                  {host.avatarUrl ? (
+                    <img
+                      alt=""
+                      decoding="async"
+                      loading="lazy"
+                      src={host.avatarUrl}
+                    />
+                  ) : (
+                    host.name.charAt(0).toUpperCase()
+                  )}
+                </span>
+                <span className="channel-text">
+                  <span className="channel-name">{host.name}</span>
+                  <span className="channel-description">
+                    {categoryName(room.category)}
+                  </span>
+                </span>
+                <span className="channel-meta">
+                  <span aria-hidden="true" className="channel-dot" />
+                  {formatLikeCount(room.likeCount)}
+                  <span className="sr-only"> likes</span>
+                </span>
+              </Link>
+            </li>
+          );
+        })}
       </ul>
+      {preview
+        ? // Portal out of the rail: its scroll container would clip the card.
+          createPortal(
+            <ChannelPopover collapsed={preview.collapsed} preview={preview} />,
+            document.body,
+          )
+        : null}
     </section>
+  );
+}
+
+function ChannelPopover({
+  collapsed,
+  preview,
+}: {
+  collapsed: boolean;
+  preview: ChannelPreview;
+}) {
+  const { room, host } = preview.channel;
+  const liveFor = formatLiveFor(room.startedAt, Date.now());
+  return (
+    <div
+      aria-hidden="true"
+      className="channel-popover"
+      data-collapsed={collapsed}
+      style={{ left: preview.left, top: preview.top }}
+    >
+      <span className="channel-popover-host">{host.name}</span>
+      <span className="channel-popover-title">{room.title}</span>
+      <span className="channel-popover-meta">
+        {categoryName(room.category)}
+        {liveFor ? ` · Live for ${liveFor}` : ''}
+      </span>
+    </div>
   );
 }

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { listLiveChannels, listRooms } from './api';
+import { listCategories, listLiveChannels, listRooms } from './api';
 
 describe('listRooms', () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -25,6 +25,52 @@ describe('listRooms', () => {
     expect(url.searchParams.get('limit')).toBe('12');
     expect(url.searchParams.get('cursor')).toBe('next-page');
     expect(url.searchParams.get('q')).toBe('street food');
+    expect(url.searchParams.has('category')).toBe(false);
+  });
+
+  it('filters by category when one is given', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({ items: [], nextCursor: null, requestId: 'cat' }),
+          { status: 200 },
+        ),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await listRooms(undefined, undefined, undefined, 'irl');
+
+    const url = fetchMock.mock.calls[0]?.[0];
+    expect(url instanceof URL ? url.searchParams.get('category') : null).toBe(
+      'irl',
+    );
+  });
+});
+
+describe('listCategories', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('loads category summaries from the API', async () => {
+    const body = {
+      items: [
+        {
+          description: 'Out in the world.',
+          liveCount: 2,
+          name: 'IRL',
+          slug: 'irl',
+        },
+      ],
+      requestId: 'categories',
+    };
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(body), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(listCategories()).resolves.toEqual(body);
+    const url = fetchMock.mock.calls[0]?.[0];
+    expect(url instanceof URL ? url.pathname : url).toBe('/api/v1/categories');
   });
 });
 

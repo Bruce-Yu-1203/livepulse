@@ -6,6 +6,7 @@ import { FeaturedCarousel } from './featured-carousel';
 
 function room(id: string, title: string): VisibleRoom {
   return {
+    category: 'just-chatting',
     coverImageUrl: null,
     createdAt: '2026-10-09T15:30:00.000Z',
     description: `${title} description`,
@@ -32,6 +33,7 @@ describe('FeaturedCarousel', () => {
     expect(markup).toContain('aria-roledescription="slide"');
     expect(markup).toContain('href="/rooms/one"');
     expect(markup).toContain('1 of 2');
+    expect(markup).toContain('href="/browse/just-chatting"');
     expect(markup).toContain('Previous featured room');
     expect(markup).toContain('Next featured room');
     expect(markup).toContain('Watch live');

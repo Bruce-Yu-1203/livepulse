@@ -18,6 +18,7 @@ import {
 } from './rooms.js';
 
 const validRequest = {
+  category: 'just-chatting' as const,
   coverImageUrl: 'https://cdn.example.com/live/cover.jpg',
   description: 'A live room for TypeScript learners.',
   title: 'Build LivePulse Together',

@@ -3,6 +3,7 @@ import {
   FollowListResponseSchema,
   GetRoomResponseSchema,
   GetPublicUserResponseSchema,
+  ListCategoriesResponseSchema,
   ListRoomsResponseSchema,
   LiveChannelsResponseSchema,
   SearchSuggestionsResponseSchema,
@@ -11,8 +12,10 @@ import type {
   GetPublicUserResponse,
   FollowListResponse,
   GetRoomResponse,
+  ListCategoriesResponse,
   ListRoomsResponse,
   LiveChannel,
+  RoomCategory,
   SearchSuggestionsResponse,
 } from '@livepulse/contracts';
 
@@ -32,6 +35,7 @@ export async function listRooms(
   cursor?: string,
   query?: string,
   hostId?: string,
+  category?: RoomCategory,
 ): Promise<ListRoomsResponse> {
   const url = new URL('/api/v1/rooms', apiOrigin);
   url.searchParams.set('limit', '12');
@@ -45,8 +49,18 @@ export async function listRooms(
   if (hostId) {
     url.searchParams.set('hostId', hostId);
   }
+  if (category) {
+    url.searchParams.set('category', category);
+  }
 
   return request(url, ListRoomsResponseSchema);
+}
+
+export async function listCategories(): Promise<ListCategoriesResponse> {
+  return request(
+    new URL('/api/v1/categories', apiOrigin),
+    ListCategoriesResponseSchema,
+  );
 }
 
 export async function searchSuggestions(

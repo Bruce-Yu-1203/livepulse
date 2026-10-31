@@ -8,6 +8,7 @@ import {
   roomStatusLabel,
 } from '../lib/presentation';
 import { formatLikeCount } from '../lib/room-likes';
+import { CategoryChip } from './category-chip';
 
 export function RoomCard({ room }: { room: VisibleRoom }) {
   const isLive = room.status === 'LIVE';
@@ -47,9 +48,12 @@ export function RoomCard({ room }: { room: VisibleRoom }) {
           <div className="room-card-text">
             <h2>{room.title}</h2>
             <p>{room.description}</p>
-            <time className="room-card-date" dateTime={room.createdAt}>
-              {formatRoomDate(room.createdAt)}
-            </time>
+            <div className="room-card-meta">
+              <CategoryChip asText category={room.category} />
+              <time className="room-card-date" dateTime={room.createdAt}>
+                {formatRoomDate(room.createdAt)}
+              </time>
+            </div>
           </div>
         </div>
       </Link>

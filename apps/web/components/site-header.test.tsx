@@ -17,6 +17,7 @@ describe('SiteHeader', () => {
     const markup = renderHeader();
 
     expect(markup).toContain('Discover');
+    expect(markup).toContain('href="/browse"');
     expect(markup).toContain('role="search"');
     expect(markup).toContain('action="/"');
     expect(markup).toContain('name="q"');

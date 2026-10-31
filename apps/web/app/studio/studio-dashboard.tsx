@@ -6,15 +6,21 @@ import {
   CreateRoomResponseSchema,
   CurrentBroadcastResponseSchema,
   CurrentUserResponseSchema,
+  defaultRoomCategory,
   ListBroadcastHistoryResponseSchema,
   UpdateRoomResponseSchema,
 } from '@livepulse/contracts';
-import type { CurrentUserResponse, Room } from '@livepulse/contracts';
+import type {
+  CurrentUserResponse,
+  Room,
+  RoomCategory,
+} from '@livepulse/contracts';
 import Link from 'next/link';
 import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 
 import { AuthEntryLink } from '../../components/auth-dialog-provider';
+import { CategoryPicker } from '../../components/category-picker';
 import { HostBroadcastStudio } from '../../components/host-broadcast-studio';
 import { StatusNotice } from '../../components/status-notice';
 import {
@@ -35,6 +41,7 @@ export function StudioDashboard() {
   const [activeRoom, setActiveRoom] = useState<Room>();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [category, setCategory] = useState<RoomCategory>(defaultRoomCategory);
   const [pending, setPending] = useState(false);
   const [notice, setNotice] = useState<Notice>();
   const [history, setHistory] = useState<Room[]>([]);
@@ -68,6 +75,7 @@ export function StudioDashboard() {
       setActiveRoom(response.room ?? undefined);
       setTitle(response.room?.title ?? '');
       setDescription(response.room?.description ?? '');
+      setCategory(response.room?.category ?? (await lastUsedCategory()));
       setState('ready');
     } catch (error) {
       if (error instanceof ClientApiError && error.status === 401) {
@@ -119,8 +127,45 @@ export function StudioDashboard() {
     };
   }, [view, state, pageIndex, pageCursors, appliedTitle, appliedDate]);
 
+  async function changeLiveCategory(room: Room, next: RoomCategory) {
+    const previous = category;
+    setCategory(next);
+    setPending(true);
+    setNotice(undefined);
+    try {
+      const response = await clientApiRequest(
+        `/api/v1/rooms/${room.id}`,
+        UpdateRoomResponseSchema,
+        {
+          body: JSON.stringify({
+            category: next,
+            expectedVersion: room.version,
+          }),
+          headers: { 'content-type': 'application/json' },
+          method: 'PATCH',
+        },
+      );
+      setActiveRoom(response.room);
+    } catch (error) {
+      setCategory(previous);
+      showError(error, 'The category could not be changed.');
+      if (
+        error instanceof ClientApiError &&
+        error.code === ApiErrorCode.RoomVersionConflict
+      ) {
+        await loadStudio();
+      }
+    } finally {
+      setPending(false);
+    }
+  }
+
   async function prepareBroadcast(): Promise<Room> {
-    const parsed = CreateRoomRequestSchema.safeParse({ title, description });
+    const parsed = CreateRoomRequestSchema.safeParse({
+      category,
+      description,
+      title,
+    });
     if (!parsed.success) {
       throw new Error('Add a title and description before going live.');
     }
@@ -339,6 +384,16 @@ export function StudioDashboard() {
                   >
                     Open viewer page
                   </Link>
+                  <div className="mt-5">
+                    <CategoryPicker
+                      disabled={pending}
+                      hint="Changes apply to your live room right away."
+                      onChange={(next) =>
+                        void changeLiveCategory(activeRoom, next)
+                      }
+                      value={category}
+                    />
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -349,6 +404,12 @@ export function StudioDashboard() {
                     onChange={setTitle}
                     placeholder="Design critique"
                     value={title}
+                  />
+                  <CategoryPicker
+                    disabled={pending}
+                    hint="Defaults to the category you used last time. You can change it while live."
+                    onChange={setCategory}
+                    value={category}
                   />
                   <StudioTextArea
                     disabled={pending}
@@ -472,6 +533,19 @@ export function StudioDashboard() {
       </div>
     </div>
   );
+}
+
+/** The category of the host's latest ended broadcast, if any. */
+async function lastUsedCategory(): Promise<RoomCategory> {
+  try {
+    const latest = await clientApiRequest(
+      '/api/v1/rooms/mine/history?limit=1',
+      ListBroadcastHistoryResponseSchema,
+    );
+    return latest.items[0]?.category ?? defaultRoomCategory;
+  } catch {
+    return defaultRoomCategory;
+  }
 }
 
 function StudioField({
