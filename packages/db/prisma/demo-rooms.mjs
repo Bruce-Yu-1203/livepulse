@@ -1,70 +1,200 @@
-// Sample rooms for filling a staging or demo deployment with browsable content.
-// Ids are fixed so re-running the seed updates rooms instead of duplicating them.
+// Sample hosts and rooms for filling a staging or demo deployment with
+// browsable content. Ids are fixed so re-running the seed updates rows instead
+// of duplicating them. Each host has at most one live room, matching the
+// one-live-room-per-host rule; ended rooms show up in host history.
 const cover = (photo) =>
   `https://images.unsplash.com/${photo}?auto=format&fit=crop&w=1280&q=70`;
 
+const hostId = (n) => `66666666-6666-4666-8666-${String(n).padStart(12, '0')}`;
+const roomId = (n) => `55555555-5555-4555-8555-${String(n).padStart(12, '0')}`;
+
+// Demo hosts have no password or sign-in method, so nobody can log in as them.
+// The email domain is reserved (RFC 2606) and never receives mail.
+export const demoHosts = [
+  ['mika_codes', 'Mika Chen'],
+  ['studio_rae', 'Rae Okafor'],
+  ['any_percent', 'Leo Park'],
+  ['wet_on_wet', 'Hana Sato'],
+  ['blue_note_jo', 'Jo Alvarez'],
+  ['night_market', 'Wei Lin'],
+  ['daily_bytes', 'Sam Rivera'],
+  ['borrow_checker', 'Ines Novak'],
+  ['move_daily', 'Kai Nguyen'],
+  ['pixel_garden', 'Ava Moreau'],
+  ['vinyl_hours', 'Theo Brooks'],
+  ['field_notes', 'Noor Haddad'],
+].map(([username, name], index) => ({
+  email: `${username}@demo.livepulse.invalid`,
+  id: hostId(index + 1),
+  name,
+  username,
+}));
+
+const [mika, rae, leo, hana, jo, wei, sam, ines, kai, ava, theo, noor] =
+  demoHosts.map((host) => host.id);
+
+// likes: how many demo hosts like the room, so the Popular list has an order.
 export const demoRooms = [
   {
-    id: '55555555-5555-4555-8555-000000000001',
+    id: roomId(1),
+    hostId: mika,
     title: 'Late night lo-fi coding',
     description: 'Building a realtime feature from scratch. Questions welcome.',
     coverImageUrl: cover('photo-1515879218367-8466d910aaa4'),
     status: 'LIVE',
+    likes: 9,
   },
   {
-    id: '55555555-5555-4555-8555-000000000002',
+    id: roomId(2),
+    hostId: rae,
     title: 'Design critique hour',
     description: 'Weekly review of community UI submissions, live.',
     coverImageUrl: cover('photo-1561070791-2526d30994b5'),
     status: 'LIVE',
+    likes: 6,
   },
   {
-    id: '55555555-5555-4555-8555-000000000003',
+    id: roomId(3),
+    hostId: leo,
     title: 'Speedrun practice',
     description: 'Grinding any% routes and talking strategy with chat.',
     coverImageUrl: cover('photo-1542751371-adc38448a05e'),
     status: 'LIVE',
+    likes: 11,
   },
   {
-    id: '55555555-5555-4555-8555-000000000004',
+    id: roomId(4),
+    hostId: hana,
     title: 'Watercolor basics',
     description: 'Painting a coastline step by step. Bring your own brush.',
     coverImageUrl: cover('photo-1513364776144-60967b0f800f'),
     status: 'LIVE',
+    likes: 4,
   },
   {
-    id: '55555555-5555-4555-8555-000000000005',
+    id: roomId(5),
+    hostId: jo,
     title: 'Morning jazz piano',
     description: 'Slow standards and requests from the chat.',
     coverImageUrl: cover('photo-1520523839897-bd0b52f945a0'),
     status: 'LIVE',
+    likes: 7,
   },
   {
-    id: '55555555-5555-4555-8555-000000000006',
+    id: roomId(6),
+    hostId: wei,
     title: 'Street food tour: Taipei',
     description: 'Walking the night market and trying everything.',
     coverImageUrl: cover('photo-1555396273-367ea4eb4db5'),
     status: 'LIVE',
+    likes: 10,
   },
   {
-    id: '55555555-5555-4555-8555-000000000007',
+    id: roomId(7),
+    hostId: sam,
     title: 'Morning news roundup',
     description: 'Tech headlines discussed with the chat.',
     coverImageUrl: cover('photo-1504711434969-e33886168f5c'),
     status: 'ENDED',
+    likes: 3,
   },
   {
-    id: '55555555-5555-4555-8555-000000000008',
+    id: roomId(8),
+    hostId: ines,
     title: 'Rust office hours',
     description: 'Ownership, lifetimes and your questions.',
     coverImageUrl: null,
     status: 'ENDED',
+    likes: 2,
   },
   {
-    id: '55555555-5555-4555-8555-000000000009',
+    id: roomId(9),
+    hostId: kai,
     title: 'Home workout together',
     description: 'Thirty minutes, no equipment, everyone welcome.',
     coverImageUrl: cover('photo-1517836357463-d25dfeac3438'),
     status: 'ENDED',
+    likes: 5,
+  },
+  {
+    id: roomId(10),
+    hostId: sam,
+    title: 'Release notes live',
+    description: 'Reading this week’s framework release notes together.',
+    coverImageUrl: cover('photo-1498050108023-c5249f4df085'),
+    status: 'LIVE',
+    likes: 3,
+  },
+  {
+    id: roomId(11),
+    hostId: ines,
+    title: 'Rust: building a tiny database',
+    description: 'A write-ahead log and B-tree, one commit at a time.',
+    coverImageUrl: cover('photo-1517694712202-14dd9538aa97'),
+    status: 'LIVE',
+    likes: 8,
+  },
+  {
+    id: roomId(12),
+    hostId: kai,
+    title: 'Mobility flow',
+    description: 'Twenty minutes of stretching for desk workers.',
+    coverImageUrl: cover('photo-1571019613454-1cb2f99b2d8b'),
+    status: 'LIVE',
+    likes: 2,
+  },
+  {
+    id: roomId(13),
+    hostId: ava,
+    title: 'Pixel art: a forest tileset',
+    description: '16×16 tiles, a tight palette, and chat picks the next tile.',
+    coverImageUrl: cover('photo-1550745165-9bc0b252726f'),
+    status: 'LIVE',
+    likes: 5,
+  },
+  {
+    id: roomId(14),
+    hostId: theo,
+    title: 'Crate digging: 70s soul',
+    description: 'Spinning records and telling the stories behind them.',
+    coverImageUrl: cover('photo-1493225457124-a3eb161ffa5f'),
+    status: 'LIVE',
+    likes: 1,
+  },
+  {
+    id: roomId(15),
+    hostId: noor,
+    title: 'Street photography walk',
+    description: 'Golden hour downtown, talking settings and framing.',
+    coverImageUrl: cover('photo-1452587925148-ce544e77e70d'),
+    status: 'LIVE',
+    likes: 0,
+  },
+  {
+    id: roomId(16),
+    hostId: mika,
+    title: 'Refactoring a chat gateway',
+    description: 'Moving fan-out to Socket.IO rooms and measuring the result.',
+    coverImageUrl: cover('photo-1461749280684-dccba630e2f6'),
+    status: 'ENDED',
+    likes: 4,
+  },
+  {
+    id: roomId(17),
+    hostId: leo,
+    title: 'Glitch hunting',
+    description: 'Testing route skips frame by frame.',
+    coverImageUrl: null,
+    status: 'ENDED',
+    likes: 6,
+  },
+  {
+    id: roomId(18),
+    hostId: jo,
+    title: 'Sunday blues jam',
+    description: 'Twelve bars, three chords, and requests.',
+    coverImageUrl: cover('photo-1511379938547-c1f69419868d'),
+    status: 'ENDED',
+    likes: 2,
   },
 ];
