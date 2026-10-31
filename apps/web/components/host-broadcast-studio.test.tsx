@@ -39,6 +39,30 @@ describe('HostBroadcastStudio', () => {
     );
     expect(markup).toContain('Reconnect broadcast');
     expect(markup).toContain('End broadcast');
+    expect(markup).not.toContain('Confirm end');
+    expect(markup).not.toContain('Before you go live');
+  });
+
+  it('shows the details panel and a checklist before going live', () => {
+    const markup = renderToStaticMarkup(
+      <HostBroadcastStudio
+        details={<h2>Stream info</h2>}
+        detailsReady={false}
+        disabled={false}
+        onAbort={vi.fn().mockResolvedValue(undefined)}
+        onEnd={vi.fn().mockResolvedValue(true)}
+        onGoLive={vi.fn().mockResolvedValue(true)}
+        onPrepare={vi.fn().mockResolvedValue(draftRoom())}
+      />,
+    );
+
+    expect(markup).toContain('<h2>Stream info</h2>');
+    expect(markup).toContain('aria-label="Before you go live"');
+    expect(markup).toContain('Title and description');
+    expect(markup).toContain('Video preview');
+    expect(markup).toContain('Microphone on');
+    expect(markup).toContain('role="switch"');
+    expect(markup).not.toContain('End broadcast');
   });
 });
 

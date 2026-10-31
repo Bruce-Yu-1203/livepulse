@@ -158,6 +158,7 @@ test('viewer, host, and administrator complete the core live-room flow', async (
       hostStudioPage.getByRole('heading', { name: roomTitle }),
     ).toBeVisible();
     await hostStudioPage.getByRole('button', { name: 'End broadcast' }).click();
+    await hostStudioPage.getByRole('button', { name: 'Confirm end' }).click();
     await expect(hostStudioPage.getByRole('status')).toHaveText(
       'Broadcast ended and saved to history.',
     );

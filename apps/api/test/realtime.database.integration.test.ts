@@ -40,6 +40,8 @@ const redis = createClient({ url: redisUrl });
 const password = 'correct horse battery staple';
 const hostId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const viewerId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+// A host may only have one live room, so the room that ends belongs to a second host.
+const endingHostId = 'abababab-abab-4bab-8bab-abababababab';
 const liveRoomId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const endedRoomId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const endingRoomId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
@@ -52,6 +54,7 @@ describe('room Socket.IO gateway', () => {
   let secondSocketIoUrl: string;
   let accessCookie: string;
   let hostHeaders: Record<string, string>;
+  let endingHostHeaders: Record<string, string>;
 
   beforeAll(async () => {
     process.env.PROHIBITED_WORDS = 'scam-offer';
@@ -69,11 +72,17 @@ describe('room Socket.IO gateway', () => {
       password,
       role: 'VIEWER',
     });
+    await createCredentialUser(database, {
+      email: 'realtime-ending-host@example.com',
+      id: endingHostId,
+      password,
+      role: 'HOST',
+    });
     await database.room.createMany({
       data: [
         roomRecord(liveRoomId, 'LIVE'),
         roomRecord(endedRoomId, 'ENDED'),
-        roomRecord(endingRoomId, 'LIVE'),
+        roomRecord(endingRoomId, 'LIVE', endingHostId),
       ],
     });
 
@@ -85,6 +94,8 @@ describe('room Socket.IO gateway', () => {
     secondSocketIoUrl = await secondApp.getUrl();
     accessCookie = (await login('realtime-viewer@example.com')).cookie;
     hostHeaders = (await login('realtime-host@example.com')).headers;
+    endingHostHeaders = (await login('realtime-ending-host@example.com'))
+      .headers;
   });
 
   afterAll(async () => {
@@ -433,7 +444,7 @@ describe('room Socket.IO gateway', () => {
       .getHttpAdapter()
       .getInstance()
       .inject({
-        headers: hostHeaders,
+        headers: endingHostHeaders,
         method: 'PATCH',
         payload: { expectedVersion: 1, status: 'ENDED' },
         url: `/api/v1/rooms/${endingRoomId}`,
@@ -547,10 +558,10 @@ describe('room Socket.IO gateway', () => {
       where: { id: { in: [liveRoomId, endedRoomId, endingRoomId] } },
     });
     await database.session.deleteMany({
-      where: { userId: { in: [hostId, viewerId] } },
+      where: { userId: { in: [hostId, viewerId, endingHostId] } },
     });
     await database.user.deleteMany({
-      where: { id: { in: [hostId, viewerId] } },
+      where: { id: { in: [hostId, viewerId, endingHostId] } },
     });
   }
 });
@@ -619,11 +630,15 @@ function sendEvent(
   };
 }
 
-function roomRecord(id: string, status: 'ENDED' | 'LIVE') {
+function roomRecord(
+  id: string,
+  status: 'ENDED' | 'LIVE',
+  roomHostId: string = hostId,
+) {
   return {
     coverImageUrl: 'https://cdn.example.com/cover.jpg',
     description: 'A realtime integration room.',
-    hostId,
+    hostId: roomHostId,
     id,
     status,
     title: `${status} room`,

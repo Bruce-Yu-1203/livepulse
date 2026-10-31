@@ -1,5 +1,6 @@
 generator client {
   provider     = "prisma-client"
+  previewFeatures = ["partialIndexes"]
   output       = "../.generated/prisma"
   moduleFormat = "esm"
 }
@@ -97,6 +98,7 @@ model Room {
 
   @@index([hostId])
   @@index([status, createdAt, id])
+  @@unique([hostId], map: "rooms_one_live_per_host_key", where: raw("status = 'LIVE'"))
   @@map("rooms")
 }
 

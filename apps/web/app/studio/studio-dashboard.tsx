@@ -39,6 +39,7 @@ export function StudioDashboard() {
   const [notice, setNotice] = useState<Notice>();
   const [history, setHistory] = useState<Room[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [broadcastStatus, setBroadcastStatus] = useState('Offline');
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [pageCursors, setPageCursors] = useState<(string | undefined)[]>([
     undefined,
@@ -262,38 +263,18 @@ export function StudioDashboard() {
     );
   }
 
+  const detailsReady = CreateRoomRequestSchema.safeParse({
+    description,
+    title,
+  }).success;
+  const headerStatus = activeRoom ? 'On air' : broadcastStatus;
+
   return (
     <div>
-      <section className="flex flex-col justify-between gap-6 border-b border-fg/8 pb-10 lg:flex-row lg:items-end">
-        <div>
-          <p className="text-xs font-bold text-accent">Host studio</p>
-          <h1 className="mt-4 text-4xl font-semibold tracking-[-0.05em] text-fg sm:text-6xl">
-            Shape the next live moment.
-          </h1>
-          <p className="mt-4 max-w-2xl leading-7 text-muted">
-            Set your stage, check your preview, and go live when you are ready.
-          </p>
-        </div>
-        {user ? (
-          <div className="rounded-lg border border-fg/8 bg-fg/[0.035] px-5 py-4 text-sm">
-            <p className="font-medium text-fg">{user.email}</p>
-            <p className="mt-1 text-xs text-muted">{user.role} account</p>
-          </div>
-        ) : null}
-      </section>
-
-      {notice ? (
-        <StatusNotice className="mt-8" tone={notice.kind}>
-          {notice.message}
-        </StatusNotice>
-      ) : null}
-
-      <div className="mt-10 grid gap-8 xl:grid-cols-[16rem_minmax(0,1fr)]">
-        <aside className="self-start rounded-xl border border-fg/8 bg-fg/[0.035] p-4">
-          <p className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-muted">
-            Studio
-          </p>
-          <nav aria-label="Studio" className="space-y-2">
+      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line pb-4">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+          <h1 className="text-2xl font-bold tracking-tight text-fg">Studio</h1>
+          <nav aria-label="Studio" className="studio-tabs">
             {(
               [
                 ['broadcast', 'Go live'],
@@ -302,11 +283,7 @@ export function StudioDashboard() {
             ).map(([destination, label]) => (
               <button
                 aria-current={view === destination ? 'page' : undefined}
-                className={`w-full rounded-lg border px-4 py-3 text-left text-sm font-semibold transition ${
-                  view === destination
-                    ? 'border-accent/35 bg-accent/8 text-accent'
-                    : 'border-transparent text-fg-soft hover:border-fg/10 hover:bg-sunken'
-                }`}
+                className="studio-tab"
                 key={destination}
                 onClick={() => {
                   setView(destination);
@@ -318,73 +295,97 @@ export function StudioDashboard() {
               </button>
             ))}
           </nav>
-          {activeRoom ? (
-            <p className="mt-5 rounded-lg border border-success/20 bg-success/10 px-4 py-3 text-xs leading-5 text-success">
-              Live now · {activeRoom.title}
-            </p>
+        </div>
+        <div className="flex items-center gap-3 text-sm">
+          <span
+            className={`studio-status ${activeRoom ? 'studio-status-live' : ''}`}
+          >
+            {activeRoom ? (
+              <span aria-hidden="true" className="channel-dot" />
+            ) : null}
+            {headerStatus}
+          </span>
+          {user ? (
+            <span className="hidden text-muted sm:inline">{user.email}</span>
           ) : null}
-        </aside>
+        </div>
+      </header>
 
+      {notice ? (
+        <StatusNotice className="mt-5" tone={notice.kind}>
+          {notice.message}
+        </StatusNotice>
+      ) : null}
+
+      <div className="mt-6">
         <section
-          className={`overflow-hidden rounded-xl border border-fg/8 bg-fg/[0.035] ${view === 'broadcast' ? '' : 'hidden'}`}
+          aria-label="Go live"
+          className={view === 'broadcast' ? '' : 'hidden'}
         >
-          <div className="border-b border-fg/8 bg-sunken p-6 sm:p-8">
-            <p className="text-xs font-bold text-accent">
-              {activeRoom ? 'On air' : 'Go live'}
-            </p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-fg">
-              {activeRoom ? activeRoom.title : 'Prepare your broadcast'}
-            </h2>
-            <p className="mt-2 text-sm text-muted">
-              {activeRoom
-                ? 'Your broadcast is live. If your connection drops, use Reconnect broadcast.'
-                : 'Add the details, select your devices, and confirm the preview.'}
-            </p>
-          </div>
-          <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-2">
-            <StudioField
-              disabled={Boolean(activeRoom) || pending}
-              label="Room title"
-              onChange={setTitle}
-              placeholder="Design critique"
-              value={title}
-            />
-            <StudioTextArea
-              disabled={Boolean(activeRoom) || pending}
-              label="Description"
-              onChange={setDescription}
-              placeholder="What will the audience experience?"
-              value={description}
-            />
-          </div>
           <HostBroadcastStudio
+            details={
+              activeRoom ? (
+                <div>
+                  <p className="text-xs font-semibold text-muted">On air</p>
+                  <h2 className="mt-1 text-lg font-bold text-fg">
+                    {activeRoom.title}
+                  </h2>
+                  <p className="mt-1 text-sm leading-6 text-muted">
+                    {activeRoom.description}
+                  </p>
+                  <Link
+                    className="mt-3 inline-block text-sm font-semibold text-accent hover:underline"
+                    href={`/rooms/${activeRoom.id}`}
+                  >
+                    Open viewer page
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <h2 className="text-lg font-bold text-fg">Stream info</h2>
+                  <StudioField
+                    disabled={pending}
+                    label="Room title"
+                    onChange={setTitle}
+                    placeholder="Design critique"
+                    value={title}
+                  />
+                  <StudioTextArea
+                    disabled={pending}
+                    label="Description"
+                    onChange={setDescription}
+                    placeholder="What will the audience experience?"
+                    value={description}
+                  />
+                </div>
+              )
+            }
+            detailsReady={detailsReady}
             disabled={pending}
             onAbort={abortBroadcast}
             onEnd={endBroadcast}
             onGoLive={markBroadcastReady}
             onPrepare={prepareBroadcast}
+            onStatusChange={setBroadcastStatus}
             room={activeRoom}
           />
         </section>
         {view === 'history' ? (
-          <section className="rounded-xl border border-fg/8 bg-fg/[0.035] p-6 sm:p-8">
-            <p className="text-xs font-bold text-accent">Archive</p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-fg">
-              Broadcast history
-            </h2>
+          <section className="rounded-xl border border-line bg-surface p-5 sm:p-6">
+            <h2 className="text-lg font-bold text-fg">Broadcast history</h2>
             <p className="mt-2 text-sm text-muted">
               Ended broadcasts appear here. A history entry does not imply that
               a recording is available.
             </p>
             <form
               aria-label="Search broadcast history"
-              className="mt-8 grid gap-3 sm:grid-cols-[minmax(0,1fr)_11rem_auto]"
+              className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_11rem_auto]"
               onSubmit={searchHistory}
             >
               <label className="text-sm font-medium text-fg-soft">
                 Search title
                 <input
-                  className="mt-2 w-full rounded-lg border border-fg/10 bg-sunken px-4 py-3 text-fg outline-none focus:border-accent/50"
+                  className="mt-1.5 w-full rounded-lg border border-line-strong bg-sunken px-3 py-2.5 text-fg outline-none transition focus:border-accent"
                   maxLength={80}
                   onChange={(event) => setSearchTitle(event.target.value)}
                   placeholder="Room title"
@@ -395,34 +396,30 @@ export function StudioDashboard() {
               <label className="text-sm font-medium text-fg-soft">
                 Broadcast date
                 <input
-                  className="mt-2 w-full rounded-lg border border-fg/10 bg-sunken px-4 py-3 text-fg outline-none focus:border-accent/50"
+                  className="mt-1.5 w-full rounded-lg border border-line-strong bg-sunken px-3 py-2.5 text-fg outline-none transition focus:border-accent"
                   onChange={(event) => setSearchDate(event.target.value)}
                   type="date"
                   value={searchDate}
                 />
               </label>
               <button
-                className="self-end rounded-lg bg-fg px-5 py-3 text-sm font-bold text-canvas transition hover:bg-accent hover:text-on-accent"
+                className="self-end rounded-lg bg-accent px-5 py-2.5 text-sm font-bold text-on-accent transition hover:bg-accent-hover"
                 type="submit"
               >
                 Search
               </button>
             </form>
-            <div aria-busy={historyLoading} className="mt-8 space-y-3">
+            <div
+              aria-busy={historyLoading}
+              className="mt-6 divide-y divide-line border-y border-line"
+            >
               {historyLoading ? (
-                <p className="rounded-lg border border-fg/8 p-6 text-sm text-muted">
-                  Loading history…
-                </p>
+                <p className="py-6 text-sm text-muted">Loading history…</p>
               ) : history.length ? (
                 history.map((room) => (
-                  <article
-                    className="rounded-lg border border-fg/8 bg-sunken p-5"
-                    key={room.id}
-                  >
+                  <article className="py-4" key={room.id}>
                     <div className="flex flex-wrap items-start justify-between gap-3">
-                      <h3 className="text-lg font-semibold text-fg">
-                        {room.title}
-                      </h3>
+                      <h3 className="font-semibold text-fg">{room.title}</h3>
                       <time
                         className="text-xs text-muted"
                         dateTime={room.createdAt}
@@ -430,23 +427,23 @@ export function StudioDashboard() {
                         {new Date(room.createdAt).toLocaleString()}
                       </time>
                     </div>
-                    <p className="mt-2 text-sm leading-6 text-muted">
+                    <p className="mt-1 text-sm leading-6 text-muted">
                       {room.description}
                     </p>
-                    <p className="mt-3 text-xs text-subtle">
+                    <p className="mt-1 text-xs text-subtle">
                       Ended {new Date(room.updatedAt).toLocaleString()}
                     </p>
                   </article>
                 ))
               ) : (
-                <p className="rounded-lg border border-dashed border-fg/10 px-6 py-10 text-center text-sm text-muted">
+                <p className="py-10 text-center text-sm text-muted">
                   No ended broadcasts match these filters.
                 </p>
               )}
             </div>
-            <div className="mt-6 flex items-center justify-between">
+            <div className="mt-4 flex items-center justify-between">
               <button
-                className="rounded-full border border-fg/15 px-5 py-2.5 text-sm font-semibold text-fg disabled:opacity-40"
+                className="rounded-lg border border-line-strong px-4 py-2 text-sm font-semibold text-fg transition hover:bg-raised disabled:opacity-40"
                 disabled={pageIndex === 0 || historyLoading}
                 onClick={() => setPageIndex((current) => current - 1)}
                 type="button"
@@ -455,7 +452,7 @@ export function StudioDashboard() {
               </button>
               <span className="text-xs text-muted">Page {pageIndex + 1}</span>
               <button
-                className="rounded-full border border-fg/15 px-5 py-2.5 text-sm font-semibold text-fg disabled:opacity-40"
+                className="rounded-lg border border-line-strong px-4 py-2 text-sm font-semibold text-fg transition hover:bg-raised disabled:opacity-40"
                 disabled={!nextCursor || historyLoading}
                 onClick={() => {
                   if (!nextCursor) return;
@@ -494,7 +491,7 @@ function StudioField({
     <label className="block text-sm font-medium text-fg-soft">
       {label}
       <input
-        className="mt-2 w-full rounded-lg border border-fg/10 bg-sunken px-4 py-3 text-fg outline-none transition placeholder:text-subtle focus:border-accent/50 focus:ring-4 focus:ring-accent/10 disabled:cursor-not-allowed disabled:text-muted"
+        className="mt-1.5 w-full rounded-lg border border-line-strong bg-sunken px-3 py-2.5 text-fg outline-none transition placeholder:text-subtle focus:border-accent disabled:cursor-not-allowed disabled:text-muted"
         disabled={disabled}
         maxLength={120}
         onChange={(event) => onChange(event.target.value)}
@@ -524,7 +521,7 @@ function StudioTextArea({
     <label className="block text-sm font-medium text-fg-soft">
       {label}
       <textarea
-        className="mt-2 min-h-32 w-full resize-y rounded-lg border border-fg/10 bg-sunken px-4 py-3 text-fg outline-none transition placeholder:text-subtle focus:border-accent/50 focus:ring-4 focus:ring-accent/10 disabled:cursor-not-allowed disabled:text-muted"
+        className="mt-1.5 min-h-28 w-full resize-y rounded-lg border border-line-strong bg-sunken px-3 py-2.5 text-fg outline-none transition placeholder:text-subtle focus:border-accent disabled:cursor-not-allowed disabled:text-muted"
         disabled={disabled}
         maxLength={2000}
         onChange={(event) => onChange(event.target.value)}
@@ -551,16 +548,16 @@ function StudioMessage({
     <section className="grid min-h-[65vh] place-items-center text-center">
       <div>
         <p className="text-xs font-bold text-accent">{eyebrow}</p>
-        <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-fg">
+        <h1 className="mt-3 text-2xl font-bold tracking-tight text-fg">
           {title}
         </h1>
         {actionHref === '/auth' && actionLabel ? (
-          <AuthEntryLink className="mt-8 inline-flex rounded-full bg-fg px-6 py-3 font-bold text-canvas transition hover:bg-accent hover:text-on-accent">
+          <AuthEntryLink className="mt-8 inline-flex rounded-lg bg-accent px-5 py-2.5 font-bold text-on-accent transition hover:bg-accent-hover">
             {actionLabel}
           </AuthEntryLink>
         ) : actionHref && actionLabel ? (
           <Link
-            className="mt-8 inline-flex rounded-full bg-fg px-6 py-3 font-bold text-canvas transition hover:bg-accent hover:text-on-accent"
+            className="mt-8 inline-flex rounded-lg bg-accent px-5 py-2.5 font-bold text-on-accent transition hover:bg-accent-hover"
             href={actionHref}
           >
             {actionLabel}
