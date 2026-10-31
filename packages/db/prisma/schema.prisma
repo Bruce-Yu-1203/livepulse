@@ -84,6 +84,7 @@ model Room {
   hostId        String           @map("host_id") @db.Uuid
   title         String           @db.VarChar(120)
   description   String           @db.VarChar(2000)
+  category      String           @default("just-chatting") @db.VarChar(32)
   coverImageUrl String?          @map("cover_image_url") @db.Text
   status        RoomStatus       @default(DRAFT)
   startedAt     DateTime?        @map("started_at") @db.Timestamptz(3)
@@ -98,6 +99,7 @@ model Room {
 
   @@index([hostId])
   @@index([status, createdAt, id])
+  @@index([category, status, createdAt, id])
   @@unique([hostId], map: "rooms_one_live_per_host_key", where: raw("status = 'LIVE'"))
   @@map("rooms")
 }

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { nextRoomStatus, replaceRoom, roomActionLabel } from './studio';
 
 const draftRoom: Room = {
+  category: 'just-chatting',
   coverImageUrl: 'https://cdn.example.com/cover.jpg',
   createdAt: '2026-10-09T15:30:00.000Z',
   description: 'A room prepared for a live audience.',

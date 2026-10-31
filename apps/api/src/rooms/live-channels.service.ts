@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { LiveChannel } from '@livepulse/contracts';
+import { toRoomCategory, type LiveChannel } from '@livepulse/contracts';
 
 import { AvatarService } from '../auth/avatar.service.js';
 import { DatabaseService } from '../database/database.service.js';
@@ -63,6 +63,7 @@ export class LiveChannelsService {
     return rooms.map(({ _count, host, ...room }) => ({
       room: {
         ...room,
+        category: toRoomCategory(room.category),
         createdAt: room.createdAt.toISOString(),
         likeCount: _count.likes,
         startedAt: room.startedAt?.toISOString() ?? null,

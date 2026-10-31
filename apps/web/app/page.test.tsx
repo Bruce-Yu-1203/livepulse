@@ -13,6 +13,7 @@ vi.mock('../lib/api', () => ({
 }));
 
 const room: VisibleRoom = {
+  category: 'just-chatting',
   coverImageUrl: null,
   createdAt: '2026-10-09T15:30:00.000Z',
   description: 'A live conversation about making things together.',

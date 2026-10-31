@@ -16,6 +16,7 @@ function channel(
   overrides: Partial<LiveChannel> = {},
 ): LiveChannel {
   const room: VisibleRoom = {
+    category: 'just-chatting',
     coverImageUrl: null,
     createdAt: '2026-10-09T15:30:00.000Z',
     description: 'A live conversation.',

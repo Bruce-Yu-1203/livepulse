@@ -47,6 +47,7 @@ export class RoomsService {
       ? this.cursorCodec.decode(query.cursor)
       : undefined;
     const records = await this.rooms.listVisible({
+      category: query.category,
       cursor,
       hostId: query.hostId,
       query: query.q,

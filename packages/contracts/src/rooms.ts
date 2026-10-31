@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { RoomCategorySchema } from './categories.js';
 import { RoomStatusSchema } from './roles-and-rooms.js';
 
 const HttpUrlSchema = z
@@ -30,6 +31,7 @@ function isHttpUrl(value: string): boolean {
 
 export const CreateRoomRequestSchema = z
   .object({
+    category: RoomCategorySchema.optional(),
     coverImageUrl: CoverImageSchema.optional(),
     description: z.string().trim().min(1).max(2_000),
     title: z.string().trim().min(1).max(120),
@@ -40,6 +42,7 @@ export type CreateRoomRequest = z.infer<typeof CreateRoomRequestSchema>;
 
 export const RoomSchema = z
   .object({
+    category: RoomCategorySchema,
     coverImageUrl: CoverImageSchema.nullable(),
     createdAt: z.iso.datetime(),
     description: z.string().min(1).max(2_000),
@@ -73,6 +76,7 @@ export type CreateRoomResponse = z.infer<typeof CreateRoomResponseSchema>;
 
 export const ListRoomsQuerySchema = z
   .object({
+    category: RoomCategorySchema.optional(),
     cursor: z.string().min(1).max(512).optional(),
     hostId: z.uuid().optional(),
     limit: z.coerce.number().int().min(1).max(50).default(20),
@@ -196,6 +200,7 @@ export type CurrentBroadcastResponse = z.infer<
 
 export const UpdateRoomRequestSchema = z
   .object({
+    category: RoomCategorySchema.optional(),
     coverImageUrl: CoverImageSchema.nullable().optional(),
     description: z.string().trim().min(1).max(2_000).optional(),
     expectedVersion: z.number().int().positive(),
@@ -204,8 +209,8 @@ export const UpdateRoomRequestSchema = z
   })
   .strict()
   .refine(
-    ({ coverImageUrl, description, status, title }) =>
-      [coverImageUrl, description, status, title].some(
+    ({ category, coverImageUrl, description, status, title }) =>
+      [category, coverImageUrl, description, status, title].some(
         (value) => value !== undefined,
       ),
     { message: 'At least one room change is required' },

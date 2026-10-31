@@ -6,6 +6,7 @@ import { FeaturedCarousel } from './featured-carousel';
 
 function room(id: string, title: string): VisibleRoom {
   return {
+    category: 'just-chatting',
     coverImageUrl: null,
     createdAt: '2026-10-09T15:30:00.000Z',
     description: `${title} description`,

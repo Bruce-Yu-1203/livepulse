@@ -18,11 +18,14 @@ import { RoomsController } from './rooms.controller.js';
 import { PrismaRoomsRepository } from './rooms.repository.js';
 import { RoomsService } from './rooms.service.js';
 import { ROOMS_REPOSITORY } from './rooms.tokens.js';
+import { CategoriesController } from './categories.controller.js';
+import { CategoriesService } from './categories.service.js';
 import { LiveChannelsController } from './live-channels.controller.js';
 import { LiveChannelsService } from './live-channels.service.js';
 
 @Module({
   controllers: [
+    CategoriesController,
     RoomsController,
     LiveChannelsController,
     RoomLikesController,
@@ -37,6 +40,7 @@ import { LiveChannelsService } from './live-channels.service.js';
     RealtimeCacheModule,
   ],
   providers: [
+    CategoriesService,
     RoomsService,
     LiveChannelsService,
     RoomLikesService,
