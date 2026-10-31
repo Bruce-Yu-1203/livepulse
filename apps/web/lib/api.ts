@@ -4,6 +4,7 @@ import {
   GetRoomResponseSchema,
   GetPublicUserResponseSchema,
   ListRoomsResponseSchema,
+  LiveChannelsResponseSchema,
   SearchSuggestionsResponseSchema,
 } from '@livepulse/contracts';
 import type {
@@ -11,6 +12,7 @@ import type {
   FollowListResponse,
   GetRoomResponse,
   ListRoomsResponse,
+  LiveChannel,
   SearchSuggestionsResponse,
 } from '@livepulse/contracts';
 
@@ -86,13 +88,34 @@ export async function getRoom(id: string): Promise<GetRoomResponse> {
   );
 }
 
+/**
+ * Live channels for the side rail's first render. Pass the viewer's cookie
+ * header so followed hosts are grouped before hydration. A failure returns
+ * an empty list; the rail refreshes itself in the browser.
+ */
+export async function listLiveChannels(
+  cookie?: string,
+): Promise<LiveChannel[]> {
+  try {
+    const response = await request(
+      new URL('/api/v1/live-channels', apiOrigin),
+      LiveChannelsResponseSchema,
+      cookie ? { cookie } : {},
+    );
+    return response.items;
+  } catch {
+    return [];
+  }
+}
+
 async function request<T>(
   url: URL,
   schema: { parse(value: unknown): T },
+  headers: Record<string, string> = {},
 ): Promise<T> {
   const response = await fetch(url, {
     cache: 'no-store',
-    headers: { accept: 'application/json' },
+    headers: { accept: 'application/json', ...headers },
   });
   const body: unknown = await response.json();
 

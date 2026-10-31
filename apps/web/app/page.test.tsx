@@ -7,6 +7,7 @@ import { listRooms, searchSuggestions } from '../lib/api';
 import HomePage from './page';
 
 vi.mock('../lib/api', () => ({
+  listLiveChannels: vi.fn().mockResolvedValue([]),
   listRooms: vi.fn(),
   searchSuggestions: vi.fn(),
 }));

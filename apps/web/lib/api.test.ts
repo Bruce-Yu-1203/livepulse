@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { listRooms } from './api';
+import { listLiveChannels, listRooms } from './api';
 
 describe('listRooms', () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -25,5 +25,38 @@ describe('listRooms', () => {
     expect(url.searchParams.get('limit')).toBe('12');
     expect(url.searchParams.get('cursor')).toBe('next-page');
     expect(url.searchParams.get('q')).toBe('street food');
+  });
+});
+
+describe('listLiveChannels', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('forwards the viewer cookie so followed hosts are grouped', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ items: [], requestId: 'live' }), {
+        status: 200,
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      listLiveChannels('better-auth.session_token=abc'),
+    ).resolves.toEqual([]);
+
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
+    expect(url instanceof URL ? url.pathname : url).toBe(
+      '/api/v1/live-channels',
+    );
+    expect(init?.headers).toMatchObject({
+      cookie: 'better-auth.session_token=abc',
+    });
+  });
+
+  it('returns an empty list when the API fails', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockRejectedValue(new Error('offline')),
+    );
+    await expect(listLiveChannels()).resolves.toEqual([]);
   });
 });

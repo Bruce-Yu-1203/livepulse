@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { AppShell } from '../../../../components/app-shell';
+import { loadLiveChannels } from '../../../../components/live-channels-loader';
 import { SearchUserCard } from '../../../../components/search-user-card';
 import {
   ApiRequestError,
@@ -35,13 +36,14 @@ export default async function FollowListPage({
   if (!Number.isInteger(page) || page < 1 || page > 10_000) notFound();
 
   try {
-    const [{ user }, list] = await Promise.all([
+    const [{ user }, list, channels] = await Promise.all([
       getPublicUser(id),
       listUserFollows(id, kind, page),
+      loadLiveChannels(),
     ]);
     const title = kind === 'followers' ? 'Followers' : 'Following';
     return (
-      <AppShell>
+      <AppShell channels={channels}>
         <div className="mx-auto max-w-5xl px-5 py-8 sm:px-8 sm:py-10">
           <Link
             className="text-sm text-muted transition hover:text-fg"

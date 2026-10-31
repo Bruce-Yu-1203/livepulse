@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 
 import { LiveRoomExperience } from '../../../components/live-room-experience';
 import { AppShell } from '../../../components/app-shell';
+import { loadLiveChannels } from '../../../components/live-channels-loader';
 import { ApiRequestError, getPublicUser, getRoom } from '../../../lib/api';
 import { formatRoomDate, roomStatusLabel } from '../../../lib/presentation';
 
@@ -33,11 +34,14 @@ export default async function RoomPage({
 
   try {
     const { room } = await getRoom(id);
-    const { user: host } = await getPublicUser(room.hostId);
+    const [{ user: host }, channels] = await Promise.all([
+      getPublicUser(room.hostId),
+      loadLiveChannels(),
+    ]);
     const isLive = room.status === 'LIVE';
 
     return (
-      <AppShell activeRoomId={room.id}>
+      <AppShell activeRoomId={room.id} channels={channels}>
         <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 sm:py-10">
           <Link
             className="text-sm text-muted transition hover:text-fg"

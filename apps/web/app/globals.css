@@ -1841,7 +1841,8 @@ body:has(.auth-modal[open]) {
 .channel-rail-collapsed .channel-group-title,
 .channel-rail-collapsed .channel-text,
 .channel-rail-collapsed .channel-meta,
-.channel-rail-collapsed .channel-show-more {
+.channel-rail-collapsed .channel-show-more,
+.channel-rail-collapsed .channel-empty {
   display: none;
 }
 
@@ -1852,6 +1853,13 @@ body:has(.auth-modal[open]) {
 .channel-rail-collapsed .channel-link {
   justify-content: center;
   padding-inline: 0;
+}
+
+.channel-empty {
+  padding: 0.75rem 0.9rem;
+  color: var(--lp-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
 }
 
 .channel-group-title {

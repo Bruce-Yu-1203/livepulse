@@ -6,6 +6,7 @@ import type {
 import Link from 'next/link';
 
 import { AppShell } from '../components/app-shell';
+import { loadLiveChannels } from '../components/live-channels-loader';
 import { BrandMark } from '../components/brand-mark';
 import { FeaturedCarousel } from '../components/featured-carousel';
 import { HomeAccountAction } from '../components/home-account-action';
@@ -33,12 +34,15 @@ export default async function HomePage({
   let roomsUnavailable = false;
   let usersUnavailable = false;
 
+  // loadLiveChannels never rejects, so it can load alongside the rooms.
+  const channelsRequest = loadLiveChannels();
   const [roomResult, userResult] = await Promise.allSettled([
     listRooms(cursor, searchQuery),
     searchQuery
       ? searchSuggestions(searchQuery, 10)
       : Promise.resolve(undefined),
   ]);
+  const channels = await channelsRequest;
   if (roomResult.status === 'fulfilled') {
     page = roomResult.value;
   } else {
@@ -55,7 +59,11 @@ export default async function HomePage({
   const endedRooms = rooms.filter((room) => room.status !== 'LIVE');
 
   return (
-    <AppShell mainClassName="home-page" searchQuery={searchQuery}>
+    <AppShell
+      channels={channels}
+      mainClassName="home-page"
+      searchQuery={searchQuery}
+    >
       {searchQuery || roomsUnavailable ? null : (
         <FeaturedCarousel rooms={selectFeaturedRooms(page.items)} />
       )}

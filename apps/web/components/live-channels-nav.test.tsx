@@ -108,6 +108,21 @@ describe('LiveChannelsNav', () => {
     );
   });
 
+  it('says nobody is live only once a list has loaded', () => {
+    expect(renderNav([], { status: 'anonymous' })).toContain(
+      'No one is live right now.',
+    );
+    expect(renderNav([channel('popular-0')], authenticated)).not.toContain(
+      'No one is live right now.',
+    );
+    const unloaded = renderToStaticMarkup(
+      <AuthSessionProvider initialSession={{ status: 'anonymous' }}>
+        <LiveChannelsNav />
+      </AuthSessionProvider>,
+    );
+    expect(unloaded).not.toContain('No one is live right now.');
+  });
+
   it('shows eight popular rooms initially with a Show more control', () => {
     const channels = Array.from({ length: 10 }, (_, index) =>
       channel(`popular-${index}`),

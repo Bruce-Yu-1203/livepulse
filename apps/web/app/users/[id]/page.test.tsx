@@ -7,6 +7,7 @@ import { getPublicUser, listRooms } from '../../../lib/api';
 import PublicUserPage from './page';
 
 vi.mock('../../../lib/api', () => ({
+  listLiveChannels: vi.fn().mockResolvedValue([]),
   getPublicUser: vi.fn(),
   listRooms: vi.fn(),
 }));

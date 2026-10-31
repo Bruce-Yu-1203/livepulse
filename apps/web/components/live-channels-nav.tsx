@@ -3,7 +3,7 @@
 import { LiveChannelsResponseSchema } from '@livepulse/contracts';
 import type { LiveChannel } from '@livepulse/contracts';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { clientApiRequest } from '../lib/client-api';
 import { FOLLOWING_CHANGED_EVENT } from '../lib/follow-state';
@@ -29,13 +29,17 @@ export function groupLiveChannels(channels: LiveChannel[], signedIn: boolean) {
 
 export function LiveChannelsNav({
   activeRoomId,
-  initialChannels = [],
+  initialChannels,
 }: {
   activeRoomId?: string;
+  /** Channels loaded on the server; omitted when the page has none. */
   initialChannels?: LiveChannel[];
 }) {
   const { session } = useAuthSession();
-  const [channels, setChannels] = useState(initialChannels);
+  const [channels, setChannels] = useState(initialChannels ?? []);
+  // Server-rendered channels count as loaded, so the empty state is honest.
+  const [loaded, setLoaded] = useState(initialChannels !== undefined);
+  const skipFirstRefresh = useRef(initialChannels !== undefined);
   const [collapsed, setCollapsed] = useState(false);
   const [popularCount, setPopularCount] = useState(popularPageSize);
   const signedIn = session.status === 'authenticated';
@@ -62,13 +66,20 @@ export function LiveChannelsNav({
         { signal: controller.signal },
       )
         .then((response) => {
-          if (request === latestRequest) setChannels(response.items);
+          if (request !== latestRequest) return;
+          setChannels(response.items);
+          setLoaded(true);
         })
         .catch(() => {
           // Keep the last usable list if the room service is unavailable.
         });
     };
-    refresh();
+    // The server already sent this list; refresh later rather than at once.
+    if (skipFirstRefresh.current) {
+      skipFirstRefresh.current = false;
+    } else {
+      refresh();
+    }
     window.addEventListener('focus', refresh);
     window.addEventListener(FOLLOWING_CHANGED_EVENT, refresh);
     const interval = window.setInterval(refresh, 30_000);
@@ -126,6 +137,9 @@ export function LiveChannelsNav({
           </svg>
         </button>
       </div>
+      {loaded && following.length === 0 && popular.length === 0 ? (
+        <p className="channel-empty">No one is live right now.</p>
+      ) : null}
       {following.length > 0 ? (
         <ChannelGroup
           activeRoomId={activeRoomId}
