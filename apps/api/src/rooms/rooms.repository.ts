@@ -352,6 +352,13 @@ export class PrismaRoomsRepository implements RoomsRepository {
       ) {
         return undefined;
       }
+      // The partial unique index is the backstop for one live room per host.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new RoomAlreadyLiveError();
+      }
 
       throwRoomDatabaseError(error);
     }

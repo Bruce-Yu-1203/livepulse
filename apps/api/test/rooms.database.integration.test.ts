@@ -204,6 +204,28 @@ describe('POST /api/v1/rooms', () => {
     );
   });
 
+  it('rejects a second live room for one host at the database level', async () => {
+    const host = await database.user.findUniqueOrThrow({
+      where: { email: 'host@example.com' },
+    });
+    const live = {
+      description: roomInput.description,
+      hostId: host.id,
+      startedAt: new Date(),
+      status: 'LIVE' as const,
+    };
+    await database.room.create({ data: { ...live, title: 'First show' } });
+
+    await expect(
+      database.room.create({ data: { ...live, title: 'Second show' } }),
+    ).rejects.toMatchObject({ code: 'P2002' });
+    await expect(
+      database.room.create({
+        data: { ...live, status: 'ENDED', title: 'Earlier show' },
+      }),
+    ).resolves.toMatchObject({ status: 'ENDED' });
+  });
+
   it('keeps only one live broadcast per host and lists ended history in pages', async () => {
     const headers = await authenticatedHeaders('host@example.com');
     const first = CreateRoomResponseSchema.parse(
@@ -349,6 +371,8 @@ describe('POST /api/v1/rooms', () => {
     const host = await database.user.findUniqueOrThrow({
       where: { email: 'host@example.com' },
     });
+    // Each host may only have one live room.
+    const otherHosts = await createHosts(1);
     await database.room.createMany({
       data: [
         roomRecord(
@@ -365,7 +389,7 @@ describe('POST /api/v1/rooms', () => {
         ),
         roomRecord(
           '11111111-1111-4111-8111-111111111111',
-          host.id,
+          otherHosts[0],
           'LIVE',
           '2026-10-09T15:00:00.000Z',
         ),
@@ -415,6 +439,8 @@ describe('POST /api/v1/rooms', () => {
     const host = await database.user.findUniqueOrThrow({
       where: { email: 'host@example.com' },
     });
+    // Each host may only have one live room.
+    const otherHosts = await createHosts(3);
     await database.room.createMany({
       data: [
         {
@@ -430,7 +456,7 @@ describe('POST /api/v1/rooms', () => {
         {
           ...roomRecord(
             '22222222-2222-4222-8222-222222222222',
-            host.id,
+            otherHosts[0],
             'LIVE',
             '2026-10-09T16:00:00.000Z',
           ),
@@ -449,7 +475,7 @@ describe('POST /api/v1/rooms', () => {
         {
           ...roomRecord(
             '44444444-4444-4444-8444-444444444444',
-            host.id,
+            otherHosts[1],
             'LIVE',
             '2026-10-09T14:00:00.000Z',
           ),
@@ -467,7 +493,7 @@ describe('POST /api/v1/rooms', () => {
         {
           ...roomRecord(
             '66666666-6666-4666-8666-666666666666',
-            host.id,
+            otherHosts[2],
             'LIVE',
             '2026-10-09T12:00:00.000Z',
           ),
@@ -903,6 +929,21 @@ describe('POST /api/v1/rooms', () => {
 
 function cookiePair(setCookie: string): string {
   return setCookie.split(';', 1)[0] ?? '';
+}
+
+async function createHosts(count: number): Promise<string[]> {
+  const hosts = await Promise.all(
+    Array.from({ length: count }, (_, index) =>
+      database.user.create({
+        data: {
+          email: `extra-host-${index}@example.com`,
+          name: `Extra host ${index}`,
+          role: 'HOST',
+        },
+      }),
+    ),
+  );
+  return hosts.map((host) => host.id);
 }
 
 function roomRecord(
