@@ -141,3 +141,22 @@ describe('stage framing', () => {
     expect(block('.featured-media')).toContain('aspect-ratio: 16 / 9');
   });
 });
+
+describe('motion', () => {
+  it('animates chat entry but turns it off during bursts and reduced motion', () => {
+    expect(block('.chat-message')).toContain('animation: chat-message-in');
+    expect(block('.room-chat-list-busy .chat-message')).toContain(
+      'animation: none',
+    );
+    const reducedBlocks = css.split('prefers-reduced-motion').slice(1);
+    expect(
+      reducedBlocks.some(
+        (part) => part.includes('.chat-message') && part.includes('.like-plus'),
+      ),
+    ).toBe(true);
+  });
+
+  it('pulses live dots', () => {
+    expect(block('.channel-dot')).toContain('animation: live-dot-pulse');
+  });
+});

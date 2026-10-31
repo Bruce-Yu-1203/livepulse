@@ -28,6 +28,7 @@ export function RoomLikeButton({
     liked: false,
   });
   const [ready, setReady] = useState(authChecked && !userId);
+  const [burst, setBurst] = useState(0);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
 
@@ -78,6 +79,9 @@ export function RoomLikeButton({
 
     const previous = state;
     const liked = !state.liked;
+    if (liked) {
+      setBurst((value) => value + 1);
+    }
     setState(optimisticRoomLikeState(state, liked));
     setPending(true);
     setError(undefined);
@@ -105,7 +109,7 @@ export function RoomLikeButton({
 
   const label = `${formatLikeCount(state.likeCount)} ${state.likeCount === 1 ? 'like' : 'likes'}`;
   const classes =
-    'inline-flex min-h-11 items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold backdrop-blur transition';
+    'relative inline-flex min-h-11 items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold backdrop-blur transition';
 
   if (authChecked && !userId) {
     return (
@@ -133,8 +137,25 @@ export function RoomLikeButton({
         onClick={toggle}
         type="button"
       >
-        <span aria-hidden="true">{state.liked ? '♥' : '♡'}</span>
-        {pending ? 'Saving…' : label}
+        <span
+          aria-hidden="true"
+          className={burst > 0 ? 'like-heart-pop' : undefined}
+          key={`heart-${burst}`}
+        >
+          {state.liked ? '♥' : '♡'}
+        </span>
+        {pending ? (
+          'Saving…'
+        ) : (
+          <span className="like-count-change" key={state.likeCount}>
+            {label}
+          </span>
+        )}
+        {burst > 0 ? (
+          <span aria-hidden="true" className="like-plus" key={`plus-${burst}`}>
+            +1
+          </span>
+        ) : null}
       </button>
       {error ? (
         <StatusNotice className="mt-2 max-w-56" compact tone="error">

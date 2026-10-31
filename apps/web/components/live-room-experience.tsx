@@ -10,6 +10,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { appendedChatMessageCount, isNearChatBottom } from '../lib/chat-scroll';
+import { isChatBurst, recentArrivals } from '../lib/chat-motion';
 import { clientApiRequest } from '../lib/client-api';
 import {
   danmakuLayout,
@@ -62,6 +63,22 @@ export function LiveRoomExperience({
   const stageRef = useRef<HTMLDivElement>(null);
   const chatListRef = useRef<HTMLDivElement>(null);
   const lastMessageIdRef = useRef<string>(undefined);
+  const arrivalTimesRef = useRef<number[]>([]);
+  const [chatBurst, setChatBurst] = useState(false);
+  const messageCount = chat.messages.length;
+
+  // Track how fast messages arrive; entry motion pauses during a burst.
+  useEffect(() => {
+    if (messageCount === 0) {
+      return;
+    }
+    const now = Date.now();
+    arrivalTimesRef.current = [
+      ...recentArrivals(arrivalTimesRef.current, now),
+      now,
+    ];
+    setChatBurst(isChatBurst(arrivalTimesRef.current, now));
+  }, [messageCount]);
   const nearChatBottomRef = useRef(true);
   const historyScrollRef = useRef<{ scrollHeight: number; scrollTop: number }>(
     undefined,
@@ -371,7 +388,7 @@ export function LiveRoomExperience({
           <div className="relative min-h-0 flex-1">
             <div
               aria-live="polite"
-              className="room-chat-list h-full space-y-1 overflow-y-auto px-3 py-4 lg:max-h-[31rem]"
+              className={`room-chat-list h-full space-y-1 overflow-y-auto px-3 py-4 lg:max-h-[31rem] ${chatBurst ? 'room-chat-list-busy' : ''}`}
               onScroll={(event) => {
                 nearChatBottomRef.current = isNearChatBottom(
                   event.currentTarget,
