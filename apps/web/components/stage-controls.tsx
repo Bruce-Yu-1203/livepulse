@@ -1,5 +1,9 @@
 import type { ReactNode } from 'react';
 
+import type {
+  ViewerQualityOption,
+  ViewerQualityPreference,
+} from '../lib/broadcast-quality';
 import { danmakuDensities, type DanmakuDensity } from '../lib/danmaku';
 import { volumeLevel } from '../lib/player-controls';
 
@@ -106,18 +110,49 @@ export function ViewingControls({
   danmakuVisible,
   fullscreen,
   onDanmakuDensity,
+  onQuality,
   onToggleDanmaku,
   onToggleFullscreen,
+  quality = 'auto',
+  qualityOptions = [],
 }: {
   danmakuDensity: DanmakuDensity;
   danmakuVisible: boolean;
   fullscreen: boolean;
   onDanmakuDensity(density: DanmakuDensity): void;
+  onQuality?(quality: ViewerQualityPreference): void;
   onToggleDanmaku(): void;
   onToggleFullscreen(): void;
+  quality?: ViewerQualityPreference;
+  qualityOptions?: ViewerQualityOption[];
 }) {
+  // A saved choice the current host does not send still shows as selected.
+  const options =
+    quality !== 'auto' &&
+    !qualityOptions.some((option) => option.value === quality)
+      ? [...qualityOptions, { label: `${quality}p`, value: quality }]
+      : qualityOptions;
+
   return (
     <div className="stage-control-group">
+      {onQuality && options.length > 0 ? (
+        <select
+          aria-label="Video quality"
+          className="stage-select"
+          onChange={(event) => {
+            const value = event.currentTarget.value;
+            onQuality(value === 'auto' ? 'auto' : Number(value));
+          }}
+          title="Video quality"
+          value={String(quality)}
+        >
+          {options.map((option) => (
+            <option key={option.value} value={String(option.value)}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      ) : null}
       <StageButton
         label={danmakuVisible ? 'Hide danmaku' : 'Show danmaku'}
         onClick={onToggleDanmaku}

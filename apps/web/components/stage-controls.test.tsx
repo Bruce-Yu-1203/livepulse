@@ -81,4 +81,59 @@ describe('ViewingControls', () => {
     expect(html).toContain('disabled=""');
     expect(html).toContain('aria-label="Exit full screen"');
   });
+
+  it('offers a video quality menu with the published layers', () => {
+    const html = renderToStaticMarkup(
+      <ViewingControls
+        danmakuDensity="medium"
+        danmakuVisible
+        fullscreen={false}
+        onDanmakuDensity={noop}
+        onQuality={noop}
+        onToggleDanmaku={noop}
+        onToggleFullscreen={noop}
+        quality={720}
+        qualityOptions={[
+          { label: 'Auto (1080p)', value: 'auto' },
+          { label: '1080p', value: 1080 },
+          { label: '720p', value: 720 },
+          { label: '360p', value: 360 },
+        ]}
+      />,
+    );
+
+    expect(html).toContain('aria-label="Video quality"');
+    expect(html).toContain('Auto (1080p)');
+    expect(html).toContain('<option value="720" selected="">720p</option>');
+    expect(html).toContain('360p');
+  });
+
+  it('keeps a saved choice the host does not send and hides the menu off-air', () => {
+    const saved = renderToStaticMarkup(
+      <ViewingControls
+        danmakuDensity="medium"
+        danmakuVisible
+        fullscreen={false}
+        onDanmakuDensity={noop}
+        onQuality={noop}
+        onToggleDanmaku={noop}
+        onToggleFullscreen={noop}
+        quality={1080}
+        qualityOptions={[{ label: 'Auto', value: 'auto' }]}
+      />,
+    );
+    expect(saved).toContain('<option value="1080" selected="">1080p</option>');
+
+    const offAir = renderToStaticMarkup(
+      <ViewingControls
+        danmakuDensity="medium"
+        danmakuVisible
+        fullscreen={false}
+        onDanmakuDensity={noop}
+        onToggleDanmaku={noop}
+        onToggleFullscreen={noop}
+      />,
+    );
+    expect(offAir).not.toContain('Video quality');
+  });
 });
