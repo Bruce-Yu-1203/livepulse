@@ -52,7 +52,7 @@ export function HostBroadcastStudio({
   onStatusChange,
   room,
 }: {
-  /** Live chat shown under the side panel while the room is on air. */
+  /** Live chat shown at the top of the side column while the room is on air. */
   chat?: ReactNode;
   /** Room details form shown above the checklist in the side panel. */
   details?: ReactNode;
@@ -629,6 +629,7 @@ export function HostBroadcastStudio({
       </div>
 
       <div className={`min-w-0 space-y-5 ${chat ? '' : 'lg:sticky lg:top-20'}`}>
+        {chat}
         <div className="space-y-5 rounded-xl border border-line bg-surface p-5">
           {details}
 
@@ -723,7 +724,6 @@ export function HostBroadcastStudio({
 
           {error ? <StatusNotice tone="error">{error}</StatusNotice> : null}
         </div>
-        {chat}
       </div>
     </div>
   );

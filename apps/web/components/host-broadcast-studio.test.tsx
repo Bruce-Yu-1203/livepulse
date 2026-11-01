@@ -43,7 +43,7 @@ describe('HostBroadcastStudio', () => {
     expect(markup).not.toContain('Before you go live');
   });
 
-  it('shows the live chat beside the controls while on air', () => {
+  it('shows the live chat above the controls while on air', () => {
     const markup = renderToStaticMarkup(
       <HostBroadcastStudio
         chat={<aside aria-label="Live chat">Viewer messages</aside>}
@@ -58,9 +58,9 @@ describe('HostBroadcastStudio', () => {
 
     expect(markup).toContain('aria-label="Live chat"');
     expect(markup).toContain('Viewer messages');
-    // Markup order: the controls come before the chat in the side column.
-    expect(markup.indexOf('End broadcast')).toBeLessThan(
-      markup.indexOf('Viewer messages'),
+    // The chat leads the side column so it stays in view next to the video.
+    expect(markup.indexOf('Viewer messages')).toBeLessThan(
+      markup.indexOf('End broadcast'),
     );
   });
 
