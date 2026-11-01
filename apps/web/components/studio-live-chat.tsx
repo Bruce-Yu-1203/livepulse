@@ -11,7 +11,7 @@ export function StudioLiveChat({ room }: { room: RoomChatPanelRoom }) {
   return (
     <RoomChatPanel
       chat={chat}
-      className="h-[30rem] overflow-hidden rounded-xl border border-line"
+      className="h-full overflow-hidden rounded-xl border border-line"
       emptyHint="Messages from viewers appear here."
       room={room}
     />

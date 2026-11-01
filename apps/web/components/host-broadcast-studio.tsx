@@ -52,7 +52,7 @@ export function HostBroadcastStudio({
   onStatusChange,
   room,
 }: {
-  /** Live chat shown at the top of the side column while the room is on air. */
+  /** Live chat; when given, the studio switches to its on-air layout. */
   chat?: ReactNode;
   /** Room details form shown above the checklist in the side panel. */
   details?: ReactNode;
@@ -511,219 +511,298 @@ export function HostBroadcastStudio({
   // Leaving this page unmounts the studio and stops the stream, so ask first.
   useLeaveStudioGuard(connected);
 
-  return (
-    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_21rem] lg:items-start">
-      <div className="min-w-0 space-y-3">
-        <div className="relative aspect-video overflow-hidden rounded-xl bg-stage">
-          {mainTrack ? (
-            <LiveKitVideo
-              className="h-full w-full object-contain"
-              muted
-              track={mainTrack}
-            />
-          ) : (
-            <div className="grid h-full place-items-center px-8 text-center">
-              <div>
-                <p className="text-sm font-semibold text-white">
-                  Select a source to start the local preview
-                </p>
-                <p className="mt-2 max-w-sm text-xs leading-5 text-white/60">
-                  Nothing is sent to viewers until you confirm this preview and
-                  start the broadcast.
-                </p>
-                {screenEnabled ? (
-                  <button
-                    className="mt-5 rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-white/85 disabled:opacity-50"
-                    disabled={captureTarget !== undefined || pending}
-                    onClick={() => void chooseScreen()}
-                    type="button"
-                  >
-                    {captureTarget === 'screen'
-                      ? 'Opening screen picker…'
-                      : 'Choose a screen'}
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          )}
-
-          {cameraOverlay &&
-          cameraUsesOverlay({ camera: true, screen: true }) ? (
-            <div className="absolute bottom-4 right-4 aspect-video w-[26%] min-w-28 max-w-64 overflow-hidden rounded-lg border border-white/20 bg-black shadow-[var(--lp-shadow)]">
-              <LiveKitVideo
-                className="h-full w-full object-cover"
-                muted
-                track={cameraOverlay}
-              />
-            </div>
-          ) : null}
-
-          {connected ? (
-            <span className="studio-stage-badge studio-stage-badge-live">
-              <span aria-hidden="true" className="channel-dot" />
-              LIVE · {formatBroadcastDuration(room?.startedAt, now)}
-            </span>
-          ) : previewReady ? (
-            <span className="studio-stage-badge">Preview · not live</span>
-          ) : null}
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-3">
-          <SourceCard
-            checked={screenEnabled}
-            label="Share screen"
-            onChange={(checked) =>
-              void (checked ? chooseScreen() : disableScreen())
-            }
-          >
-            <button
-              className="studio-source-action"
-              disabled={
-                !screenEnabled || captureTarget !== undefined || pending
-              }
-              onClick={() => void chooseScreen()}
-              type="button"
-            >
-              {previewTracks.screen ? 'Change shared screen' : 'Choose screen'}
-            </button>
-          </SourceCard>
-          <SourceCard
-            checked={cameraEnabled}
-            label="Use camera"
-            onChange={(checked) =>
-              void (checked ? prepareCamera() : disableCamera())
-            }
-          >
-            <DeviceSelect
-              disabled={!cameraEnabled || captureTarget === 'camera'}
-              fallback="Camera"
-              label="Camera input"
-              onChange={(id) => void selectDevice('videoinput', id)}
-              options={videoDevices}
-              value={videoDeviceId}
-            />
-          </SourceCard>
-          <SourceCard
-            checked={microphoneEnabled}
-            label="Use microphone"
-            onChange={(checked) => void toggleMicrophone(checked)}
-          >
-            <DeviceSelect
-              disabled={!microphoneEnabled}
-              fallback="Microphone"
-              label="Microphone input"
-              onChange={(id) => void selectDevice('audioinput', id)}
-              options={audioDevices}
-              value={audioDeviceId}
-            />
-          </SourceCard>
-        </div>
-        <button
-          className="text-xs font-medium text-muted underline-offset-4 transition hover:text-fg hover:underline disabled:opacity-50"
-          disabled={pending || captureTarget !== undefined}
-          onClick={() => void loadDevices(true)}
-          type="button"
-        >
-          Refresh input devices
-        </button>
-      </div>
-
-      <div className={`min-w-0 space-y-5 ${chat ? '' : 'lg:sticky lg:top-20'}`}>
-        {chat}
-        <div className="space-y-5 rounded-xl border border-line bg-surface p-5">
-          {details}
-
-          {live ? null : (
-            <ul aria-label="Before you go live" className="space-y-2">
-              {checklist.map((item) => (
-                <li
-                  className={`studio-check ${item.done ? 'studio-check-done' : ''} ${item.optional ? 'studio-check-optional' : ''}`}
-                  key={item.label}
+  const stage = (
+    <div className="min-w-0 space-y-3">
+      <div className="relative aspect-video overflow-hidden rounded-xl bg-stage">
+        {mainTrack ? (
+          <LiveKitVideo
+            className="h-full w-full object-contain"
+            muted
+            track={mainTrack}
+          />
+        ) : (
+          <div className="grid h-full place-items-center px-8 text-center">
+            <div>
+              <p className="text-sm font-semibold text-white">
+                Select a source to start the local preview
+              </p>
+              <p className="mt-2 max-w-sm text-xs leading-5 text-white/60">
+                Nothing is sent to viewers until you confirm this preview and
+                start the broadcast.
+              </p>
+              {screenEnabled ? (
+                <button
+                  className="mt-5 rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-white/85 disabled:opacity-50"
+                  disabled={captureTarget !== undefined || pending}
+                  onClick={() => void chooseScreen()}
+                  type="button"
                 >
-                  <span aria-hidden="true" className="studio-check-mark" />
-                  {item.label}
-                  <span className="sr-only">
-                    {item.done ? ' (done)' : item.optional ? '' : ' (to do)'}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {connected ? null : (
-            <div className="space-y-2">
-              <button
-                className="w-full rounded-lg bg-accent px-4 py-3 text-sm font-bold text-on-accent transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={
-                  disabled ||
-                  pending ||
-                  reconnecting ||
-                  captureTarget !== undefined ||
-                  !previewReady ||
-                  (!room && !detailsReady) ||
-                  room?.status === 'ENDED'
-                }
-                onClick={() => void startBroadcast()}
-                type="button"
-              >
-                {pending
-                  ? 'Starting…'
-                  : reconnecting
-                    ? 'Reconnecting…'
-                    : room?.status === 'LIVE'
-                      ? 'Reconnect broadcast'
-                      : 'Start live broadcast'}
-              </button>
-              {!previewReady ? (
-                <p className="text-center text-xs leading-5 text-muted">
-                  Prepare a screen or camera preview first.
-                </p>
+                  {captureTarget === 'screen'
+                    ? 'Opening screen picker…'
+                    : 'Choose a screen'}
+                </button>
               ) : null}
             </div>
-          )}
+          </div>
+        )}
 
-          {live ? (
-            confirmingEnd ? (
+        {cameraOverlay && cameraUsesOverlay({ camera: true, screen: true }) ? (
+          <div className="absolute bottom-4 right-4 aspect-video w-[26%] min-w-28 max-w-64 overflow-hidden rounded-lg border border-white/20 bg-black shadow-[var(--lp-shadow)]">
+            <LiveKitVideo
+              className="h-full w-full object-cover"
+              muted
+              track={cameraOverlay}
+            />
+          </div>
+        ) : null}
+
+        {connected ? (
+          <span className="studio-stage-badge studio-stage-badge-live">
+            <span aria-hidden="true" className="channel-dot" />
+            LIVE · {formatBroadcastDuration(room?.startedAt, now)}
+          </span>
+        ) : previewReady ? (
+          <span className="studio-stage-badge">Preview · not live</span>
+        ) : null}
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <SourceCard
+          checked={screenEnabled}
+          label="Share screen"
+          onChange={(checked) =>
+            void (checked ? chooseScreen() : disableScreen())
+          }
+        >
+          <button
+            className="studio-source-action"
+            disabled={!screenEnabled || captureTarget !== undefined || pending}
+            onClick={() => void chooseScreen()}
+            type="button"
+          >
+            {previewTracks.screen ? 'Change shared screen' : 'Choose screen'}
+          </button>
+        </SourceCard>
+        <SourceCard
+          checked={cameraEnabled}
+          label="Use camera"
+          onChange={(checked) =>
+            void (checked ? prepareCamera() : disableCamera())
+          }
+        >
+          <DeviceSelect
+            disabled={!cameraEnabled || captureTarget === 'camera'}
+            fallback="Camera"
+            label="Camera input"
+            onChange={(id) => void selectDevice('videoinput', id)}
+            options={videoDevices}
+            value={videoDeviceId}
+          />
+        </SourceCard>
+        <SourceCard
+          checked={microphoneEnabled}
+          label="Use microphone"
+          onChange={(checked) => void toggleMicrophone(checked)}
+        >
+          <DeviceSelect
+            disabled={!microphoneEnabled}
+            fallback="Microphone"
+            label="Microphone input"
+            onChange={(id) => void selectDevice('audioinput', id)}
+            options={audioDevices}
+            value={audioDeviceId}
+          />
+        </SourceCard>
+      </div>
+      <button
+        className="text-xs font-medium text-muted underline-offset-4 transition hover:text-fg hover:underline disabled:opacity-50"
+        disabled={pending || captureTarget !== undefined}
+        onClick={() => void loadDevices(true)}
+        type="button"
+      >
+        Refresh input devices
+      </button>
+    </div>
+  );
+
+  if (chat) {
+    // On-air layout: a compact bar for room details and broadcast controls,
+    // then the preview with the live chat running down its right side.
+    return (
+      <div className="space-y-4">
+        <div className="studio-onair-bar">
+          <div className="min-w-0 flex-1">{details}</div>
+          <div className="flex flex-wrap items-center gap-2">
+            {connected ? null : (
+              <>
+                {!previewReady ? (
+                  <span className="text-xs text-muted">
+                    Prepare a screen or camera preview first.
+                  </span>
+                ) : null}
+                <button
+                  className="studio-bar-button studio-bar-button-primary"
+                  disabled={
+                    disabled ||
+                    pending ||
+                    reconnecting ||
+                    captureTarget !== undefined ||
+                    !previewReady
+                  }
+                  onClick={() => void startBroadcast()}
+                  type="button"
+                >
+                  {pending
+                    ? 'Starting…'
+                    : reconnecting
+                      ? 'Reconnecting…'
+                      : 'Reconnect broadcast'}
+                </button>
+              </>
+            )}
+            {confirmingEnd ? (
               <div
                 aria-label="Confirm ending the broadcast"
-                className="space-y-2 rounded-lg border border-danger/25 bg-danger/10 p-3"
+                className="flex flex-wrap items-center gap-2"
                 role="group"
               >
-                <p className="text-sm text-fg">
-                  End the broadcast for everyone watching?
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    className="flex-1 rounded-lg bg-danger px-3 py-2 text-sm font-bold text-white transition hover:bg-danger-hover disabled:cursor-wait disabled:opacity-50"
-                    disabled={disabled || pending}
-                    onClick={() => void endBroadcast()}
-                    type="button"
-                  >
-                    Confirm end
-                  </button>
-                  <button
-                    className="flex-1 rounded-lg border border-line-strong px-3 py-2 text-sm font-semibold text-fg-soft transition hover:bg-raised"
-                    onClick={() => setConfirmingEnd(false)}
-                    type="button"
-                  >
-                    Keep live
-                  </button>
-                </div>
+                <span className="text-sm text-fg">End for everyone?</span>
+                <button
+                  className="studio-bar-button studio-bar-button-danger"
+                  disabled={disabled || pending}
+                  onClick={() => void endBroadcast()}
+                  type="button"
+                >
+                  Confirm end
+                </button>
+                <button
+                  className="studio-bar-button"
+                  onClick={() => setConfirmingEnd(false)}
+                  type="button"
+                >
+                  Keep live
+                </button>
               </div>
             ) : (
               <button
-                className="w-full rounded-lg border border-danger/40 px-4 py-3 text-sm font-bold text-danger transition hover:bg-danger/10 disabled:cursor-wait disabled:opacity-50"
+                className="studio-bar-button studio-bar-button-end"
                 disabled={disabled || pending}
                 onClick={() => setConfirmingEnd(true)}
                 type="button"
               >
                 End broadcast
               </button>
-            )
-          ) : null}
-
-          {error ? <StatusNotice tone="error">{error}</StatusNotice> : null}
+            )}
+          </div>
         </div>
+
+        {error ? <StatusNotice tone="error">{error}</StatusNotice> : null}
+
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
+          {stage}
+          <div className="studio-chat-slot">{chat}</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_21rem] lg:items-start">
+      {stage}
+
+      <div className="space-y-5 rounded-xl border border-line bg-surface p-5 lg:sticky lg:top-20">
+        {details}
+
+        {live ? null : (
+          <ul aria-label="Before you go live" className="space-y-2">
+            {checklist.map((item) => (
+              <li
+                className={`studio-check ${item.done ? 'studio-check-done' : ''} ${item.optional ? 'studio-check-optional' : ''}`}
+                key={item.label}
+              >
+                <span aria-hidden="true" className="studio-check-mark" />
+                {item.label}
+                <span className="sr-only">
+                  {item.done ? ' (done)' : item.optional ? '' : ' (to do)'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {connected ? null : (
+          <div className="space-y-2">
+            <button
+              className="w-full rounded-lg bg-accent px-4 py-3 text-sm font-bold text-on-accent transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={
+                disabled ||
+                pending ||
+                reconnecting ||
+                captureTarget !== undefined ||
+                !previewReady ||
+                (!room && !detailsReady) ||
+                room?.status === 'ENDED'
+              }
+              onClick={() => void startBroadcast()}
+              type="button"
+            >
+              {pending
+                ? 'Starting…'
+                : reconnecting
+                  ? 'Reconnecting…'
+                  : room?.status === 'LIVE'
+                    ? 'Reconnect broadcast'
+                    : 'Start live broadcast'}
+            </button>
+            {!previewReady ? (
+              <p className="text-center text-xs leading-5 text-muted">
+                Prepare a screen or camera preview first.
+              </p>
+            ) : null}
+          </div>
+        )}
+
+        {live ? (
+          confirmingEnd ? (
+            <div
+              aria-label="Confirm ending the broadcast"
+              className="space-y-2 rounded-lg border border-danger/25 bg-danger/10 p-3"
+              role="group"
+            >
+              <p className="text-sm text-fg">
+                End the broadcast for everyone watching?
+              </p>
+              <div className="flex gap-2">
+                <button
+                  className="flex-1 rounded-lg bg-danger px-3 py-2 text-sm font-bold text-white transition hover:bg-danger-hover disabled:cursor-wait disabled:opacity-50"
+                  disabled={disabled || pending}
+                  onClick={() => void endBroadcast()}
+                  type="button"
+                >
+                  Confirm end
+                </button>
+                <button
+                  className="flex-1 rounded-lg border border-line-strong px-3 py-2 text-sm font-semibold text-fg-soft transition hover:bg-raised"
+                  onClick={() => setConfirmingEnd(false)}
+                  type="button"
+                >
+                  Keep live
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              className="w-full rounded-lg border border-danger/40 px-4 py-3 text-sm font-bold text-danger transition hover:bg-danger/10 disabled:cursor-wait disabled:opacity-50"
+              disabled={disabled || pending}
+              onClick={() => setConfirmingEnd(true)}
+              type="button"
+            >
+              End broadcast
+            </button>
+          )
+        ) : null}
+
+        {error ? <StatusNotice tone="error">{error}</StatusNotice> : null}
       </div>
     </div>
   );

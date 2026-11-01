@@ -43,7 +43,7 @@ describe('HostBroadcastStudio', () => {
     expect(markup).not.toContain('Before you go live');
   });
 
-  it('shows the live chat above the controls while on air', () => {
+  it('switches to the on-air layout with the live chat', () => {
     const markup = renderToStaticMarkup(
       <HostBroadcastStudio
         chat={<aside aria-label="Live chat">Viewer messages</aside>}
@@ -58,10 +58,14 @@ describe('HostBroadcastStudio', () => {
 
     expect(markup).toContain('aria-label="Live chat"');
     expect(markup).toContain('Viewer messages');
-    // The chat leads the side column so it stays in view next to the video.
-    expect(markup.indexOf('Viewer messages')).toBeLessThan(
-      markup.indexOf('End broadcast'),
+    // On air, the controls move into a bar above the preview and chat.
+    expect(markup).toContain('studio-onair-bar');
+    expect(markup).toContain('studio-chat-slot');
+    expect(markup).toContain('Reconnect broadcast');
+    expect(markup.indexOf('End broadcast')).toBeLessThan(
+      markup.indexOf('Viewer messages'),
     );
+    expect(markup).not.toContain('Before you go live');
   });
 
   it('shows the details panel and a checklist before going live', () => {
