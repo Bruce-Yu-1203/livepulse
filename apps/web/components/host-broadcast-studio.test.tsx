@@ -43,6 +43,31 @@ describe('HostBroadcastStudio', () => {
     expect(markup).not.toContain('Before you go live');
   });
 
+  it('switches to the on-air layout with the live chat', () => {
+    const markup = renderToStaticMarkup(
+      <HostBroadcastStudio
+        chat={<aside aria-label="Live chat">Viewer messages</aside>}
+        disabled={false}
+        onAbort={vi.fn().mockResolvedValue(undefined)}
+        onEnd={vi.fn().mockResolvedValue(true)}
+        onGoLive={vi.fn().mockResolvedValue(true)}
+        onPrepare={vi.fn().mockResolvedValue(draftRoom())}
+        room={{ ...draftRoom(), status: 'LIVE' }}
+      />,
+    );
+
+    expect(markup).toContain('aria-label="Live chat"');
+    expect(markup).toContain('Viewer messages');
+    // On air, the controls move into a bar above the preview and chat.
+    expect(markup).toContain('studio-onair-bar');
+    expect(markup).toContain('studio-chat-slot');
+    expect(markup).toContain('Reconnect broadcast');
+    expect(markup.indexOf('End broadcast')).toBeLessThan(
+      markup.indexOf('Viewer messages'),
+    );
+    expect(markup).not.toContain('Before you go live');
+  });
+
   it('shows the details panel and a checklist before going live', () => {
     const markup = renderToStaticMarkup(
       <HostBroadcastStudio

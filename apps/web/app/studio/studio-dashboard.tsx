@@ -21,8 +21,10 @@ import { useEffect, useState } from 'react';
 
 import { AuthEntryLink } from '../../components/auth-dialog-provider';
 import { CategoryPicker } from '../../components/category-picker';
+import { CategorySelect } from '../../components/category-select';
 import { HostBroadcastStudio } from '../../components/host-broadcast-studio';
 import { StatusNotice } from '../../components/status-notice';
+import { StudioLiveChat } from '../../components/studio-live-chat';
 import {
   ClientApiError,
   clientApiRequest,
@@ -368,32 +370,37 @@ export function StudioDashboard() {
           className={view === 'broadcast' ? '' : 'hidden'}
         >
           <HostBroadcastStudio
+            chat={
+              activeRoom?.status === 'LIVE' ? (
+                <StudioLiveChat room={activeRoom} />
+              ) : undefined
+            }
             details={
               activeRoom ? (
-                <div>
-                  <p className="text-xs font-semibold text-muted">On air</p>
-                  <h2 className="mt-1 text-lg font-bold text-fg">
+                <div className="studio-onair-meta">
+                  <h2
+                    className="studio-onair-title"
+                    title={activeRoom.description}
+                  >
                     {activeRoom.title}
                   </h2>
-                  <p className="mt-1 text-sm leading-6 text-muted">
-                    {activeRoom.description}
-                  </p>
+                  <CategorySelect
+                    disabled={pending}
+                    onChange={(next) =>
+                      void changeLiveCategory(activeRoom, next)
+                    }
+                    value={category}
+                  />
                   <Link
-                    className="mt-3 inline-block text-sm font-semibold text-accent hover:underline"
+                    className="text-sm font-semibold text-accent hover:underline"
                     href={`/rooms/${activeRoom.id}`}
+                    rel="noopener"
+                    target="_blank"
                   >
                     Open viewer page
+                    <span className="sr-only"> (opens in a new tab)</span>
+                    <span aria-hidden="true"> ↗</span>
                   </Link>
-                  <div className="mt-5">
-                    <CategoryPicker
-                      disabled={pending}
-                      hint="Changes apply to your live room right away."
-                      onChange={(next) =>
-                        void changeLiveCategory(activeRoom, next)
-                      }
-                      value={category}
-                    />
-                  </div>
                 </div>
               ) : (
                 <div className="space-y-4">
