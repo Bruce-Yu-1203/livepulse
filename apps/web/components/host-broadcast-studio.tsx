@@ -29,6 +29,7 @@ import {
   mediaDeviceLabel,
 } from '../lib/livekit-broadcast';
 import { studioChecklist } from '../lib/studio-checklist';
+import { useLeaveStudioGuard } from '../lib/studio-leave-guard';
 import { LiveKitVideo } from './livekit-media';
 import { StatusNotice } from './status-notice';
 
@@ -40,6 +41,7 @@ interface PreviewTracks {
 type CaptureTarget = 'camera' | 'screen' | undefined;
 
 export function HostBroadcastStudio({
+  chat,
   details,
   detailsReady = true,
   disabled,
@@ -50,6 +52,8 @@ export function HostBroadcastStudio({
   onStatusChange,
   room,
 }: {
+  /** Live chat shown under the side panel while the room is on air. */
+  chat?: ReactNode;
   /** Room details form shown above the checklist in the side panel. */
   details?: ReactNode;
   detailsReady?: boolean;
@@ -504,6 +508,8 @@ export function HostBroadcastStudio({
     previewReady,
   });
   const live = connected || room?.status === 'LIVE';
+  // Leaving this page unmounts the studio and stops the stream, so ask first.
+  useLeaveStudioGuard(connected);
 
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_21rem] lg:items-start">
@@ -622,99 +628,102 @@ export function HostBroadcastStudio({
         </button>
       </div>
 
-      <div className="space-y-5 rounded-xl border border-line bg-surface p-5 lg:sticky lg:top-20">
-        {details}
+      <div className={`min-w-0 space-y-5 ${chat ? '' : 'lg:sticky lg:top-20'}`}>
+        <div className="space-y-5 rounded-xl border border-line bg-surface p-5">
+          {details}
 
-        {live ? null : (
-          <ul aria-label="Before you go live" className="space-y-2">
-            {checklist.map((item) => (
-              <li
-                className={`studio-check ${item.done ? 'studio-check-done' : ''} ${item.optional ? 'studio-check-optional' : ''}`}
-                key={item.label}
+          {live ? null : (
+            <ul aria-label="Before you go live" className="space-y-2">
+              {checklist.map((item) => (
+                <li
+                  className={`studio-check ${item.done ? 'studio-check-done' : ''} ${item.optional ? 'studio-check-optional' : ''}`}
+                  key={item.label}
+                >
+                  <span aria-hidden="true" className="studio-check-mark" />
+                  {item.label}
+                  <span className="sr-only">
+                    {item.done ? ' (done)' : item.optional ? '' : ' (to do)'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {connected ? null : (
+            <div className="space-y-2">
+              <button
+                className="w-full rounded-lg bg-accent px-4 py-3 text-sm font-bold text-on-accent transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={
+                  disabled ||
+                  pending ||
+                  reconnecting ||
+                  captureTarget !== undefined ||
+                  !previewReady ||
+                  (!room && !detailsReady) ||
+                  room?.status === 'ENDED'
+                }
+                onClick={() => void startBroadcast()}
+                type="button"
               >
-                <span aria-hidden="true" className="studio-check-mark" />
-                {item.label}
-                <span className="sr-only">
-                  {item.done ? ' (done)' : item.optional ? '' : ' (to do)'}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {connected ? null : (
-          <div className="space-y-2">
-            <button
-              className="w-full rounded-lg bg-accent px-4 py-3 text-sm font-bold text-on-accent transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
-              disabled={
-                disabled ||
-                pending ||
-                reconnecting ||
-                captureTarget !== undefined ||
-                !previewReady ||
-                (!room && !detailsReady) ||
-                room?.status === 'ENDED'
-              }
-              onClick={() => void startBroadcast()}
-              type="button"
-            >
-              {pending
-                ? 'Starting…'
-                : reconnecting
-                  ? 'Reconnecting…'
-                  : room?.status === 'LIVE'
-                    ? 'Reconnect broadcast'
-                    : 'Start live broadcast'}
-            </button>
-            {!previewReady ? (
-              <p className="text-center text-xs leading-5 text-muted">
-                Prepare a screen or camera preview first.
-              </p>
-            ) : null}
-          </div>
-        )}
-
-        {live ? (
-          confirmingEnd ? (
-            <div
-              aria-label="Confirm ending the broadcast"
-              className="space-y-2 rounded-lg border border-danger/25 bg-danger/10 p-3"
-              role="group"
-            >
-              <p className="text-sm text-fg">
-                End the broadcast for everyone watching?
-              </p>
-              <div className="flex gap-2">
-                <button
-                  className="flex-1 rounded-lg bg-danger px-3 py-2 text-sm font-bold text-white transition hover:bg-danger-hover disabled:cursor-wait disabled:opacity-50"
-                  disabled={disabled || pending}
-                  onClick={() => void endBroadcast()}
-                  type="button"
-                >
-                  Confirm end
-                </button>
-                <button
-                  className="flex-1 rounded-lg border border-line-strong px-3 py-2 text-sm font-semibold text-fg-soft transition hover:bg-raised"
-                  onClick={() => setConfirmingEnd(false)}
-                  type="button"
-                >
-                  Keep live
-                </button>
-              </div>
+                {pending
+                  ? 'Starting…'
+                  : reconnecting
+                    ? 'Reconnecting…'
+                    : room?.status === 'LIVE'
+                      ? 'Reconnect broadcast'
+                      : 'Start live broadcast'}
+              </button>
+              {!previewReady ? (
+                <p className="text-center text-xs leading-5 text-muted">
+                  Prepare a screen or camera preview first.
+                </p>
+              ) : null}
             </div>
-          ) : (
-            <button
-              className="w-full rounded-lg border border-danger/40 px-4 py-3 text-sm font-bold text-danger transition hover:bg-danger/10 disabled:cursor-wait disabled:opacity-50"
-              disabled={disabled || pending}
-              onClick={() => setConfirmingEnd(true)}
-              type="button"
-            >
-              End broadcast
-            </button>
-          )
-        ) : null}
+          )}
 
-        {error ? <StatusNotice tone="error">{error}</StatusNotice> : null}
+          {live ? (
+            confirmingEnd ? (
+              <div
+                aria-label="Confirm ending the broadcast"
+                className="space-y-2 rounded-lg border border-danger/25 bg-danger/10 p-3"
+                role="group"
+              >
+                <p className="text-sm text-fg">
+                  End the broadcast for everyone watching?
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    className="flex-1 rounded-lg bg-danger px-3 py-2 text-sm font-bold text-white transition hover:bg-danger-hover disabled:cursor-wait disabled:opacity-50"
+                    disabled={disabled || pending}
+                    onClick={() => void endBroadcast()}
+                    type="button"
+                  >
+                    Confirm end
+                  </button>
+                  <button
+                    className="flex-1 rounded-lg border border-line-strong px-3 py-2 text-sm font-semibold text-fg-soft transition hover:bg-raised"
+                    onClick={() => setConfirmingEnd(false)}
+                    type="button"
+                  >
+                    Keep live
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                className="w-full rounded-lg border border-danger/40 px-4 py-3 text-sm font-bold text-danger transition hover:bg-danger/10 disabled:cursor-wait disabled:opacity-50"
+                disabled={disabled || pending}
+                onClick={() => setConfirmingEnd(true)}
+                type="button"
+              >
+                End broadcast
+              </button>
+            )
+          ) : null}
+
+          {error ? <StatusNotice tone="error">{error}</StatusNotice> : null}
+        </div>
+        {chat}
       </div>
     </div>
   );

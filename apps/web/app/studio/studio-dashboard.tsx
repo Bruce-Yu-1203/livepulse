@@ -23,6 +23,7 @@ import { AuthEntryLink } from '../../components/auth-dialog-provider';
 import { CategoryPicker } from '../../components/category-picker';
 import { HostBroadcastStudio } from '../../components/host-broadcast-studio';
 import { StatusNotice } from '../../components/status-notice';
+import { StudioLiveChat } from '../../components/studio-live-chat';
 import {
   ClientApiError,
   clientApiRequest,
@@ -368,6 +369,11 @@ export function StudioDashboard() {
           className={view === 'broadcast' ? '' : 'hidden'}
         >
           <HostBroadcastStudio
+            chat={
+              activeRoom?.status === 'LIVE' ? (
+                <StudioLiveChat room={activeRoom} />
+              ) : undefined
+            }
             details={
               activeRoom ? (
                 <div>
@@ -381,8 +387,12 @@ export function StudioDashboard() {
                   <Link
                     className="mt-3 inline-block text-sm font-semibold text-accent hover:underline"
                     href={`/rooms/${activeRoom.id}`}
+                    rel="noopener"
+                    target="_blank"
                   >
                     Open viewer page
+                    <span className="sr-only"> (opens in a new tab)</span>
+                    <span aria-hidden="true"> ↗</span>
                   </Link>
                   <div className="mt-5">
                     <CategoryPicker
