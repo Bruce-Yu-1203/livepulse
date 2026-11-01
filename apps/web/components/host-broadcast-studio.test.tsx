@@ -26,6 +26,30 @@ describe('HostBroadcastStudio', () => {
     expect(markup).toContain('Start live broadcast');
   });
 
+  it('offers stream quality and content settings, defaulting to HD', () => {
+    const markup = renderToStaticMarkup(
+      <HostBroadcastStudio
+        disabled={false}
+        onAbort={vi.fn().mockResolvedValue(undefined)}
+        onEnd={vi.fn().mockResolvedValue(true)}
+        onGoLive={vi.fn().mockResolvedValue(true)}
+        onPrepare={vi.fn().mockResolvedValue(draftRoom())}
+      />,
+    );
+
+    expect(markup).toContain('Stream quality');
+    expect(markup).toContain('Smooth · 720p');
+    expect(markup).toContain(
+      '<option value="hd" selected="">HD · 1080p</option>',
+    );
+    expect(markup).toContain('Ultra · 1080p60');
+    expect(markup).toContain('Games &amp; video');
+    expect(markup).toContain('Text &amp; slides');
+    expect(markup).toContain('5 Mbps, needs about 7 Mbps upload.');
+    // Push health only appears once the broadcast is connected.
+    expect(markup).not.toContain('push-health');
+  });
+
   it('offers reconnection and ending for a live broadcast', () => {
     const markup = renderToStaticMarkup(
       <HostBroadcastStudio

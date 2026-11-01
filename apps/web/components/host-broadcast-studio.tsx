@@ -21,6 +21,29 @@ import {
 } from 'react';
 
 import { formatBroadcastDuration } from '../lib/broadcast-duration';
+import {
+  BROADCAST_CONTENT_KEY,
+  BROADCAST_QUALITY_KEY,
+  type BroadcastContent,
+  type BroadcastQuality,
+  DEFAULT_BROADCAST_CONTENT,
+  DEFAULT_BROADCAST_QUALITY,
+  type PushHealth,
+  type PushSample,
+  broadcastContentOptions,
+  broadcastContents,
+  broadcastQualities,
+  broadcastQualityTiers,
+  captureConstraints,
+  captureResolution,
+  formatPushHealth,
+  parseBroadcastContent,
+  parseBroadcastQuality,
+  publishOptionsFor,
+  pushHealth,
+  pushHealthWarning,
+  samplePush,
+} from '../lib/broadcast-quality';
 import { clientApiRequest } from '../lib/client-api';
 import {
   broadcastPreviewReady,
@@ -85,6 +108,28 @@ export function HostBroadcastStudio({
   const [captureTarget, setCaptureTarget] = useState<CaptureTarget>();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
+  const [quality, setQuality] = useState<BroadcastQuality>(
+    DEFAULT_BROADCAST_QUALITY,
+  );
+  const [content, setContent] = useState<BroadcastContent>(
+    DEFAULT_BROADCAST_CONTENT,
+  );
+  const [applyingQuality, setApplyingQuality] = useState(false);
+  const [health, setHealth] = useState<PushHealth>();
+
+  // Remember the host's last stream settings on this device.
+  useEffect(() => {
+    try {
+      setQuality(
+        parseBroadcastQuality(localStorage.getItem(BROADCAST_QUALITY_KEY)),
+      );
+      setContent(
+        parseBroadcastContent(localStorage.getItem(BROADCAST_CONTENT_KEY)),
+      );
+    } catch {
+      // Storage is unavailable; keep the defaults.
+    }
+  }, []);
 
   const loadDevices = useCallback(async (requestPermissions: boolean) => {
     try {
@@ -173,7 +218,8 @@ export function HostBroadcastStudio({
       // is allowed to open its screen picker.
       const nextTracks = await createLocalScreenTracks({
         audio: true,
-        contentHint: 'detail',
+        contentHint: broadcastContentOptions[content].contentHint,
+        resolution: captureResolution(quality),
         selfBrowserSurface: 'exclude',
         surfaceSwitching: 'include',
         systemAudio: 'include',
@@ -196,9 +242,10 @@ export function HostBroadcastStudio({
           await currentRoom.localParticipant.unpublishTrack(track, false);
         }
         for (const track of nextTracks) {
-          await currentRoom.localParticipant.publishTrack(track, {
-            source: track.source,
-          });
+          await currentRoom.localParticipant.publishTrack(
+            track,
+            publishOptionsFor(track.source, quality, content),
+          );
         }
       }
 
@@ -268,13 +315,15 @@ export function HostBroadcastStudio({
 
       const nextTrack = await createLocalVideoTrack({
         ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
+        resolution: captureResolution(quality),
       });
       const previousTrack = cameraTrack.current;
 
       if (currentRoom && connection === ConnectionState.Connected) {
-        await currentRoom.localParticipant.publishTrack(nextTrack, {
-          source: Track.Source.Camera,
-        });
+        await currentRoom.localParticipant.publishTrack(
+          nextTrack,
+          publishOptionsFor(Track.Source.Camera, quality, content),
+        );
       }
 
       previousTrack?.stop();
@@ -375,16 +424,17 @@ export function HostBroadcastStudio({
       );
 
       for (const track of screenTracks.current) {
-        await connectingRoom.localParticipant.publishTrack(track, {
-          source: track.source,
-        });
+        await connectingRoom.localParticipant.publishTrack(
+          track,
+          publishOptionsFor(track.source, quality, content),
+        );
         mediaWasPublished = true;
       }
 
       if (cameraTrack.current) {
         await connectingRoom.localParticipant.publishTrack(
           cameraTrack.current,
-          { source: Track.Source.Camera },
+          publishOptionsFor(Track.Source.Camera, quality, content),
         );
         mediaWasPublished = true;
       }
@@ -456,6 +506,68 @@ export function HostBroadcastStudio({
     }
   }
 
+  async function changeStreamSettings(
+    nextQuality: BroadcastQuality,
+    nextContent: BroadcastContent,
+  ) {
+    setQuality(nextQuality);
+    setContent(nextContent);
+    setError(undefined);
+
+    try {
+      localStorage.setItem(BROADCAST_QUALITY_KEY, nextQuality);
+      localStorage.setItem(BROADCAST_CONTENT_KEY, nextContent);
+    } catch {
+      // The choice still applies to this broadcast.
+    }
+
+    const videoTracks = [
+      ...screenTracks.current.filter(
+        (track): track is LocalVideoTrack => track.kind === Track.Kind.Video,
+      ),
+      ...(cameraTrack.current ? [cameraTrack.current] : []),
+    ];
+
+    if (videoTracks.length === 0) {
+      return;
+    }
+
+    setApplyingQuality(true);
+
+    try {
+      for (const track of videoTracks) {
+        // Resize the running capture; a device that cannot reach the new
+        // size keeps its closest supported one.
+        await track.mediaStreamTrack
+          .applyConstraints(captureConstraints(nextQuality))
+          .catch(() => undefined);
+
+        if (track.source === Track.Source.ScreenShare) {
+          track.mediaStreamTrack.contentHint =
+            broadcastContentOptions[nextContent].contentHint;
+        }
+      }
+
+      const currentRoom = liveKitRoom.current;
+
+      if (currentRoom && connection === ConnectionState.Connected) {
+        // Encoding settings are fixed at publish time, so republish. Viewers
+        // see about a second of the waiting screen.
+        for (const track of videoTracks) {
+          await currentRoom.localParticipant.unpublishTrack(track, false);
+          await currentRoom.localParticipant.publishTrack(
+            track,
+            publishOptionsFor(track.source, nextQuality, nextContent),
+          );
+        }
+      }
+    } catch (caught) {
+      setError(mediaErrorMessage(caught));
+    } finally {
+      setApplyingQuality(false);
+    }
+  }
+
   async function selectDevice(kind: 'audioinput' | 'videoinput', id: string) {
     if (kind === 'audioinput') {
       setAudioDeviceId(id);
@@ -490,6 +602,38 @@ export function HostBroadcastStudio({
       screen: Boolean(previewTracks.screen),
     },
   );
+
+  // Poll what is actually being sent so the host can tell a low setting
+  // apart from a weak upload.
+  const healthTrack = previewTracks.screen ?? previewTracks.camera;
+  useEffect(() => {
+    if (!connected || !healthTrack) {
+      setHealth(undefined);
+      return;
+    }
+
+    let active = true;
+    let previous: PushSample | undefined;
+    const tick = async () => {
+      const stats = await healthTrack.getSenderStats().catch(() => []);
+      const sample = samplePush(stats);
+
+      if (!active || !sample) {
+        return;
+      }
+
+      setHealth(pushHealth(previous, sample));
+      previous = sample;
+    };
+
+    void tick();
+    const timer = window.setInterval(() => void tick(), 2_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [connected, healthTrack]);
+  const healthWarning = health ? pushHealthWarning(health, quality) : undefined;
 
   const status = hostConnectionLabel(connection, previewReady);
   useEffect(() => onStatusChange?.(status), [onStatusChange, status]);
@@ -613,6 +757,53 @@ export function HostBroadcastStudio({
             value={audioDeviceId}
           />
         </SourceCard>
+      </div>
+      <div className="studio-source">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <SettingSelect
+            disabled={applyingQuality || pending}
+            label="Stream quality"
+            onChange={(value) =>
+              void changeStreamSettings(value as BroadcastQuality, content)
+            }
+            options={broadcastQualities.map((value) => ({
+              label: broadcastQualityTiers[value].label,
+              value,
+            }))}
+            value={quality}
+          />
+          <SettingSelect
+            disabled={applyingQuality || pending}
+            label="Content"
+            onChange={(value) =>
+              void changeStreamSettings(quality, value as BroadcastContent)
+            }
+            options={broadcastContents.map((value) => ({
+              label: broadcastContentOptions[value].label,
+              value,
+            }))}
+            value={content}
+          />
+        </div>
+        <p className="mt-2 text-xs leading-5 text-muted">
+          {applyingQuality
+            ? 'Applying the new quality…'
+            : `${broadcastQualityTiers[quality].hint}.${
+                connected
+                  ? ' Changing it while live pauses the video for about a second.'
+                  : ''
+              }`}
+        </p>
+        {connected && health ? (
+          <p
+            aria-live="polite"
+            className={`mt-2 text-xs font-medium ${healthWarning ? 'text-danger' : 'text-fg-soft'}`}
+            data-testid="push-health"
+          >
+            Sending {formatPushHealth(health)}
+            {healthWarning ? ` · ${healthWarning}` : ''}
+          </p>
+        ) : null}
       </div>
       <button
         className="text-xs font-medium text-muted underline-offset-4 transition hover:text-fg hover:underline disabled:opacity-50"
@@ -864,6 +1055,38 @@ function DeviceSelect({
         {options.map((device, index) => (
           <option key={device.deviceId} value={device.deviceId}>
             {mediaDeviceLabel(device, index, fallback)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function SettingSelect({
+  disabled,
+  label,
+  onChange,
+  options,
+  value,
+}: {
+  disabled: boolean;
+  label: string;
+  onChange(value: string): void;
+  options: { label: string; value: string }[];
+  value: string;
+}) {
+  return (
+    <label className="block">
+      <span className="text-xs font-semibold text-fg-soft">{label}</span>
+      <select
+        className="mt-1 w-full rounded-lg border border-line-strong bg-sunken px-3 py-2 text-sm text-fg outline-none transition focus:border-accent disabled:opacity-40"
+        disabled={disabled}
+        onChange={(event) => onChange(event.currentTarget.value)}
+        value={value}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
           </option>
         ))}
       </select>
