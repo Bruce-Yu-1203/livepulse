@@ -1,21 +1,50 @@
 # LivePulse
 
-LivePulse is a TypeScript full-stack MVP for interactive live rooms. Viewers can register, watch LiveKit broadcasts, join WebSocket chat and danmaku, recover message history, like rooms, and report messages. Hosts manage room lifecycle and mutes, while administrators review reports and preserve an audit trail.
+LivePulse is a TypeScript live-streaming app for discovering rooms, broadcasting
+video, and talking with viewers in real time. Hosts stream through LiveKit;
+viewers watch, chat, follow creators, and explore rooms by category. Hosts and
+administrators have tools to keep the conversation safe.
+
+[Explore the interface](#screenshots) · [Run locally](#run-locally-for-development) ·
+[Architecture](#architecture-at-a-glance) · [Validation](#validation)
 
 ## What you can do
 
-LivePulse brings a broadcast, live conversation, and room moderation into one
-experience. A host prepares a screen or camera preview in Studio, starts a room,
-and shares a LiveKit stream. Viewers watch, send chat messages that can appear as
-danmaku over the video, follow hosts, and return to saved message history after
-reconnecting. Hosts can mute participants; administrators can review reports and
-trace moderation actions in the audit log.
+| Area | Features |
+| --- | --- |
+| Discover | Featured live rooms, category pages and filters, search, and a live-channel sidebar. |
+| Broadcast | Private screen/camera preview, microphone controls, live chat in Studio, and a warning before leaving an active broadcast. Choose Smooth (720p), HD (1080p), or Ultra (1080p60), tune for games/video or text/slides, and monitor outgoing video health. |
+| Watch and interact | LiveKit playback with Auto or available manual video-quality choices, Socket.IO chat, danmaku, follows, room likes, and message-history recovery. |
+| Moderate | Host mutes, viewer reports, prohibited-content checks, administrator review, and an audit trail. |
 
 The browser, API, and workers share TypeScript contracts. PostgreSQL is the
 source of truth for accounts, rooms, moderation, and saved messages. LiveKit
 carries the media stream, while Socket.IO carries room events. Redis coordinates
 realtime delivery and presence across API instances. Kafka can decouple message
 acceptance from broadcast and persistence when the message pipeline is enabled.
+
+## Screenshots
+
+### Discover live rooms
+
+Featured streams, live channels, and category browsing on the home page.
+
+![LivePulse home page with a featured stream and category browsing](docs/screenshots/discover.png)
+
+### Watch and chat
+
+A live room combines the video player, chat, and creator details. The player
+also offers Auto and the quality layers published by the host.
+
+![LivePulse room with video, live chat, and host details](docs/screenshots/watch.png)
+
+### Prepare a broadcast
+
+Studio lets hosts choose a screen or camera, check the local preview, and set
+the room title, category, and description before going live. Stream-quality and
+content presets are available below the source controls.
+
+![LivePulse Studio preview and stream information form](docs/screenshots/studio.png)
 
 ## Architecture at a glance
 
@@ -143,12 +172,17 @@ export LIVEKIT_API_KEY='your-api-key'
 export LIVEKIT_API_SECRET='your-api-secret'
 ```
 
-In Studio, the host first chooses a screen and/or enables a camera. The selected
+In Studio, the host chooses a screen and/or enables a camera. The selected
 sources appear in a private local preview; the broadcast button stays disabled
 until every enabled video source is ready. When both sources are enabled, the
 screen is the main picture and the camera is placed in the upper-right corner.
-Starting the broadcast publishes the prepared tracks. If the room has no cover,
-the browser captures a frame from the main preview and saves it as the cover.
+Choose a stream-quality tier and whether to prioritize motion or sharp text;
+HD (1080p) and games/video are the defaults. The selected tier sets the capture
+resolution, frame rate, and simulcast layers. Once live, Studio shows chat and
+outgoing video statistics, and warns before navigation that would stop the
+broadcast. Starting the broadcast publishes the prepared tracks. If the room
+has no cover, the browser captures a frame from the main preview and saves it
+as the cover.
 
 Start the API and web application in separate terminals:
 
@@ -285,10 +319,10 @@ docker compose -f infra/compose/compose.yml down
 
 ## MVP demonstration
 
-1. Sign in as the host, open Studio, create or edit a room, and move it from draft to live.
+1. Sign in as the host, open Studio, enter the room details and category, choose a screen or camera, and start the broadcast after checking the private preview.
 2. Open the live room in two browser profiles. Sign in as the viewer in one and keep the host in the other.
-3. Send messages from the viewer. Confirm chat history and danmaku appear in both profiles.
-4. Toggle danmaku, change its density, like the room, and reload to confirm message recovery.
+3. Send messages from the viewer. Confirm that both the viewer chat and the Studio chat receive them, and that danmaku appears over the viewer video.
+4. Switch between Auto and the published video-quality choices, toggle danmaku, change its density, like the room, and reload to confirm message recovery.
 5. Mute the viewer as the host and confirm that new sends are rejected.
 6. Report a message as the viewer, then sign in as the administrator to dismiss or remove it and inspect the audit history.
 7. Send a configured prohibited term such as `scam-offer` and confirm it is rejected before persistence.
