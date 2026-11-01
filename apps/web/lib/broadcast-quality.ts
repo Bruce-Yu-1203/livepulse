@@ -103,7 +103,11 @@ export function captureConstraints(
   quality: BroadcastQuality,
 ): MediaTrackConstraints {
   const { width, height, frameRate } = captureResolution(quality);
-  return { width: { ideal: width }, height: { ideal: height }, frameRate };
+  return {
+    width: { ideal: width },
+    height: { ideal: height },
+    ...(frameRate ? { frameRate } : {}),
+  };
 }
 
 export function publishOptionsFor(
@@ -153,7 +157,7 @@ export interface PushSample {
   bytesSent: number;
   fps: number;
   height: number;
-  limitation?: 'bandwidth' | 'cpu';
+  limitation?: 'bandwidth' | 'cpu' | undefined;
   timestamp: number;
   width: number;
 }
@@ -162,7 +166,7 @@ export interface PushHealth {
   bitrateKbps: number;
   fps: number;
   height: number;
-  limitation?: 'bandwidth' | 'cpu';
+  limitation?: 'bandwidth' | 'cpu' | undefined;
   width: number;
 }
 

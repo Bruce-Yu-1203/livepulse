@@ -4,6 +4,12 @@ import type { SearchUser, VisibleRoom } from '@livepulse/contracts';
 import { useEffect, useRef, useState } from 'react';
 
 import {
+  VIEWER_QUALITY_KEY,
+  type ViewerQualityOption,
+  type ViewerQualityPreference,
+  parseViewerQuality,
+} from '../lib/broadcast-quality';
+import {
   danmakuLayout,
   type DanmakuDensity,
   type DanmakuMessage,
@@ -39,11 +45,16 @@ export function LiveRoomExperience({
   const [reloadKey, setReloadKey] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
   const [chatCollapsed, setChatCollapsed] = useState(false);
+  const [quality, setQuality] = useState<ViewerQualityPreference>('auto');
+  const [qualityOptions, setQualityOptions] = useState<ViewerQualityOption[]>(
+    [],
+  );
   const stageRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     try {
       setChatCollapsed(localStorage.getItem(CHAT_COLLAPSED_KEY) === 'true');
+      setQuality(parseViewerQuality(localStorage.getItem(VIEWER_QUALITY_KEY)));
     } catch {
       // Storage unavailable: keep the chat open.
     }
@@ -61,6 +72,15 @@ export function LiveRoomExperience({
       localStorage.setItem(CHAT_COLLAPSED_KEY, String(!open));
     } catch {
       // The chat still toggles for this visit.
+    }
+  }
+
+  function chooseQuality(next: ViewerQualityPreference) {
+    setQuality(next);
+    try {
+      localStorage.setItem(VIEWER_QUALITY_KEY, String(next));
+    } catch {
+      // The choice still applies to this visit.
     }
   }
 
@@ -91,7 +111,9 @@ export function LiveRoomExperience({
           {room.status === 'LIVE' ? (
             <LiveBroadcastPlayer
               coverImageUrl={room.coverImageUrl}
+              onQualityOptions={setQualityOptions}
               paused={paused}
+              quality={quality}
               reloadKey={reloadKey}
               roomId={room.id}
               volume={effectiveVolume(volume, muted, paused)}
@@ -176,8 +198,11 @@ export function LiveRoomExperience({
               danmakuVisible={danmakuVisible}
               fullscreen={fullscreen}
               onDanmakuDensity={setDanmakuDensity}
+              onQuality={room.status === 'LIVE' ? chooseQuality : undefined}
               onToggleDanmaku={() => setDanmakuVisible((visible) => !visible)}
               onToggleFullscreen={toggleFullscreen}
+              quality={quality}
+              qualityOptions={qualityOptions}
             />
           </div>
           {paused ? (

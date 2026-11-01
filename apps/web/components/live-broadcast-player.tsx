@@ -4,33 +4,49 @@ import { BroadcastConnectionResponseSchema } from '@livepulse/contracts';
 import {
   ConnectionState,
   type RemoteAudioTrack,
+  type RemoteTrackPublication,
   type RemoteVideoTrack,
   Room,
   RoomEvent,
   Track,
+  VideoQuality,
 } from 'livekit-client';
 import { useEffect, useRef, useState } from 'react';
 
+import {
+  type PublishedLayer,
+  type ViewerQualityOption,
+  type ViewerQualityPreference,
+  requestedVideoQuality,
+  viewerQualityOptions,
+} from '../lib/broadcast-quality';
 import { clientApiRequest } from '../lib/client-api';
 import { LiveKitAudio, LiveKitVideo } from './livekit-media';
 
 interface ViewerTracks {
   audio: RemoteAudioTrack[];
   camera?: RemoteVideoTrack;
+  cameraPublication?: RemoteTrackPublication;
   screen?: RemoteVideoTrack;
+  screenPublication?: RemoteTrackPublication;
 }
 
 const emptyTracks: ViewerTracks = { audio: [] };
 
 export function LiveBroadcastPlayer({
   coverImageUrl,
+  onQualityOptions,
   paused = false,
+  quality = 'auto',
   reloadKey = 0,
   roomId,
   volume = 1,
 }: {
   coverImageUrl: string | null;
+  /** Reports the layers the host is sending and the one being received. */
+  onQualityOptions?(options: ViewerQualityOption[]): void;
   paused?: boolean;
+  quality?: ViewerQualityPreference;
   // Changing this reconnects to the broadcast, which jumps back to live.
   reloadKey?: number;
   roomId: string;
@@ -45,7 +61,10 @@ export function LiveBroadcastPlayer({
   const [audioBlocked, setAudioBlocked] = useState(false);
 
   useEffect(() => {
-    const room = new Room({ adaptiveStream: true, dynacast: true });
+    // Adaptive stream would cap every layer at the player's on-screen size and
+    // override the viewer's quality choice. Without it the server still steps
+    // down when the viewer's connection cannot keep up.
+    const room = new Room({ adaptiveStream: false, dynacast: true });
     let active = true;
     liveKitRoom.current = room;
 
@@ -113,6 +132,55 @@ export function LiveBroadcastPlayer({
 
   const mainTrack = tracks.screen ?? tracks.camera;
   const cameraOverlay = tracks.screen ? tracks.camera : undefined;
+  const mainPublication = tracks.screen
+    ? tracks.screenPublication
+    : tracks.cameraPublication;
+  const overlayPublication = tracks.screen
+    ? tracks.cameraPublication
+    : undefined;
+
+  // Ask the server for the chosen layer; the small camera window only ever
+  // needs the lowest one.
+  useEffect(() => {
+    mainPublication?.setVideoQuality(
+      requestedVideoQuality(quality, publishedLayers(mainPublication)),
+    );
+    overlayPublication?.setVideoQuality(VideoQuality.LOW);
+  }, [mainPublication, overlayPublication, quality]);
+
+  // Tell the controls which layers exist and what is being received now.
+  const reportOptions = useRef(onQualityOptions);
+  reportOptions.current = onQualityOptions;
+  useEffect(() => {
+    let active = true;
+    let last = '';
+    const report = async () => {
+      const stats = await mainTrack?.getReceiverStats().catch(() => undefined);
+      const current =
+        stats?.frameWidth && stats.frameHeight
+          ? { width: stats.frameWidth, height: stats.frameHeight }
+          : undefined;
+      const options = viewerQualityOptions(
+        publishedLayers(mainPublication),
+        current,
+      );
+      const key = JSON.stringify(options);
+
+      if (active && key !== last) {
+        last = key;
+        reportOptions.current?.(options);
+      }
+    };
+
+    void report();
+    const timer = mainTrack
+      ? window.setInterval(() => void report(), 3_000)
+      : undefined;
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [mainPublication, mainTrack]);
 
   async function enableAudio() {
     const room = liveKitRoom.current;
@@ -213,13 +281,29 @@ function collectViewerTracks(room: Room): ViewerTracks {
         result.audio.push(track as RemoteAudioTrack);
       } else if (publication.source === Track.Source.ScreenShare) {
         result.screen = track as RemoteVideoTrack;
+        result.screenPublication = publication;
       } else if (publication.source === Track.Source.Camera) {
         result.camera = track as RemoteVideoTrack;
+        result.cameraPublication = publication;
       }
     }
   }
 
   return result;
+}
+
+function publishedLayers(
+  publication: RemoteTrackPublication | undefined,
+): PublishedLayer[] {
+  // livekit-client's VideoQuality shares its values with the protocol enum,
+  // which also has OFF; drop anything that is not a real layer.
+  return (publication?.trackInfo?.layers ?? [])
+    .filter((layer) => (layer.quality as number) <= VideoQuality.HIGH)
+    .map((layer) => ({
+      height: layer.height,
+      quality: layer.quality as number as VideoQuality,
+      width: layer.width,
+    }));
 }
 
 function connectionLabel(connection: ConnectionState): string {
