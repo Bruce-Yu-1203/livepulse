@@ -1,7 +1,7 @@
 # 实时消息路径缓存实施方案
 
 日期：2026-10-28
-状态：已按本文实现；短时验证见 [`benchmark-results/message-path-cache-2026-10-28/README.md`](benchmark-results/message-path-cache-2026-10-28/README.md)。五分钟 MST 和 PostgreSQL 精确语句计数尚待复测。
+状态：已按本文实现；五分钟 MST 与 PostgreSQL 语句计数见 [`benchmark-results/local-mst-postgres-cache-2026-10-28/README.md`](benchmark-results/local-mst-postgres-cache-2026-10-28/README.md)。
 
 ## 1. 目标与当前路径
 

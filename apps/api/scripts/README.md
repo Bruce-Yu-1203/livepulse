@@ -131,9 +131,7 @@ of already-live room IDs in the isolated benchmark database. Connections are
 assigned round-robin to those rooms, while the aggregate message rate stays
 the same. Each sender must still use its joined room.
 
-The production API now uses Socket.IO room broadcast for `message.created`.
-The earlier per-peer baseline and benchmark-only room comparison are recorded
-in `benchmark-results/local-broadcast-comparison-2026-10-24/`.
+The production API uses Socket.IO room broadcast for `message.created`.
 
 To verify cross-process delivery, start two compiled API processes on local
 ports 3101 and 3102 with the same isolated benchmark database and Redis key
