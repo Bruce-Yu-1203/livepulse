@@ -22,6 +22,7 @@ import {
   createDeliveryVerifier,
   createdEventsOf,
 } from './benchmark-realtime-deliveries.mjs';
+import { summary } from './benchmark-realtime-summary.mjs';
 import { bypassBenchmarkSignInIpLimit } from './benchmark-realtime-login.mjs';
 import {
   clearProfileReady,
@@ -169,26 +170,6 @@ function settle(entry, result) {
       (errors[result.code ?? 'unknown'] ?? 0) + 1;
   }
   entry.resolve(result);
-}
-
-function percentile(values, p) {
-  if (values.length === 0) return null;
-  const ordered = [...values].sort((a, b) => a - b);
-  return Number(
-    ordered[
-      Math.min(ordered.length - 1, Math.ceil(p * ordered.length) - 1)
-    ].toFixed(2),
-  );
-}
-
-function summary(values) {
-  return {
-    count: values.length,
-    p50: percentile(values, 0.5),
-    p95: percentile(values, 0.95),
-    p99: percentile(values, 0.99),
-    max: values.length ? Number(Math.max(...values).toFixed(2)) : null,
-  };
 }
 
 async function loginBenchmarkViewer(origin, viewerEmail) {

@@ -126,10 +126,10 @@ export function createDeliveryVerifier(
           duplicates === 0 &&
           wrongRoomDeliveries === 0 &&
           invalidMessageIndexes === 0,
-        minPerSocket: Math.min(...bySocket),
-        maxPerSocket: Math.max(...bySocket),
-        minUniquePerSocket: Math.min(...uniqueBySocket),
-        maxUniquePerSocket: Math.max(...uniqueBySocket),
+        minPerSocket: minOf(bySocket),
+        maxPerSocket: maxOf(bySocket),
+        minUniquePerSocket: minOf(uniqueBySocket),
+        maxUniquePerSocket: maxOf(uniqueBySocket),
         recipientLatencyMs: recipientLatency.summary(),
         fanout99LatencyMs: fanout99Latency.summary(),
         fanoutAllLatencyMs: fanoutAllLatency.summary(),
@@ -173,4 +173,17 @@ function percentile(buckets, count, fraction) {
     if (seen >= target) return index;
   }
   return maxHistogramMilliseconds;
+}
+
+// Loops instead of spreading, so large socket counts cannot overflow the stack.
+function minOf(values) {
+  let result = Infinity;
+  for (const value of values) result = Math.min(result, value);
+  return result;
+}
+
+function maxOf(values) {
+  let result = -Infinity;
+  for (const value of values) result = Math.max(result, value);
+  return result;
 }
