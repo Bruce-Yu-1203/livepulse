@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ClientRealtimeEventSchema,
   DistributedRealtimeEventSchema,
+  MessageBatchEventSchema,
   MessageCreatedEventSchema,
   MessageDeletedEventSchema,
   MessageSendEventSchema,
@@ -10,6 +11,8 @@ import {
   RoomEndedEventSchema,
   RoomJoinedEventSchema,
   RoomLeaveEventSchema,
+  ServerRealtimeEventSchema,
+  maxMessageBatchSize,
 } from './realtime.js';
 
 const requestId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -174,5 +177,49 @@ describe('realtime contracts', () => {
 
     expect(RoomEndedEventSchema.parse(event)).toEqual(event);
     expect(DistributedRealtimeEventSchema.parse(event)).toEqual(event);
+  });
+
+  it('validates a coalesced message batch for one room', () => {
+    const created = {
+      payload: {
+        acceptedAt: '2026-10-09T20:00:00.000Z',
+        authorId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+        clientMessageId,
+        messageId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+        roomId,
+        text: 'Hello room',
+      },
+      requestId,
+      type: 'message.created',
+      v: 1,
+    } as const;
+    const batch = {
+      payload: { messages: [created, created], roomId },
+      requestId,
+      type: 'message.batch',
+      v: 1,
+    } as const;
+
+    expect(MessageBatchEventSchema.parse(batch)).toEqual(batch);
+    expect(ServerRealtimeEventSchema.parse(batch).type).toBe('message.batch');
+    expect(DistributedRealtimeEventSchema.safeParse(batch).success).toBe(false);
+    expect(
+      MessageBatchEventSchema.safeParse({
+        ...batch,
+        payload: { messages: [], roomId },
+      }).success,
+    ).toBe(false);
+    expect(
+      MessageBatchEventSchema.safeParse({
+        ...batch,
+        payload: {
+          messages: Array.from(
+            { length: maxMessageBatchSize + 1 },
+            () => created,
+          ),
+          roomId,
+        },
+      }).success,
+    ).toBe(false);
   });
 });

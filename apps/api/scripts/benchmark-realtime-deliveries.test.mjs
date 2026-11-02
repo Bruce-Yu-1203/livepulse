@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { createDeliveryVerifier } from './benchmark-realtime-deliveries.mjs';
+import {
+  createDeliveryVerifier,
+  createdEventsOf,
+} from './benchmark-realtime-deliveries.mjs';
 
 describe('benchmark delivery verification', () => {
   it('counts each recipient for the sender room and excludes warm-up events', async () => {
@@ -114,5 +117,18 @@ describe('benchmark delivery verification', () => {
       wrongRoomDeliveries: 1,
       complete: false,
     });
+  });
+
+  it('unwraps coalesced message batches into their created events', () => {
+    const first = { type: 'message.created', payload: { text: 'one' } };
+    const second = { type: 'message.created', payload: { text: 'two' } };
+    expect(createdEventsOf(first)).toEqual([first]);
+    expect(
+      createdEventsOf({
+        type: 'message.batch',
+        payload: { messages: [first, second] },
+      }),
+    ).toEqual([first, second]);
+    expect(createdEventsOf({ type: 'message.batch', payload: {} })).toEqual([]);
   });
 });

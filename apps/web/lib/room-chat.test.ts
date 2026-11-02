@@ -1,11 +1,16 @@
-import type { MessageCreatedEvent } from '@livepulse/contracts';
+import type {
+  MessageBatchEvent,
+  MessageCreatedEvent,
+} from '@livepulse/contracts';
 import { describe, expect, it } from 'vitest';
 
 import {
   addPendingMessage,
+  createdEventsOf,
   markMessageDeleted,
   markMessageFailed,
   mergeCreatedMessage,
+  mergeCreatedMessages,
   mergeHistoryMessages,
   messageAcknowledgementTimeoutMs,
   maxMessageDeliveryAttempts,
@@ -67,6 +72,41 @@ describe('room chat state', () => {
       status: 'sent',
     });
     expect(mergeCreatedMessage(delivered, createdEvent)).toEqual(delivered);
+  });
+
+  it('applies every message in a coalesced batch in order', () => {
+    const second: MessageCreatedEvent = {
+      ...createdEvent,
+      payload: {
+        ...createdEvent.payload,
+        clientMessageId: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
+        messageId: '99999999-9999-4999-8999-999999999999',
+        text: 'Second message',
+      },
+    };
+    const batch: MessageBatchEvent = {
+      payload: {
+        messages: [createdEvent, second],
+        roomId: createdEvent.payload.roomId,
+      },
+      requestId: createdEvent.requestId,
+      type: 'message.batch',
+      v: 1,
+    };
+    const pending = addPendingMessage([], {
+      authorId,
+      clientMessageId,
+      text: 'Hello room',
+    });
+
+    expect(createdEventsOf(createdEvent)).toEqual([createdEvent]);
+    expect(createdEventsOf(batch)).toEqual([createdEvent, second]);
+    const delivered = mergeCreatedMessages(pending, createdEventsOf(batch));
+    expect(delivered.map((message) => [message.text, message.status])).toEqual([
+      ['Hello room', 'sent'],
+      ['Second message', 'sent'],
+    ]);
+    expect(mergeCreatedMessages(delivered, [second])).toEqual(delivered);
   });
 
   it('marks a rejected optimistic message as failed', () => {

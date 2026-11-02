@@ -22,7 +22,8 @@ import {
   type ChatMessage,
   markMessageDeleted,
   markMessageFailed,
-  mergeCreatedMessage,
+  createdEventsOf,
+  mergeCreatedMessages,
   mergeHistoryMessages,
   PendingMessageTracker,
   rejectChatMessage,
@@ -256,21 +257,33 @@ export function useRoomChat(
           return;
         }
 
-        if (parsed.data.type === 'message.created') {
-          const createdEvent = parsed.data;
-          setMessages((current) => mergeCreatedMessage(current, createdEvent));
+        if (
+          parsed.data.type === 'message.created' ||
+          parsed.data.type === 'message.batch'
+        ) {
+          const createdEvents = createdEventsOf(parsed.data);
+          setMessages((current) =>
+            mergeCreatedMessages(current, createdEvents),
+          );
           if (
             joinedSocket === socket &&
             socket.connected &&
             danmakuVisibleRef.current
           ) {
+            const now = Date.now();
             setDanmakuMessages((current) =>
-              appendRealtimeDanmaku(current, createdEvent.payload, Date.now()),
+              createdEvents.reduce(
+                (result, createdEvent) =>
+                  appendRealtimeDanmaku(result, createdEvent.payload, now),
+                current,
+              ),
             );
           }
-          pendingMessagesRef.current.acknowledge(
-            createdEvent.payload.clientMessageId,
-          );
+          for (const createdEvent of createdEvents) {
+            pendingMessagesRef.current.acknowledge(
+              createdEvent.payload.clientMessageId,
+            );
+          }
           return;
         }
 
@@ -312,6 +325,7 @@ export function useRoomChat(
         'room.joined',
         'room.stats',
         'room.ended',
+        'message.batch',
         'message.created',
         'message.deleted',
         'error',

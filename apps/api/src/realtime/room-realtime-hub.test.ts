@@ -538,6 +538,50 @@ describe('RoomRealtimeHub', () => {
       type: 'error',
     });
   });
+
+  it('flushes held room messages before delivering other room events', async () => {
+    const bus = eventBus();
+    const hub = new RoomRealtimeHub(
+      roomSource(true),
+      publisher(),
+      bus,
+      presence(),
+      rateLimiter(),
+      roomLifecycle(),
+      metrics(),
+    );
+    const order: string[] = [];
+    hub.useRoomBroadcaster({
+      join: vi.fn(),
+      leave: vi.fn(),
+      broadcast: vi.fn(() => order.push('broadcast')),
+      flush: vi.fn((flushedRoomId: string) =>
+        order.push(`flush:${flushedRoomId}`),
+      ),
+    });
+    const observer = peer('observer', false);
+    observer.send = (event: ServerRealtimeEvent) => {
+      order.push(event.type);
+    };
+    const sender = peer('sender', true);
+    await hub.handle(observer, joinEvent(1));
+    await hub.handle(sender, joinEvent(2));
+    await hub.handle(sender, sendEvent(3, 1, 'Held briefly'));
+    order.length = 0;
+
+    await bus.publish({
+      payload: {
+        deletedAt: '2026-10-09T20:01:00.000Z',
+        messageId: stableMessageId(`${userId}:${roomId}:${uuid(1)}`),
+        roomId,
+      },
+      requestId: uuid(4),
+      type: 'message.deleted',
+      v: 1,
+    });
+
+    expect(order).toEqual([`flush:${roomId}`, 'message.deleted']);
+  });
 });
 
 function createHub(
