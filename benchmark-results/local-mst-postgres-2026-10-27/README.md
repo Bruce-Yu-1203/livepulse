@@ -68,20 +68,6 @@ The benchmark API took `pg_stat_statements` snapshots immediately after warm-up 
 
 The SELECT count is exactly four times the number of send attempts in each run. Rate-limited attempts still performed all four reads; they did not insert a message. Stage timers in the API include waiting for the connection pool and event-loop scheduling, so their latency does not represent PostgreSQL server execution time. The counts establish query volume, not that PostgreSQL is the only throughput bottleneck.
 
-## Previous local baseline, kept alongside this run
-
-The [previous baseline JSON files](previous-baseline/) were collected before this recipient-latency and SQL-count instrumentation. Its clean-database, single-room runs lasted 180 seconds. These results are context, not a before/after optimization comparison; the message caches have not been implemented.
-
-| Previous scenario | Sender ACK p95 | Sender ACK p99 | ACK timeouts | Note |
-| --- | ---: | ---: | ---: | --- |
-| [200/200](previous-baseline/generator-clean-200-180.json) | 6.29 ms | 21.41 ms | 0 | 36,000 sent and acknowledged |
-| [300/300, run A](previous-baseline/generator-clean-300-180.json) | 34.78 ms | 341.67 ms | 0 | Worst ten-second p95: 623.01 ms |
-| [300/300, run B](previous-baseline/generator-clean-300b-180.json) | 1,326.03 ms | 1,890.20 ms | 0 | Same target, large repeat variance |
-| [325/325](previous-baseline/generator-clean-325-180.json) | 7,892.21 ms* | 8,859.91 ms* | 22,830 | ACKs stopped in later windows |
-| [350/350](previous-baseline/generator-clean-350-180.json) | 8,439.42 ms* | 9,571.47 ms* | 32,702 | ACKs stopped in later windows |
-
-`*` Percentiles at the overloaded rates include only successful ACKs before the ten-second timeout; they understate the full tail of all attempted messages. The earlier exploratory 60-second 400/400 test had sender ACK p95 of [1,564.74 ms in one room](previous-baseline/generator-400-1.json) versus [13.65 ms across four rooms](previous-baseline/generator-400-four-1.json). The four-room run reduced nominal socket deliveries from about 160,000 to 40,000 per second. Those two runs used a database that accumulated data across exploratory tests, so the comparison is directional.
-
 ## Interpretation and limits
 
 - A qualified result is **200 messages/s on this one-room local workload with full recipient verification and the stated SLO**. At 200 connections, that represents about 40,000 recipient events/s. It does not mean the application has a 40,000 messages/s MST.
@@ -92,6 +78,5 @@ The [previous baseline JSON files](previous-baseline/) were collected before thi
 ## Data and verification
 
 - New [MST generator and API JSON files](mst/) include all nine long-run pairs and the [persisted row counts](mst/row-counts.json). The [diagnostic smoke runs](diagnostics/) validate SQL and recipient accounting with 100 formal messages, 400 SELECTs, 100 INSERTs, and 2,000 of 2,000 recipient events.
-- [Previous baseline JSON files](previous-baseline/) contain 27 nonempty raw files from the earlier local tests. Failed, empty preparation files were excluded.
 - Benchmark-only code adds SQL statement snapshots, a profiling-ready handshake, and bounded recipient-latency histograms. The production `message.send` path was not changed.
 - `pnpm validate` and `git diff --check` were run after the benchmark instrumentation. The PostgreSQL global `shared_preload_libraries` setting was restored to its original empty value after data collection.

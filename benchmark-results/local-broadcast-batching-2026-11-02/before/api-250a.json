@@ -1,0 +1,87 @@
+{
+  "workload": "local-realtime-api-profile-v2",
+  "broadcastMode": "socketio-room",
+  "durationSeconds": 300,
+  "stageMs": {
+    "sessionCheckMs": {
+      "count": 4713,
+      "p50": 1.03,
+      "p95": 2.31,
+      "p99": 6.87,
+      "max": 80.59
+    },
+    "roomLiveCheckMs": {
+      "count": 75000,
+      "p50": 0,
+      "p95": 0,
+      "p99": 0,
+      "max": 3.66
+    },
+    "muteCheckMs": {
+      "count": 75000,
+      "p50": 0.29,
+      "p95": 1.03,
+      "p99": 2.14,
+      "max": 50.5
+    },
+    "postgresInsertMs": {
+      "count": 75000,
+      "p50": 0.73,
+      "p95": 1.65,
+      "p99": 2.44,
+      "max": 89.93
+    },
+    "redisRateLimitMs": {
+      "count": 75000,
+      "p50": 0.23,
+      "p95": 0.54,
+      "p99": 1.57,
+      "max": 50.06
+    },
+    "redisMessagePublishMs": {
+      "count": 75000,
+      "p50": 0.22,
+      "p95": 1.4,
+      "p99": 1.98,
+      "max": 40.65
+    },
+    "hubHandleMs": {
+      "count": 75000,
+      "p50": 1.83,
+      "p95": 3.75,
+      "p99": 6.6,
+      "max": 106.62
+    },
+    "localBroadcastMs": {
+      "count": 75000,
+      "p50": 0.85,
+      "p95": 1.15,
+      "p99": 1.37,
+      "max": 25.55
+    }
+  },
+  "cacheMetrics": {
+    "acceptedMessages": 75250,
+    "acceptedMessagesLastMinute": 14972,
+    "activeConnections": 250,
+    "deliveryAttempts": 18858875,
+    "redisFailures": 0,
+    "sessionCacheHits": 70787,
+    "sessionRefreshes": 4963,
+    "roomCacheHits": 75220,
+    "roomCacheMisses": 280,
+    "muteCacheHits": 70395,
+    "muteCacheMisses": 4855,
+    "muteDbFallbacks": 0,
+    "muteInvalidationFailures": 0,
+    "startedAt": "2026-11-02T00:27:40.601Z"
+  },
+  "apiProcess": {
+    "cpuUserMs": 55038.13,
+    "cpuSystemMs": 49617.01,
+    "rssStartMiB": 373.48,
+    "rssEndMiB": 253.13,
+    "eventLoopDelayP95Ms": 20.79,
+    "eventLoopDelayMaxMs": 71.57
+  }
+}

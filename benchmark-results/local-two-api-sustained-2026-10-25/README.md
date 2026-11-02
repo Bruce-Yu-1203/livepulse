@@ -32,4 +32,4 @@ Both configurations completed the configured average input rate without a persis
 
 The separate two-process 60-second run accepted all 24,000 messages with zero failures. Its per-client message-index check found 9,600,000 expected and unique received deliveries, zero missing, zero duplicates, zero wrong-room deliveries, and exactly 24,000 unique messages on each of the 400 clients. The diagnostic run's ACK p95 was 29.89 ms and is excluded from the timed comparison because the generator did extra verification work.
 
-The benchmark support and delivery verifier passed `pnpm validate` (371 tests, plus lint, formatting, type checking, and build). Raw JSON reports for both API processes, the generator, the diagnostic run, and the single-process control are in this directory. Earlier 30-second single-process runs are in `benchmark-results/local-production-room-broadcast-2026-10-24/`.
+The benchmark support and delivery verifier passed `pnpm validate` (371 tests, plus lint, formatting, type checking, and build). Raw JSON reports for both API processes, the generator, the diagnostic run, and the single-process control are in this directory.
