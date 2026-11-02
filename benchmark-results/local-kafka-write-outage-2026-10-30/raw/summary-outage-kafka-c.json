@@ -1,0 +1,88 @@
+{
+  "finalRows": 36200,
+  "duplicateAuthorClientMessageIds": 0,
+  "fault": {
+    "startMs": 1793341560322,
+    "endMs": 1793341600323,
+    "startSecondInWindow": 60.7,
+    "endSecondInWindow": 100.7,
+    "lockSamples": {
+      "firstSeenMs": 1793341560322,
+      "lastSeenMs": 1793341599324,
+      "firstClearMs": 1793341600323
+    }
+  },
+  "generators": [
+    {
+      "pipeline": "kafka",
+      "connections": 200,
+      "messagesPerSecond": 200,
+      "durationSeconds": 180,
+      "windowStartedAtEpochMs": 1793341499651,
+      "planned": 36000,
+      "acked": 36000,
+      "sendSuccessPercent": 100,
+      "failures": 0,
+      "errorCounts": {},
+      "ackMs": {
+        "count": 36000,
+        "p50": 2.43,
+        "p95": 7.44,
+        "p99": 20.03,
+        "max": 127.46
+      },
+      "worstTenSecondAckP95Ms": 17.76,
+      "tenSecondWindowsWithoutAck": 0,
+      "dispatchLagMs": {
+        "count": 36000,
+        "p50": 0,
+        "p95": 0.4,
+        "p99": 1.3,
+        "max": 44.57
+      },
+      "delivery": {
+        "expected": 7200000,
+        "uniqueReceived": 7200000,
+        "missing": 0,
+        "duplicates": 0,
+        "wrongRoomDeliveries": 0,
+        "deliveredPercent": 100,
+        "recipientMs": {
+          "count": 7200000,
+          "p50": 7,
+          "p95": 14,
+          "p99": 33,
+          "max": 150.95,
+          "withinOneSecond": 7200000
+        }
+      },
+      "persisted": 36000,
+      "persistedDuplicateRows": 0,
+      "ackedNotPersisted": 0,
+      "failedButPersisted": 0
+    }
+  ],
+  "persistenceDelay": {
+    "messages": 36000,
+    "estimated": 36000,
+    "p50Seconds": 1.5,
+    "p95Seconds": 39.5,
+    "p99Seconds": 41.1,
+    "maxSeconds": 42.3,
+    "worstTenSecondP95Seconds": 41.8,
+    "worstTenSecondFromSecond": 60,
+    "resolutionSeconds": 1
+  },
+  "sampler": {
+    "samples": 195,
+    "peakPersistenceLag": 10326,
+    "peakBroadcastLag": 4,
+    "peakPgActive": 2,
+    "peakPgTotal": 9,
+    "peakPgLockWaiters": 1,
+    "baselinePersistenceLag": 38,
+    "baselinePgActive": 0,
+    "persistenceDrainSeconds": 60,
+    "databaseQueueDrainSeconds": 0
+  }
+}

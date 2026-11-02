@@ -17,6 +17,7 @@ import {
   REALTIME_RATE_LIMITER,
   REALTIME_ROOM_SOURCE,
 } from '../dist/realtime/realtime.tokens.js';
+import { classifyCreatedEvent } from './benchmark-realtime-ack.mjs';
 import { readBenchmarkConfig } from './benchmark-realtime-config.mjs';
 import {
   createDeliveryVerifier,
@@ -44,6 +45,10 @@ const {
   externalApi,
   profilePids,
   verifyDeliveries,
+  messagePipeline,
+  separateAck,
+  measurementPrefix,
+  startAtEpochMs,
 } = readBenchmarkConfig(process.env);
 
 const app = externalApi ? null : await createApp({ logger: false });
@@ -117,6 +122,8 @@ const byApiOrigin = new Map(
 );
 const pendingByMessage = new Map();
 const pendingByRequest = new Map();
+const sentRequestIds = new Set();
+const failedMessageIndexes = [];
 const latencies = [];
 const errors = {};
 let failures = 0;
@@ -168,6 +175,7 @@ function settle(entry, result) {
     window.failures += 1;
     errors[result.code ?? 'unknown'] =
       (errors[result.code ?? 'unknown'] ?? 0) + 1;
+    failedMessageIndexes.push(entry.messageIndex);
   }
   entry.resolve(result);
 }
@@ -235,9 +243,24 @@ async function main() {
         messagesInFrames += events.length;
       }
       for (const event of events) {
-        deliveryVerifier?.record(index, event);
         const entry = pendingByMessage.get(event?.payload?.clientMessageId);
-        if (entry?.senderIndex === index) {
+        const kind = classifyCreatedEvent({
+          separateAck,
+          sentRequestIds,
+          event,
+        });
+        if (kind === 'ack') {
+          // A Kafka admission ACK is sender-only; the broadcast copy is the delivery.
+          if (entry?.senderIndex === index) {
+            settle(entry, {
+              ok: true,
+              latencyMs: performance.now() - entry.sentAt,
+            });
+          }
+          continue;
+        }
+        deliveryVerifier?.record(index, event);
+        if (kind === 'ack-and-delivery' && entry?.senderIndex === index) {
           settle(entry, {
             ok: true,
             latencyMs: performance.now() - entry.sentAt,
@@ -316,7 +339,12 @@ async function main() {
     }),
   );
   if (verifyDeliveries) {
-    deliveryVerifier = createDeliveryVerifier(roomBySocket, count);
+    deliveryVerifier = createDeliveryVerifier(
+      roomBySocket,
+      count,
+      undefined,
+      measurementPrefix,
+    );
   }
   const intervalMs = 1_000 / messagesPerSecond;
   const cpuStart = process.cpuUsage();
@@ -327,8 +355,17 @@ async function main() {
   for (const pid of profilePids) process.kill(pid, 'SIGUSR1');
   if (profileReadyFile)
     await waitForProfileReady(profileReadyFile, profilePids);
+  if (startAtEpochMs) {
+    // A delayed generator overlaps another one at a planned wall-clock time.
+    const delayMs = startAtEpochMs - Date.now();
+    if (delayMs > 0)
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
   const startedAt = performance.now();
+  const windowStartedAtEpochMs = Date.now();
   windowEnd = startedAt + durationSeconds * 1_000;
+  // Lets an orchestrator align fault injection with the measurement window.
+  console.error(`Benchmark window started: epochMs=${windowStartedAtEpochMs}`);
 
   for (let index = 0; index < count; index += 1) {
     const targetTime = startedAt + index * intervalMs;
@@ -351,6 +388,7 @@ async function main() {
     const entry = {
       clientMessageId,
       requestId,
+      messageIndex: index,
       senderIndex,
       origin,
       sentAt,
@@ -367,12 +405,13 @@ async function main() {
     );
     pendingByMessage.set(clientMessageId, entry);
     pendingByRequest.set(requestId, entry);
+    if (separateAck) sentRequestIds.add(requestId);
     deliveryVerifier?.recordSent(index, sentAt);
     socket.emit('message.send', {
       payload: {
         clientMessageId,
         roomId: roomBySocket[senderIndex],
-        text: `Local benchmark message ${index}`,
+        text: `${measurementPrefix}${index}`,
       },
       requestId,
       type: 'message.send',
@@ -410,6 +449,9 @@ async function main() {
       roomId,
       roomIds,
       apiOrigins,
+      messagePipeline,
+      measurementPrefix,
+      startAtEpochMs,
       connectionsPerApi: Object.fromEntries(
         [...byApiOrigin].map(([origin, stats]) => [origin, stats.connections]),
       ),
@@ -422,6 +464,8 @@ async function main() {
     ),
     failures,
     errorCounts: errors,
+    failedMessageIndexes: failedMessageIndexes.toSorted((a, b) => a - b),
+    windowStartedAtEpochMs,
     endToEndAckMs: summary(latencies),
     dispatchLagMs: summary(dispatchLags),
     messageFrames: {

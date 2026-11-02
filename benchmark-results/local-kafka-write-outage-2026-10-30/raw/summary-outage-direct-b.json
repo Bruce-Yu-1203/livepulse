@@ -1,0 +1,91 @@
+{
+  "finalRows": 29156,
+  "duplicateAuthorClientMessageIds": 0,
+  "fault": {
+    "startMs": 1793340917832,
+    "endMs": 1793340957832,
+    "startSecondInWindow": 60.8,
+    "endSecondInWindow": 100.8,
+    "lockSamples": {
+      "firstSeenMs": 1793340917832,
+      "lastSeenMs": 1793340956832,
+      "firstClearMs": 1793340957832
+    }
+  },
+  "generators": [
+    {
+      "pipeline": "direct",
+      "connections": 200,
+      "messagesPerSecond": 200,
+      "durationSeconds": 180,
+      "windowStartedAtEpochMs": 1793340857023,
+      "planned": 36000,
+      "acked": 27711,
+      "sendSuccessPercent": 76.975,
+      "failures": 8289,
+      "errorCounts": {
+        "ack_timeout": 6090,
+        "REALTIME_RATE_LIMITED": 2199
+      },
+      "ackMs": {
+        "count": 27711,
+        "p50": 3.25,
+        "p95": 5.71,
+        "p99": 9.55,
+        "max": 122.36
+      },
+      "worstTenSecondAckP95Ms": 6.12,
+      "tenSecondWindowsWithoutAck": 3,
+      "dispatchLagMs": {
+        "count": 36000,
+        "p50": 0,
+        "p95": 0.59,
+        "p99": 0.74,
+        "max": 38.53
+      },
+      "delivery": {
+        "expected": 7200000,
+        "uniqueReceived": 5791200,
+        "missing": 1408800,
+        "duplicates": 0,
+        "wrongRoomDeliveries": 0,
+        "deliveredPercent": 80.433,
+        "recipientMs": {
+          "count": 5791200,
+          "p50": 3,
+          "p95": 10,
+          "p99": 39131,
+          "max": 40403.54,
+          "withinOneSecond": 5542200
+        }
+      },
+      "persisted": 28956,
+      "persistedDuplicateRows": 0,
+      "ackedNotPersisted": 0,
+      "failedButPersisted": 1245
+    }
+  ],
+  "persistenceDelay": {
+    "messages": 28956,
+    "estimated": 28956,
+    "p50Seconds": 0,
+    "p95Seconds": 0,
+    "p99Seconds": 37.3,
+    "maxSeconds": 38.7,
+    "worstTenSecondP95Seconds": 38.4,
+    "worstTenSecondFromSecond": 60,
+    "resolutionSeconds": 1
+  },
+  "sampler": {
+    "samples": 211,
+    "peakPersistenceLag": null,
+    "peakBroadcastLag": null,
+    "peakPgActive": 11,
+    "peakPgTotal": 11,
+    "peakPgLockWaiters": 10,
+    "baselinePersistenceLag": null,
+    "baselinePgActive": 1,
+    "persistenceDrainSeconds": null,
+    "databaseQueueDrainSeconds": 0
+  }
+}

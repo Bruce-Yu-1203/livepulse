@@ -192,4 +192,50 @@ describe('local realtime benchmark configuration', () => {
       }),
     ).toThrow(/BENCHMARK_DURATION_SECONDS must be a positive integer/u);
   });
+
+  it('labels concurrent generators and detects separate Kafka ACKs', () => {
+    const direct = readBenchmarkConfig(localEnvironment);
+    expect(direct.messagePipeline).toBe('direct');
+    expect(direct.separateAck).toBe(false);
+    expect(direct.measurementPrefix).toBe('Local benchmark message ');
+
+    const kafka = readBenchmarkConfig({
+      ...localEnvironment,
+      MESSAGE_PIPELINE: 'kafka',
+      BENCHMARK_MESSAGE_LABEL: 'burst-b',
+    });
+    expect(kafka.messagePipeline).toBe('kafka');
+    expect(kafka.separateAck).toBe(true);
+    expect(kafka.measurementPrefix).toBe('Local benchmark burst-b message ');
+    // The default verifier prefix must not match a labelled generator's text.
+    expect(kafka.measurementPrefix.startsWith(direct.measurementPrefix)).toBe(
+      false,
+    );
+
+    expect(() =>
+      readBenchmarkConfig({
+        ...localEnvironment,
+        BENCHMARK_MESSAGE_LABEL: 'Burst B',
+      }),
+    ).toThrow(/BENCHMARK_MESSAGE_LABEL/u);
+    expect(() =>
+      readBenchmarkConfig({ ...localEnvironment, MESSAGE_PIPELINE: 'queue' }),
+    ).toThrow(/MESSAGE_PIPELINE must be direct or kafka/u);
+  });
+
+  it('accepts an optional wall-clock start for overlapping generators', () => {
+    expect(readBenchmarkConfig(localEnvironment).startAtEpochMs).toBeNull();
+    expect(
+      readBenchmarkConfig({
+        ...localEnvironment,
+        BENCHMARK_START_AT_EPOCH_MS: '1793000000000',
+      }).startAtEpochMs,
+    ).toBe(1793000000000);
+    expect(() =>
+      readBenchmarkConfig({
+        ...localEnvironment,
+        BENCHMARK_START_AT_EPOCH_MS: 'soon',
+      }),
+    ).toThrow(/BENCHMARK_START_AT_EPOCH_MS must be a positive integer/u);
+  });
 });

@@ -1,0 +1,13 @@
+{
+  "test": "outage",
+  "mode": "kafka",
+  "run": "a",
+  "database": "livepulse_benchmark_kp_outage_kafka_a_20261030021042",
+  "redisKeyPrefix": "livepulse-benchmark-kp-outage-kafka-a-20261030021042",
+  "kafkaTopic": "livepulse.benchmark.kp.outage-kafka-a.20261030021042",
+  "kafkaBroadcastGroup": "livepulse-broadcast-kp-outage-kafka-a-20261030021042",
+  "kafkaPersistenceGroup": "livepulse-persist-kp-outage-kafka-a-20261030021042",
+  "postgresNanoCpus": 10000000000,
+  "applicationCommit": "28ca387",
+  "startedAt": "2026-10-30T06:10:43Z"
+}
