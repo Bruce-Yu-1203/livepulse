@@ -1,7 +1,7 @@
 import { clearTimeout, setTimeout } from 'node:timers';
 import { performance } from 'node:perf_hooks';
 
-const measurementPrefix = 'Local benchmark message ';
+const defaultMeasurementPrefix = 'Local benchmark message ';
 const maxHistogramMilliseconds = 60_000;
 
 /**
@@ -19,6 +19,7 @@ export function createDeliveryVerifier(
   roomBySocket,
   messageCount,
   now = () => performance.now(),
+  measurementPrefix = defaultMeasurementPrefix,
 ) {
   const membersByRoom = new Map();
   for (const roomId of roomBySocket) {

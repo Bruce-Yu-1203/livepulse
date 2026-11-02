@@ -1,0 +1,5 @@
+window_start
+fault_start
+fault_end
+generators_done
+drained
