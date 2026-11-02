@@ -10,6 +10,10 @@ import {
   secureSessionCookieName,
   sessionCookieName,
 } from '../auth/better-auth.service.js';
+import {
+  readBroadcastBatchWindowMs,
+  RoomBroadcastBatcher,
+} from './room-broadcast-batcher.js';
 import { RoomRealtimeHub, type RealtimePeer } from './room-realtime-hub.js';
 import { RealtimeMetricsService } from './realtime-metrics.service.js';
 import { SocketSessionState } from './socket-session-state.js';
@@ -35,6 +39,7 @@ export function hasBetterAuthSessionCookie(
 @Injectable()
 export class RoomSocketIoServer implements OnModuleDestroy {
   private io: Server | undefined;
+  private batcher: RoomBroadcastBatcher | undefined;
   private readonly socketsBySession = new Map<string, Set<Socket>>();
   private readonly socketsByUser = new Map<string, Set<Socket>>();
   private readonly unsubscribeControl: () => void;
@@ -82,6 +87,10 @@ export class RoomSocketIoServer implements OnModuleDestroy {
       transports: ['websocket'],
     });
     this.io = io;
+    const batcher = new RoomBroadcastBatcher((roomId, frame) => {
+      io.to(roomId).emit(frame.type, frame);
+    }, readBroadcastBatchWindowMs(process.env.REALTIME_BROADCAST_BATCH_MS));
+    this.batcher = batcher;
     this.hub.useRoomBroadcaster({
       join: (peerId, roomId) => {
         const socket = io.sockets.sockets.get(peerId);
@@ -91,9 +100,8 @@ export class RoomSocketIoServer implements OnModuleDestroy {
         return socket.join(roomId);
       },
       leave: (peerId, roomId) => io.sockets.sockets.get(peerId)?.leave(roomId),
-      broadcast: (event) => {
-        io.to(event.payload.roomId).emit(event.type, event);
-      },
+      broadcast: (event) => batcher.add(event),
+      flush: (roomId) => batcher.flush(roomId),
     });
 
     io.use((socket, next) => {
@@ -109,6 +117,8 @@ export class RoomSocketIoServer implements OnModuleDestroy {
     this.unsubscribeReconnect();
     this.socketsBySession.clear();
     this.socketsByUser.clear();
+    this.batcher?.close();
+    this.batcher = undefined;
     const io = this.io;
     this.io = undefined;
     if (io) {

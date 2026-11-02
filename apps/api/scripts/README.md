@@ -170,3 +170,20 @@ A 20-connection run targeting 50 messages per second was limited by the
 application's per-connection rate limiter and is excluded from this table.
 These initial measurements show no saturation through 200 messages per second;
 they do not identify a production bottleneck or establish an optimization gain.
+
+## Coalesced room broadcasts
+
+`REALTIME_BROADCAST_BATCH_MS` on the API coalesces `message.created`
+broadcasts per room. The first message in a quiet room is still written
+immediately; messages that arrive during the following window are written
+together as one `message.batch` frame (a lone held message is still sent as
+`message.created`). Each socket therefore receives at most about
+`1000 / window` chat frames per second, however many messages the room
+produces. `0` or an unset value keeps the original one-frame-per-message
+behavior. Sender ACK latency includes this window because the sender sees its
+own message through the same room broadcast.
+
+The generator understands both event shapes and reports `messageFrames`:
+frames received during the measurement window, the messages carried in them,
+and frames per socket per second. Compare runs with the same window, and record
+`broadcastBatchMs` from the API JSON with each result.

@@ -84,6 +84,26 @@ export const MessageCreatedEventSchema = z
   })
   .strict();
 
+export const maxMessageBatchSize = 500;
+
+// Several message.created events for one room, coalesced into one socket frame.
+export const MessageBatchEventSchema = z
+  .object({
+    payload: z
+      .object({
+        messages: z
+          .array(MessageCreatedEventSchema)
+          .min(1)
+          .max(maxMessageBatchSize),
+        roomId: RoomIdSchema,
+      })
+      .strict(),
+    requestId: RequestIdSchema,
+    type: z.literal('message.batch'),
+    v: EventVersionSchema,
+  })
+  .strict();
+
 export const MessageDeletedEventSchema = z
   .object({
     payload: z
@@ -145,6 +165,7 @@ export const RealtimeErrorEventSchema = z
   .strict();
 
 export const ServerRealtimeEventSchema = z.discriminatedUnion('type', [
+  MessageBatchEventSchema,
   MessageCreatedEventSchema,
   MessageDeletedEventSchema,
   RealtimeErrorEventSchema,
@@ -162,6 +183,7 @@ export const DistributedRealtimeEventSchema = z.discriminatedUnion('type', [
 
 export type ServerRealtimeEvent = z.infer<typeof ServerRealtimeEventSchema>;
 export type MessageCreatedEvent = z.infer<typeof MessageCreatedEventSchema>;
+export type MessageBatchEvent = z.infer<typeof MessageBatchEventSchema>;
 export type MessageDeletedEvent = z.infer<typeof MessageDeletedEventSchema>;
 export type RoomEndedEvent = z.infer<typeof RoomEndedEventSchema>;
 export type DistributedRealtimeEvent = z.infer<

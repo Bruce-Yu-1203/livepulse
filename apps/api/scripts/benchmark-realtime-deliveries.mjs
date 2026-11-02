@@ -4,6 +4,17 @@ import { performance } from 'node:perf_hooks';
 const measurementPrefix = 'Local benchmark message ';
 const maxHistogramMilliseconds = 60_000;
 
+/**
+ * Returns the message.created events carried by one socket frame. The API can
+ * send a single message.created event or coalesce several into message.batch.
+ */
+export function createdEventsOf(event) {
+  if (event?.type === 'message.batch') {
+    return Array.isArray(event.payload?.messages) ? event.payload.messages : [];
+  }
+  return [event];
+}
+
 export function createDeliveryVerifier(
   roomBySocket,
   messageCount,

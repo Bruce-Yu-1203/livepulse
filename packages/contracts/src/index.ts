@@ -120,6 +120,7 @@ export type {
 export {
   ClientRealtimeEventSchema,
   DistributedRealtimeEventSchema,
+  MessageBatchEventSchema,
   MessageCreatedEventSchema,
   MessageDeletedEventSchema,
   MessageSendEventSchema,
@@ -129,10 +130,12 @@ export {
   RoomJoinEventSchema,
   RoomStatsEventSchema,
   ServerRealtimeEventSchema,
+  maxMessageBatchSize,
 } from './realtime.js';
 export type {
   ClientRealtimeEvent,
   DistributedRealtimeEvent,
+  MessageBatchEvent,
   MessageCreatedEvent,
   MessageDeletedEvent,
   RoomEndedEvent,
