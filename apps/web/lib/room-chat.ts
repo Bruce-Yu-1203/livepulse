@@ -1,5 +1,6 @@
 import { ApiErrorCode } from '@livepulse/contracts';
 import type {
+  MessageBatchEvent,
   MessageCreatedEvent,
   RoomMessage,
   RoomStatus,
@@ -158,6 +159,20 @@ export function addPendingMessage(
   };
 
   return [...messages, pending].slice(-150);
+}
+
+/** Returns the chat messages carried by a single or coalesced realtime event, in order. */
+export function createdEventsOf(
+  event: MessageBatchEvent | MessageCreatedEvent,
+): MessageCreatedEvent[] {
+  return event.type === 'message.batch' ? event.payload.messages : [event];
+}
+
+export function mergeCreatedMessages(
+  messages: ChatMessage[],
+  events: readonly MessageCreatedEvent[],
+): ChatMessage[] {
+  return events.reduce(mergeCreatedMessage, messages);
 }
 
 export function mergeCreatedMessage(
