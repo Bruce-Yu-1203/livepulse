@@ -41,6 +41,8 @@ export interface RealtimeRoomBroadcaster {
   join(peerId: string, roomId: string): Promise<void> | void;
   leave(peerId: string, roomId: string): Promise<void> | void;
   broadcast(event: MessageCreatedEvent): void;
+  /** Writes any coalesced messages for the room before another room event. */
+  flush?(roomId: string): void;
 }
 
 interface RateBucket {
@@ -578,6 +580,8 @@ export class RoomRealtimeHub implements OnModuleInit, OnModuleDestroy {
       this.roomBroadcaster.broadcast(event);
       return;
     }
+    // Keep room order: held chat messages go out before deletions, stats, or the end of the room.
+    this.roomBroadcaster?.flush?.(event.payload.roomId);
     for (const member of members ?? []) {
       member.send(event);
     }
