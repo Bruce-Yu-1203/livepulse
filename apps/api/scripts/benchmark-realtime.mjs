@@ -18,7 +18,10 @@ import {
   REALTIME_ROOM_SOURCE,
 } from '../dist/realtime/realtime.tokens.js';
 import { readBenchmarkConfig } from './benchmark-realtime-config.mjs';
-import { createDeliveryVerifier } from './benchmark-realtime-deliveries.mjs';
+import {
+  createDeliveryVerifier,
+  createdEventsOf,
+} from './benchmark-realtime-deliveries.mjs';
 import { bypassBenchmarkSignInIpLimit } from './benchmark-realtime-login.mjs';
 import {
   clearProfileReady,
@@ -122,6 +125,9 @@ let deliveryVerifier;
 let tenSecondWindows;
 const dispatchLags = [];
 let sentDuringWindow = 0;
+// Socket frames that carried chat messages during the window, and the messages inside them.
+let messageFramesReceived = 0;
+let messagesInFrames = 0;
 const eventLoopDelay = monitorEventLoopDelay({ resolution: 20 });
 
 function waitFor(socket, eventName, timeoutMs = 10_000) {
@@ -241,16 +247,25 @@ async function main() {
       transports: ['websocket'],
     });
     const connected = waitFor(socket, 'connect');
-    socket.on('message.created', (event) => {
-      deliveryVerifier?.record(index, event);
-      const entry = pendingByMessage.get(event?.payload?.clientMessageId);
-      if (entry?.senderIndex === index) {
-        settle(entry, {
-          ok: true,
-          latencyMs: performance.now() - entry.sentAt,
-        });
+    const receiveCreated = (frame) => {
+      const events = createdEventsOf(frame);
+      if (collecting) {
+        messageFramesReceived += 1;
+        messagesInFrames += events.length;
       }
-    });
+      for (const event of events) {
+        deliveryVerifier?.record(index, event);
+        const entry = pendingByMessage.get(event?.payload?.clientMessageId);
+        if (entry?.senderIndex === index) {
+          settle(entry, {
+            ok: true,
+            latencyMs: performance.now() - entry.sentAt,
+          });
+        }
+      }
+    };
+    socket.on('message.created', receiveCreated);
+    socket.on('message.batch', receiveCreated);
     socket.on('error', (event) => {
       const entry = pendingByRequest.get(event?.requestId);
       if (entry) settle(entry, { ok: false, code: event?.payload?.code });
@@ -281,13 +296,20 @@ async function main() {
             () => reject(new Error('Warm-up message timeout')),
             10_000,
           );
-          const receive = (event) => {
-            if (event?.payload?.clientMessageId !== clientMessageId) return;
+          const receive = (frame) => {
+            if (
+              !createdEventsOf(frame).some(
+                (event) => event?.payload?.clientMessageId === clientMessageId,
+              )
+            )
+              return;
             clearTimeout(timeout);
             socket.off('message.created', receive);
+            socket.off('message.batch', receive);
             resolve();
           };
           socket.on('message.created', receive);
+          socket.on('message.batch', receive);
           socket.emit('message.send', {
             payload: {
               clientMessageId,
@@ -421,6 +443,17 @@ async function main() {
     errorCounts: errors,
     endToEndAckMs: summary(latencies),
     dispatchLagMs: summary(dispatchLags),
+    messageFrames: {
+      received: messageFramesReceived,
+      messagesCarried: messagesInFrames,
+      perSocketPerSecond: Number(
+        (
+          messageFramesReceived /
+          Math.max(1, sockets.length) /
+          Math.max(0.001, (finishedAt - startedAt) / 1_000)
+        ).toFixed(2),
+      ),
+    },
     tenSecondWindows: tenSecondWindows.map((window, index) => ({
       fromSecond: index * 10,
       toSecond: Math.min((index + 1) * 10, durationSeconds),

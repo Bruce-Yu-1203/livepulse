@@ -111,6 +111,7 @@ console.log(
     {
       workload: 'local-realtime-api-profile-v2',
       broadcastMode: 'socketio-room',
+      broadcastBatchMs: Number(process.env.REALTIME_BROADCAST_BATCH_MS || 0),
       durationSeconds,
       stageMs: profiler.snapshot(),
       cacheMetrics: app.get(RealtimeMetricsService).snapshot(),
